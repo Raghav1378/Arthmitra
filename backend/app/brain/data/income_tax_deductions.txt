@@ -1,0 +1,35 @@
+INCOME TAX ACT, 1961 - KEY DEDUCTIONS (FY 2024-25)
+
+1. Section 80C - Investments
+(a) Maximum Deduction: ₹1.5 Lakh per financial year.
+(b) Eligible Investments:
+    - Employee Provident Fund (EPF)
+    - Public Provident Fund (PPF) - 15 year lock-in.
+    - Equity Linked Savings Scheme (ELSS) Mutual Funds - 3 year lock-in.
+    - Life Insurance Premiums.
+    - Principal repayment of Home Loan.
+    - Sukanya Samriddhi Yojana.
+    - Tuitions fees for up to 2 children.
+
+2. Section 80D - Health Insurance
+(a) Deduction for Self, Spouse, and Dependent Children:
+    - Up to ₹25,000 (if below 60 years).
+    - Up to ₹50,000 (if senior citizen, 60+ years).
+(b) Deduction for Parents:
+    - Additional ₹25,000 (if parents are below 60).
+    - Additional ₹50,000 (if parents are senior citizens).
+(c) Preventive Health Checkup: Up to ₹5,000 (included within overall limits).
+
+3. Section 80E - Education Loan
+(a) Deduction: Interest paid on loan taken for higher education.
+(b) Limit: No upper limit on the amount.
+(c) Duration: Available for a maximum of 8 years or until interest is paid, whichever is earlier.
+
+4. Section 24(b) - Home Loan Interest
+(a) Self-Occupied Property: Deduction up to ₹2 Lakh per year.
+(b) Let-Out Property: Deduction equal to actual interest paid (no limit).
+
+5. Section 234F - Late Filing Fees (Penalties)
+(a) If filed after due date (31st July) but before 31st Dec: ₹5,000
+(b) If filed after 31st Dec: ₹10,000
+(c) Small Taxpayers (Income < ₹5 Lakh): Max penalty is ₹1,000.

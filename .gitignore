@@ -1,0 +1,69 @@
+# General
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.env
+.venv
+env/
+venv/
+ENV/
+.pytest_cache/
+.coverage
+htmlcov/
+backend/venv/
+backend/.venv/
+
+# Node.js / Frontend
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm
+frontend/dist/
+frontend/build/
+.cache/
+.parcel-cache
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Project Specific (Data/Artifacts)
+# Exclude potential large data files or local-only generation artifacts unless tracked
+backend/app/brain/rag/data/
+backend/app/shield_ml/models/*.pkl
+*.pkl

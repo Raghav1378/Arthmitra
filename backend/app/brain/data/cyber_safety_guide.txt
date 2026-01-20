@@ -1,0 +1,22 @@
+CYBER SAFETY GUIDELINES FOR BANKING CUSTOMERS
+Issued by National Cyber Security Coordinator
+
+1. Password & PIN Security
+(a) Never share your UPI PIN, ATM PIN, or NetBanking Password with anyone, including bank officials. Banks never ask for these details.
+(b) Do not write PINs on the back of cards.
+(c) Change passwords every 90 days. use complex passwords (alphanumeric + special chars).
+
+2. Phishing & Vishing Attacks
+(a) Do not click on links in SMS/Emails claiming "KYC Suspended" or "Account Blocked". Validate by visiting the official bank branch or website.
+(b) Check the URL carefully. Scammers use look-alike domains (e.g., 'hdfc-bank-verify.com' instead of 'hdfcbank.com').
+(c) Call confirming a lottery win or job offer asking for a 'processing fee' is always a scam (Advance Fee Fraud).
+
+3. UPI Safety (Unified Payments Interface)
+(a) MPIN is ONLY needed to SEND money. You never need to enter your PIN to RECEIVE money.
+(b) Avoid "Collect Requests" from strangers.
+(c) Verify the identity of the receiver (Name matching) before sending large amounts.
+
+4. Reporting Fraud
+(a) Immediate Action: Call 1930 (National Cyber Crime Helpline) immediately if money is deducted unauthorizedly.
+(b) Golden Hour: Reporting within 1 hour significantly increases chances of freezing the money before it move to mule accounts.
+(c) File a complaint at cybercrime.gov.in.

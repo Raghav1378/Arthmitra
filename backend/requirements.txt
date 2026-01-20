@@ -1,0 +1,24 @@
+# Core Backend
+fastapi
+uvicorn
+python-dotenv
+requests
+click
+
+# Stability Stack (DO NOT CHANGE VERSIONS)
+# These specific versions are required to prevent DLL conflicts on Windows
+numpy<2.0.0
+scipy==1.13.1
+scikit-learn==1.3.2
+pandas
+
+# ML & AI
+faiss-cpu
+langchain
+langchain-community
+langchain-core
+langchain-ollama
+langchain-groq
+langgraph
+pypdf
+joblib

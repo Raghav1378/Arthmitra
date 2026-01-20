@@ -1,0 +1,33 @@
+RBI Master Direction - Know Your Customer (KYC) Direction, 2016 (Updated 2023)
+
+Chapter I - PRELIMINARY
+
+1. Short Title and Commencement
+(a) These Directions shall be called the Reserve Bank of India (Know Your Customer (KYC)) Directions, 2016.
+(b) These directions shall come into effect on the same day as the Prevention of Money-laundering (Maintenance of Records) Rules, 2005.
+
+Chapter VI - Customer Acceptance Policy
+
+10. Customer Acceptance Policy
+Regulated Entities (REs) shall frame a Customer Acceptance Policy.
+(a) No account is opened in anonymous or fictitious/benami name.
+(b) No account is opened where the RE is unable to apply appropriate Customer Due Diligence (CDD) measures, either due to non-cooperation of the customer or non-reliability of the documents/information furnished by the customer.
+(c) No transaction or account-based relationship is undertaken without following the CDD procedure.
+(d) The mandatory information to be sought for KYC purpose while opening an account and during the periodic update, is specified.
+(e) Periodic Updating of KYC:
+    (i) For High Risk customers, KYC must be updated every 2 years.
+    (ii) For Medium Risk customers, KYC must be updated every 8 years.
+    (iii) For Low Risk customers, KYC must be updated every 10 years.
+
+11. Risk Management
+Table 1: Risk Categorization
+Risk Level | Examples
+High Risk  | Politically Exposed Persons (PEPs), Non-residents, High Net Worth Individuals.
+Medium Risk| Salaried employees with variable income structure.
+Low Risk   | Salaried employees with salary crediting into account, Government departments.
+
+Chapter IX - Operation of Accounts
+
+23. Freezing of Accounts
+If a customer fails to comply with KYC requirements, the bank may partially freeze the account after giving 3 months notice.
+Total freezing allows for no credits or debits.

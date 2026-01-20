@@ -1,0 +1,22 @@
+RBI GUIDELINES ON DIGITAL LENDING, 2022
+
+1. Key Disclosures (Key Fact Statement)
+All digital lending apps (DLAs) must provide a Key Fact Statement (KFS) to the borrower before the execution of the contract. The KFS must contain:
+(a) The All-Inclusive Cost of Digital Loans in the form of an Annual Percentage Rate (APR).
+(b) The recovery mechanism.
+(c) Details of the grievance redressal officer.
+(d) Cooling-off/look-up period.
+
+2. Disbursement and Repayment
+(a) All loan disbursements and repayments are required to be executed only between the bank accounts of the borrower and the Regulated Entity (RE).
+(b) No pass-through account or pool account of the Lending Service Provider (LSP) or any third party is permitted.
+
+3. Data Privacy
+(a) DLAs can only store minimal data necessary for operations.
+(b) Clear consent must be obtained for any data access.
+(c) Access to mobile phone resources like file and media, contact list, call logs, and telephony functions is PROHIBITED.
+(d) One-time access can be taken for camera, microphone, or location only for KYC purposes.
+
+4. Cooling-off Period
+(a) A cooling-off period shall be provided during which borrowers can exit the loan by paying the principal and the proportionate APR without any penalty.
+(b) Minimum period: 3 days for loans having tenure of 7 days or more; 1 day for loans having tenure less than 7 days.

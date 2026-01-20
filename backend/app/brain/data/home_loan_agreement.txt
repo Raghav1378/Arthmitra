@@ -1,0 +1,19 @@
+HOME LOAN AGREEMENT - STANDARD TERMS AND CONDITIONS
+
+1. Definitions
+"Borrower" means the person(s) named in the Schedule.
+"Lender" means ArthMitra Finance Ltd.
+"Floating Rate" means the interest rate linked to the Repo Rate published by RBI.
+
+2. Interest Rate Reset
+(a) The interest rate is subject to reset every 3 months based on the prevailing Repo Rate.
+(b) The spread over repo rate is fixed for the tenure of the loan, unless there is a deterioration in the credit score of the borrower.
+
+3. Prepayment and Foreclosure
+(a) Floating Rate Loans: No prepayment penalty or foreclosure charges shall be levied on floating rate home loans sanctioned to individual borrowers, as per RBI guidelines.
+(b) Fixed Rate Loans: A prepayment penalty of 2% of the principal outstanding will be charged if the loan is closed within 12 months using funds from another bank (takeover). No penalty if closed from own sources.
+
+4. Default and Consequences
+(a) An event of default occurs if the EMI is not paid within 90 days of the due date (NPA classification).
+(b) In case of default, the Lender has the right to enforce security interest under the SARFAESI Act, 2002, and take possession of the mortgaged property without court intervention.
+(c) Default interest of 2% per month (24% per annum) will be charged on the overdue amount.
