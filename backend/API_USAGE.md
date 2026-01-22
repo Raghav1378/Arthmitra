@@ -250,7 +250,34 @@ URL: /api/shield/quick-check?text=You+won+lottery
 
 ---
 
-## ⚙️ 4. System Utilities
+## 🔧 4. Brain Administration
+*Root Path: `/api/brain`*
+
+### A. Rebuild Index
+**Endpoint: `POST /api/brain/reindex`**
+*Triggers a background task to re-read all PDFs in `backend/app/brain/data/`.*
+```json
+// Response
+{
+  "status": "Index rebuild started in background"
+}
+```
+
+### B. Brain Health
+**Endpoint: `GET /api/brain/status`**
+*Checks connection to Ollama and ChromaDB.*
+```json
+{
+  "embedding_model": "active",
+  "vector_store": "active",
+  "llm_response": "active",
+  "overall_status": "healthy"
+}
+```
+
+---
+
+## ⚙️ 5. System Utilities
 *Root Path: `/`*
 
 ### A. Health Check

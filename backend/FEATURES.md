@@ -88,6 +88,8 @@ response = ask_financial_question("What is the penalty for late ITR?")
 ### Endpoints
 - `POST /api/brain/ask`: Query the knowledge base.
 - `POST /api/brain/summarize`: Summarize complex financial documents.
+- `POST /api/brain/reindex`: Trigger a background rebuild of the vector store (useful after adding new PDFs).
+- `GET /api/brain/status`: Check health of Embedding Model and Vector Store.
 
 ---
 
