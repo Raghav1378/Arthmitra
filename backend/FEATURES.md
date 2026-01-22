@@ -65,13 +65,16 @@ These models learn "normal" behavior and flag anything that deviates, catching n
 
 ---
 
-## � 3. The Brain - Financial RAG System
+## 🧠 3. The Brain - Financial RAG System
 *Retrieval-Augmented Generation for grounded, fact-based financial answers.*
 
 ### Core Capabilities
 - **Knowledge Base**: Built on verified documents (RBI Circulars, Consumer Protection Act, Tax Laws).
 - **Vector Search**: Uses `all-minilm` (via Ollama) to find the most relevant document chunks.
-- **Self-Correcting**: Automatically handles missing confidence scores and ensures source citation.
+- **Strict Source Discipline**:
+    - **Anti-Hallucination**: If the answer isn't in the valid context, it explicitly returns "I don't have verified information".
+    - **Confidence Scoring**: Returns HIGH/MEDIUM/LOW confidence based on context overlap.
+    - **Zero-Guessing Policy**: Temperature set to 0.1 to prevent creative fabrication of financial rules.
 
 ### Usage in Code
 You can import the RAG function directly into any FastAPI router or specialized agent:
@@ -88,7 +91,26 @@ response = ask_financial_question("What is the penalty for late ITR?")
 
 ---
 
-## �🤖 3. Intelligent Multi-Agent Chat
+## 📈 4. Financial Planner Engine
+*Deterministic logic for personal finance calculations.*
+
+### Core Capabilities
+- **Goal Retro-Planning**:
+    - **Logic**: Calculates required monthly investments (SIP) to reach a future financial goal.
+    - **Inflation Aware**: Automatically adjusts future target amounts based on inflation (default 6%).
+    - **Projection**: Shows the gap between current savings path vs. required path.
+- **Budget Guardian (Safe-to-Spend)**:
+    - **Logic**: Calculates the daily spending limit based on defined income and fixed expenses.
+    - **Dynamic Updating**: If you overspend today, the daily limit for tomorrow decreases automatically.
+
+### Endpoints
+- `POST /api/planner/analyze`: Run full analysis (Budget + Goals).
+- `POST /api/planner/calculate-goal`: Calculate SIP requirements for a specific target.
+- `POST /api/planner/check-budget`: Get today's "Safe-to-Spend" number.
+
+---
+
+## 🤖 5. Intelligent Multi-Agent Chat
 *Context-aware AI assistance for financial queries.*
 
 ### The Agent Swarm
@@ -96,14 +118,17 @@ response = ask_financial_question("What is the penalty for late ITR?")
     - **Model**: `deepseek-r1:7b`
     - **Specialty**: Precision math, Tax calculations, EMI schedules.
     - **Personality**: Analytical, precise.
+    - **Tools**: Access to Planner Engine.
 2.  **Shield Agent (`shield`)**:
     - **Model**: `qwen2.5-coder:7b`
     - **Specialty**: Security auditing, explaining why a transaction was blocked, safety tips.
     - **Personality**: Cautious, protective.
+    - **Tools**: Access to Shield ML models.
 3.  **Mitra Agent (`mitra`)**:
     - **Model**: `gemma3:latest`
     - **Specialty**: General financial literacy, definitions, banking advice.
     - **Personality**: Friendly, educational.
+    - **Tools**: Access to "The Brain" (RAG).
 4.  **Groq Agent (`groq`)**:
     - **Model**: `llama-3.1-8b-instant` (Cloud)
     - **Specialty**: Rapid responses for simple queries.
@@ -114,7 +139,7 @@ response = ask_financial_question("What is the penalty for late ITR?")
 
 ---
 
-## 🔌 4. API & Infrastructure
+## 🔌 6. API & Infrastructure
 - **FastAPI Framework**: High-performance async backend.
 - **Swagger Documentation**: Interactive API testing available at `/docs`.
 - **Model Transparency**: Every API response includes a `models_used` field, telling the frontend exactly which algorithms contributed to the decision.

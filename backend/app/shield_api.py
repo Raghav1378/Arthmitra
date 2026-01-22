@@ -112,24 +112,20 @@ class UPIValidationRequest(BaseModel):
 
 @shield_router.get("/")
 async def shield_info():
-    """Get Shield ML module information"""
+    """Get Shield ML module information, including active models and metrics."""
+    from app.shield_ml.model_registry import get_model_registry
+    
+    registry = get_model_registry()
+    
     return {
         "module": "Shield ML - Multi-Layer Fraud Detection",
-        "version": "1.0.0",
-        "models": {
-            "supervised": {
-                "text_scam": "TF-IDF + Logistic Regression",
-                "transaction_risk": "RandomForest Classifier"
-            },
-            "unsupervised": {
-                "text_anomaly": "One-Class SVM",
-                "transaction_anomaly": "Isolation Forest"
-            }
-        },
+        "version": "1.1.0",
+        "registry": registry,
         "endpoints": [
             {"path": "/api/shield/analyze-text", "method": "POST", "description": "Analyze text for scam patterns"},
             {"path": "/api/shield/analyze-transaction", "method": "POST", "description": "Analyze transaction for fraud risk"},
             {"path": "/api/shield/assess-risk", "method": "POST", "description": "Unified risk assessment (text + transaction)"},
+            {"path": "/api/shield/validate-upi", "method": "POST", "description": "Validate UPI ID risk"},
         ]
     }
 

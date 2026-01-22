@@ -189,7 +189,68 @@ URL: /api/shield/quick-check?text=You+won+lottery
 
 ---
 
-## ⚙️ 3. System Utilities
+## 📈 3. Financial Planner
+*Root Path: `/api/planner`*
+
+### A. Calculate Goal (SIP)
+**Endpoint: `POST /api/planner/calculate-goal`**
+*Calculates how much needs to be saved monthly to reach a target.*
+```json
+// Request
+{
+  "goal_name": "Tesla Model 3",
+  "current_cost": 4000000,
+  "years": 3,
+  "current_savings": 500000,
+  "monthly_savings_capacity": 60000,
+  "inflation_rate": 6.0,
+  "expected_return": 12.0
+}
+
+// Response
+{
+  "future_cost": 4764064.0,  // Inflation adjusted
+  "shortfall": 2304064.0,    // Amount still needed
+  "required_monthly_savings": 54000.0,
+  "status": "on_track",
+  "advice": "You are on track! Your capacity (60k) > required (54k)."
+}
+```
+
+### B. Check Budget (Safe-to-Spend)
+**Endpoint: `POST /api/planner/check-budget`**
+*Calculates daily spending limit.*
+```json
+// Request
+{
+  "monthly_income": 150000,
+  "fixed_expenses": 50000,  // Rent, EMI, Bills
+  "variable_commitments": 20000, // Planned groceries etc
+  "days_remaining": 15
+}
+
+// Response
+{
+  "disposable_income": 80000,
+  "safe_to_spend_daily": 5333.33,
+  "status": "healthy"
+}
+```
+
+### C. Full Analysis
+**Endpoint: `POST /api/planner/analyze`**
+*Combines multiple checks in one go.*
+```json
+// Request
+{
+  "goals": { ... },
+  "budget": { ... }
+}
+```
+
+---
+
+## ⚙️ 4. System Utilities
 *Root Path: `/`*
 
 ### A. Health Check

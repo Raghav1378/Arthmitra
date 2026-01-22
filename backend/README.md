@@ -50,15 +50,28 @@ All planned features are implemented and working.
 
 ### 2. 🛡️ Shield ML - Multi-Layer Fraud Detection
 
-#### Supervised Models (Trained on labeled data)
-| Model | Algorithm | Accuracy | Purpose |
-|-------|-----------|----------|---------|
-| Text Scam | TF-IDF + Logistic Regression | 91% | Detect scam SMS |
-| Transaction Risk | RandomForest Classifier | 95% | Detect risky transactions |
+#### A. Text Scam Detector
+| Metric | Score | Explanation |
+|--------|-------|-------------|
+| **Accuracy** | 91.0% | Overall correctness on test set (90% legit / 10% scam) |
+| **Precision** | 78.4% | Reliability of "Scam" alerts (High = few false alarms) |
+| **Recall** | 61.5% | Ability to catch actual scams (Lower due to subtle patterns) |
+| **F1-Score** | 68.9% | Balanced view of performance |
+| **ROC-AUC** | **0.93** | Excellent discrimination between classes (independent of threshold) |
 
-#### Unsupervised Models (Trained on legitimate data only)
-| Model | Algorithm | Purpose |
-|-------|-----------|---------|
+#### B. Transaction Risk Detector
+| Metric | Score | Explanation |
+|--------|-------|-------------|
+| **Accuracy** | 94.6% | Overall correctness on test set (95% legit / 5% fraud) |
+| **Precision** | 92.3% | Very high reliability when flagging risk |
+| **Recall** | 47.4% | Catches ~50% of sophisticated fraud; optimized to avoid blocking legit users |
+| **F1-Score** | 62.6% | Balanced view of performance |
+| **ROC-AUC** | **0.88** | Good discrimination ability, even with class imbalance |
+
+#### C. Unsupervised Models (Anomaly Detection)
+*Metrics not applicable as these train only on "Normal" data.*
+| Model | Algorithm | Role |
+|-------|-----------|------|
 | Text Anomaly | One-Class SVM | Detect novel scam patterns |
 | Transaction Anomaly | Isolation Forest | Detect unusual behavior |
 
@@ -75,6 +88,56 @@ All planned features are implemented and working.
 | R008 | All models low risk | -5 |
 | R009 | Anomaly escalation (corroborated) | +20 |
 | R010 | Novel pattern warning | +5 to +10 |
+
+---
+
+## 📊 Model Metrics & Validation
+*How to verify the performance of the Shield ML models.*
+
+### 1. View Metrics via API
+The simplest way to check which models are running and their specialized metrics (Accuracy, Precision, Recall) is to query the system directly:
+```bash
+GET /api/shield/
+```
+**Response:**
+```json
+{
+  "module": "Shield ML - Multi-Layer Fraud Detection",
+  "registry": {
+    "supervised": {
+        "text_scam_detector": {
+            "metrics": {
+                "accuracy": "91.0%",
+                "precision": "78.4%",
+                "f1_score": "68.9%"
+            }
+        },
+        "transaction_risk_detector": {
+            "metrics": {
+                "accuracy": "94.6%",
+                "precision": "92.3%",
+                "f1_score": "62.6%"
+            }
+        }
+    }
+  }
+}
+```
+
+### 2. Run Training Scripts (To reproduce metrics)
+You can run the training scripts manually to see the full classification reports and confusion matrices in your terminal.
+
+**Text Scam Model:**
+```bash
+python -m app.shield_ml.train_text_model
+```
+*Output: Precision/Recall for both "Legit" and "Scam" classes, Top 10 scam keywords.*
+
+**Transaction Risk Model:**
+```bash
+python -m app.shield_ml.train_numeric_model
+```
+*Output: Feature importance ranking (e.g., `amount_spike_ratio`), Confusion Matrix.*
 
 ---
 

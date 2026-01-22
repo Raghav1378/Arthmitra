@@ -1,13 +1,15 @@
 """
 Brain Public API
-
+----------------
 Exposes the capabilities of The Brain module (RAG + Summarization).
 This is the main entry point for other backend modules (like the Agents).
+Strictly NO LangChain dependencies exposed.
 """
 
 import os
 from typing import Dict, Any, Optional
 
+# Import local implementations
 from .rag.document_loader import load_documents
 from .rag.text_chunker import chunk_documents
 from .rag.embedding_store import create_vector_store, load_vector_store
@@ -23,9 +25,9 @@ def initialize_brain(force_rebuild: bool = False):
     Initialize the knowledge base (load docs -> chunk -> embed).
     Call this on startup or when documents change.
     """
-    vector_store = load_vector_store()
+    index, chunks = load_vector_store()
     
-    if not vector_store or force_rebuild:
+    if not index or not chunks or force_rebuild:
         print("Initializing Brain Knowledge Base...")
         docs = load_documents(DATA_DIR)
         if not docs:
@@ -36,7 +38,7 @@ def initialize_brain(force_rebuild: bool = False):
         create_vector_store(chunks)
         print("Brain Knowledge Base Ready!")
     else:
-        print("Brain Knowledge Base loaded from disk.")
+        print(f"Brain Knowledge Base loaded from disk ({len(chunks)} chunks).")
 
 def ask_financial_question(query: str) -> Dict[str, Any]:
     """
@@ -48,14 +50,8 @@ def ask_financial_question(query: str) -> Dict[str, Any]:
     # 1. Retrieve Context
     context_docs = get_relevant_context(query)
     
-    if not context_docs:
-        return {
-            "answer": "I couldn't find any relevant documents in my knowledge base.",
-            "sources": [],
-            "confidence": "LOW"
-        }
-        
     # 2. Generate Answer
+    # Even if no docs found, we pass empty list to let rag_answer handle the "I don't know" logic consistently
     response = generate_rag_answer(query, context_docs)
     return response
 

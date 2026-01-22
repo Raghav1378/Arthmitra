@@ -1,62 +1,83 @@
 """
-Financial Summarizer
-
-Summarizes long financial documents (loans, insurance, T&C) into actionable insights.
+Financial Summarizer Module
+---------------------------
+Summarizes raw financial documents into actionable, risk-focused insights.
 """
 
-from langchain_ollama import ChatOllama
-from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
+import logging
+import json
+import requests
 from typing import Dict, Any
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+OLLAMA_CHAT_URL = "http://localhost:11434/api/chat"
+MODEL_NAME = "gemma3:latest"
 
 def summarize_financial_document(text: str) -> Dict[str, Any]:
     """
-    Summarize a financial document into structured insights.
-    
-    Args:
-        text: The full text of the document (or a large chunk)
-        
-    Returns:
-        JSON dictionary with keys: summary, hidden_charges, risk_flags, overall_risk_level
+    Summarize a raw financial document into structured risk insights.
     """
-    llm = ChatOllama(
-        model="gemma3:latest",
-        temperature=0.2, # Low temp for analytical precision
-        format="json"
-    )
-    
-    prompt = PromptTemplate(
-        template="""
-        You are a strict financial auditor. Analyze the following document text and provide a structured risk assessment.
-        Focus on identifying risks, hidden charges, and non-standard clauses.
-        Be financially conservative.
+    if not text:
+        return {
+            "summary": [],
+            "hidden_charges": [],
+            "risk_flags": [],
+            "overall_risk_level": "UNKNOWN"
+        }
+        
+    prompt = f"""
+You are an expert financial auditor.
+Analyze the following document and extract key risks and hidden details.
 
-        DOCUMENT TEXT:
-        {text}
+DOCUMENT TEXT:
+{text[:8000]}  # Truncate to avoid context window overflow
 
-        OUTPUT FORMAT (JSON):
-        {{
-            "summary": ["Key point 1", "Key point 2", "Key point 3"],
-            "hidden_charges": ["List any fees, penalties, or charges mentioned"],
-            "risk_flags": ["List any risky clauses, lock-in periods, or high interest rates"],
-            "overall_risk_level": "LOW" or "MEDIUM" or "HIGH"
-        }}
-        """,
-        input_variables=["text"]
-    )
-    
-    chain = prompt | llm | JsonOutputParser()
+STRICT OUTPUT REQUIREMENT:
+Return a JSON object with the following structure:
+{{
+  "summary": ["Key point 1", "Key point 2"],
+  "hidden_charges": ["List of fees, penalties, or charges found"],
+  "risk_flags": ["List of risky clauses, lock-ins, or unfavorable terms"],
+  "overall_risk_level": "LOW | MEDIUM | HIGH"
+}}
+
+GUIDELINES:
+- Be conservative. Highlight risks over benefits.
+- "hidden_charges" should include processing fees, late fees, early exit penalties.
+- "risk_flags" should include variable interest rates, arbitration clauses, data sharing.
+- If no risks found, say so explicitly.
+- Output ONLY valid JSON.
+"""
+
+    payload = {
+        "model": MODEL_NAME,
+        "messages": [
+            {"role": "system", "content": "You are a specific financial auditor that outputs JSON."},
+            {"role": "user", "content": prompt}
+        ],
+        "format": "json",
+        "stream": False,
+        "options": {
+            "temperature": 0.2
+        }
+    }
     
     try:
-        # If text is too long, we might need to truncate (simple approach for now)
-        # Gemma3 can handle decent context, but let's be safe
-        safe_text = text[:10000] 
-        response = chain.invoke({"text": safe_text})
-        return response
+        response = requests.post(OLLAMA_CHAT_URL, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        content = result.get("message", {}).get("content", "")
+        
+        parsed = json.loads(content)
+        return parsed
+        
     except Exception as e:
+        logger.error(f"Error summarising document: {e}")
         return {
-            "summary": ["Error generating summary"],
+            "summary": ["Error processing document"],
             "hidden_charges": [],
-            "risk_flags": [f"Processing error: {str(e)}"],
+            "risk_flags": [],
             "overall_risk_level": "UNKNOWN"
         }

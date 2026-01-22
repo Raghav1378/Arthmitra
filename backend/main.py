@@ -14,6 +14,7 @@ import asyncio
 # Import Shield ML API router
 from app.shield_api import shield_router
 from app.brain.routes import brain_router
+from app.planner_endpoints import planner_router
 
 load_dotenv()
 
@@ -37,6 +38,7 @@ app.add_middleware(
 # Register Shield ML API router
 app.include_router(shield_router)
 app.include_router(brain_router)
+app.include_router(planner_router)
 
 @app.get("/")
 async def root():
