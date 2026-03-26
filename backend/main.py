@@ -1,13 +1,16 @@
 import os
 import time
+import logging
+from typing import Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, RedirectResponse
+from fastapi.responses import StreamingResponse, RedirectResponse, JSONResponse
 from pydantic import BaseModel
-from typing import Optional
+from fastapi.encoders import jsonable_encoder
+
 from app.router import arthmitra_app
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
 import json
 import asyncio
 
@@ -15,6 +18,10 @@ import asyncio
 from app.shield_api import shield_router
 from app.brain.routes import brain_router
 from app.planner_endpoints import planner_router
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -25,32 +32,45 @@ class ChatRequest(BaseModel):
     is_local_only: Optional[bool] = False
     agent: Optional[str] = None  # Optional: "auditor", "shield", "mitra", or "groq"
 
-app = FastAPI(title="ArthMitra API")
+app = FastAPI(
+    title="ArthMitra API",
+    description="AI Financial Guardian - Secure, Smart, and Scalable Financial Orchestrator",
+    version="1.0.0"
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # In production, specify actual origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Register Shield ML API router
+# Register API routers
 app.include_router(shield_router)
 app.include_router(brain_router)
 app.include_router(planner_router)
 
+
 @app.get("/")
 async def root():
+    """Redirect to API documentation."""
     return RedirectResponse(url="/docs")
+
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "ArthMitra Backend"}
+    """Health check endpoint for monitoring."""
+    return {
+        "status": "healthy",
+        "service": "ArthMitra Backend",
+        "timestamp": time.time()
+    }
+
 
 @app.get("/api/agents")
 async def list_agents():
-    """List all available agents and their models"""
+    """List all available agents and their models."""
     return {
         "agents": [
             {
@@ -91,45 +111,75 @@ async def list_agents():
 
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest):
+    """
+    Main chat endpoint that routes to appropriate agents based on intent.
+
+    Streaming response provides tokens as they are generated.
+    """
     message = request.message
     is_local_only = request.is_local_only
     user_id = request.user_id
-    agent = request.agent  # Can be "auditor", "shield", "mitra", "groq", or None (auto-route)
+    agent = request.agent
 
-    print(f"Received message: {message} from user: {user_id}, agent: {agent}")
+    logger.info(f"Chat request from user: {user_id}, agent: {agent}, message: {message[:50]}...")
+
+    if not message or not message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
     initial_state = {
         "messages": [HumanMessage(content=message)],
         "is_local_only": is_local_only,
         "user_id": user_id,
         "current_risk_score": 0.0,
-        "force_agent": agent  # Pass the explicit agent choice to the router
+        "force_agent": agent
     }
 
-    try:
-        # Use invoke instead of astream for a complete, non-chunked response
-        start_time = time.time()
-        result = await arthmitra_app.ainvoke(initial_state)
-        end_time = time.time()
-        
-        # Extract the final response content
-        messages = result.get('messages', [])
-        final_message = messages[-1] if messages else None
-        response_content = final_message.content if final_message else "No response generated."
-        
-        # Identify which agent was used (heuristic based on router logic)
-        # Note: In invoke mode, we don't get granular node updates easily without tracing
-        # We can infer it from the router/supervisor logic or just say "completed"
-        
-        return {
-            "response": response_content,
-            "duration_seconds": round(end_time - start_time, 2),
-            "status": "success"
-        }
+    async def stream_generator():
+        try:
+            # Generate response using LangGraph
+            result = await arthmitra_app.ainvoke(initial_state)
+            messages = result.get('messages', [])
 
-    except Exception as e:
-        print(f"Error in chat_endpoint: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+            if not messages:
+                yield f"data: {json.dumps({'error': 'No response generated'})}\n\n"
+                return
+
+            final_content = ""
+            for msg in messages:
+                if isinstance(msg, AIMessage):
+                    final_content += msg.content
+
+            if not final_content:
+                yield f"data: {json.dumps({'error': 'Empty response from agent'})}\n\n"
+                return
+
+            # Stream content in chunks for typing effect
+            chunk_size = 15
+            for i in range(0, len(final_content), chunk_size):
+                chunk = final_content[i:i+chunk_size]
+                yield f"data: {json.dumps({'content': chunk, 'done': False})}\n\n"
+                await asyncio.sleep(0.015)  # Typing effect delay
+
+            # Send completion signal
+            yield f"data: {json.dumps({'content': '', 'done': True})}\n\n"
+
+        except Exception as e:
+            logger.error(f"Chat error: {str(e)}", exc_info=True)
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(stream_generator(), media_type="text/event-stream")
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Global exception handler for unhandled errors."""
+    logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "message": str(exc)}
+    )
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
