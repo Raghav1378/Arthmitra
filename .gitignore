@@ -61,6 +61,8 @@ frontend/.env.local
 frontend/.env.development.local
 frontend/.env.test.local
 frontend/.env.production.local
+.next/
+frontend/.next/
 
 # Project Specific (Data/Artifacts)
 # Exclude potential large data files or local-only generation artifacts unless tracked

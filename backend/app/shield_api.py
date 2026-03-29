@@ -10,7 +10,7 @@ Usage:
 """
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from typing import Optional, Dict, Any, List
 
 # Import Shield ML functions
@@ -29,9 +29,14 @@ shield_router = APIRouter(prefix="/api/shield", tags=["Shield ML - Fraud Detecti
 
 class TextAnalysisRequest(BaseModel):
     """Request for text scam analysis"""
-    text: str = Field(..., description="Text message to analyze for scam patterns")
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=5000,
+        description="Text message to analyze for scam patterns (1-5000 characters)"
+    )
     include_anomaly: bool = Field(True, description="Include anomaly detection score")
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -40,18 +45,55 @@ class TextAnalysisRequest(BaseModel):
             }
         }
 
+    @field_validator('text')
+    @classmethod
+    def text_must_not_be_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError('Text cannot be empty or whitespace only')
+        return v.strip()
+
 
 class TransactionAnalysisRequest(BaseModel):
     """Request for transaction risk analysis"""
-    transaction_amount: float = Field(..., description="Amount of current transaction in INR")
-    avg_transaction_amount: float = Field(..., description="User's average transaction amount")
-    transactions_last_24h: int = Field(0, description="Number of transactions in last 24 hours")
-    amount_spike_ratio: Optional[float] = Field(None, description="Current/Average ratio (auto-calculated if not provided)")
-    is_new_receiver: int = Field(0, description="1 if first transaction to this receiver, 0 otherwise")
-    is_new_device: int = Field(0, description="1 if transaction from unrecognized device, 0 otherwise")
-    time_since_last_txn_minutes: float = Field(60, description="Minutes since last transaction")
+    transaction_amount: float = Field(
+        ...,
+        gt=0,
+        description="Amount of current transaction in INR (must be positive)"
+    )
+    avg_transaction_amount: float = Field(
+        ...,
+        gt=0,
+        description="User's average transaction amount (must be positive)"
+    )
+    transactions_last_24h: int = Field(
+        0,
+        ge=0,
+        description="Number of transactions in last 24 hours (must be non-negative)"
+    )
+    amount_spike_ratio: Optional[float] = Field(
+        None,
+        gt=0,
+        description="Current/Average ratio (auto-calculated if not provided, must be positive)"
+    )
+    is_new_receiver: int = Field(
+        0,
+        ge=0,
+        le=1,
+        description="1 if first transaction to this receiver, 0 otherwise"
+    )
+    is_new_device: int = Field(
+        0,
+        ge=0,
+        le=1,
+        description="1 if transaction from unrecognized device, 0 otherwise"
+    )
+    time_since_last_txn_minutes: float = Field(
+        60,
+        ge=0,
+        description="Minutes since last transaction (must be non-negative)"
+    )
     include_anomaly: bool = Field(True, description="Include anomaly detection score")
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -64,6 +106,13 @@ class TransactionAnalysisRequest(BaseModel):
                 "include_anomaly": True
             }
         }
+
+    @field_validator('transaction_amount', 'avg_transaction_amount')
+    @classmethod
+    def validate_positive_amount(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError('Transaction amounts must be positive numbers')
+        return v
 
 
 class UnifiedAssessmentRequest(BaseModel):
@@ -94,16 +143,27 @@ class UnifiedAssessmentRequest(BaseModel):
 
 class UPIValidationRequest(BaseModel):
     """Request for UPI ID risk validation"""
-    upi_id: str = Field(..., description="UPI ID to validate (e.g., example@okicici)")
-    display_name: Optional[str] = Field(None, description="Optional display name associated with the UPI ID")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "upi_id": "refund123456@ybl",
-                "display_name": "SBI Bank Refund"
-            }
-        }
+    upi_id: str = Field(
+        ...,
+        min_length=3,
+        max_length=100,
+        description="UPI ID to validate (e.g., example@okicici)"
+    )
+    display_name: Optional[str] = Field(
+        None,
+        max_length=200,
+        description="Optional display name associated with the UPI ID"
+    )
+
+    @field_validator('upi_id')
+    @classmethod
+    def validate_upi_format(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('UPI ID cannot be empty')
+        if '@' not in v:
+            raise ValueError('UPI ID must contain @ symbol (e.g., user@upi)')
+        return v
 
 
 # ============================================================================

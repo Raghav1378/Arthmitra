@@ -6,6 +6,7 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 from langchain_groq import ChatGroq
 from langchain_ollama import ChatOllama
+import os
 
 from app.tools.security import check_upi_risk, scan_url
 from app.tools.finance import analyze_transactions, predict_loan_eligibility
@@ -23,64 +24,125 @@ class AgentState(TypedDict):
     user_id: str
     current_risk_score: float
     force_agent: str  # Optional: explicitly set "auditor", "shield", "mitra", or "groq"
+    error_info: dict  # Optional: stores error information for fallback handling
 
-# Nodes - Performance optimized configurations
+
+def _try_groq_fallback(state: AgentState, original_error: str) -> dict:
+    """Try Groq as fallback when local agents fail."""
+    try:
+        llm = ChatGroq(
+            api_key=os.getenv("GROQ_API_KEY"),
+            model="llama-3.1-8b-instant",
+            temperature=0.3,
+            max_tokens=512,
+        )
+        response = llm.invoke(state['messages'])
+        # Add a note about the fallback
+        fallback_note = "\n\n_(Note: I'm using a fallback cloud service because the local agent encountered an issue.)_"
+        if hasattr(response, 'content'):
+            response.content += fallback_note
+        return {"messages": [response], "error_info": {"fallback_used": True, "original_error": original_error}}
+    except Exception as groq_error:
+        # Groq also failed - return structured error
+        error_message = {
+            "error": f"Primary agent failed: {original_error}",
+            "fallback_message": f"Cloud fallback also failed: {str(groq_error)}",
+            "suggestion": "Please check your internet connection and ensure Ollama is running, or try again later."
+        }
+        return {
+            "messages": [AIMessage(content=f"I apologize, but I'm experiencing technical difficulties. "
+                                       f"Error: {original_error}. "
+                                       f"Please try again later or contact support if the issue persists.")],
+            "error_info": error_message
+        }
+
+
+# Nodes - Performance optimized configurations with fallback
 def auditor_node(state: AgentState) -> dict:
     """Auditor agent for math, tax, and financial calculations."""
+    # Check if local_only mode is enabled
+    is_local_only = state.get('is_local_only', False)
+
     try:
-        # deepseek-r1:7b - High reasoning for math/tax
-        llm = ChatOllama(
-            model="deepseek-r1:7b",
-            temperature=0.3,
-            num_predict=1024,
-            num_ctx=4096,
+        # Using Groq for high reasoning in finance/math
+        llm = ChatGroq(
+            api_key=os.getenv("GROQ_API_KEY"),
+            model="llama-3.3-70b-versatile",
+            temperature=0.1,
+            max_tokens=1024,
         )
         response = llm.invoke(state['messages'])
         return {"messages": [response]}
     except Exception as e:
         print(f"Auditor Node Error: {e}")
-        return {"messages": [AIMessage(content=f"Sorry, I encountered an error in the Auditor node: {e}")]}
+        if not is_local_only:
+            return _try_groq_fallback(state, str(e))
+        return {
+            "messages": [AIMessage(content=f"Sorry, I encountered an error in the Auditor node: {e}. "
+                                   f"Local-only mode is enabled, so cloud fallback is not available.")],
+            "error_info": {"error": str(e), "local_only": True}
+        }
 auditor_node.name = "auditor"  # type: ignore
+
 
 def shield_node(state: AgentState) -> dict:
     """Shield agent for security analysis and fraud detection."""
+    is_local_only = state.get('is_local_only', False)
+
     try:
-        # qwen2.5-coder:7b - Best for security/logic/code
-        llm = ChatOllama(
-            model="qwen2.5-coder:7b",
-            temperature=0.2,
-            num_predict=512,
-            num_ctx=2048,
+        # Using Groq for security analysis
+        llm = ChatGroq(
+            api_key=os.getenv("GROQ_API_KEY"),
+            model="llama-3.1-8b-instant",
+            temperature=0.1,
+            max_tokens=512,
         )
         response = llm.invoke(state['messages'])
         return {"messages": [response]}
     except Exception as e:
         print(f"Shield Node Error: {e}")
-        return {"messages": [AIMessage(content=f"Sorry, I encountered an error in the Shield node: {e}")]}
+        if not is_local_only:
+            return _try_groq_fallback(state, str(e))
+        return {
+            "messages": [AIMessage(content=f"Sorry, I encountered an error in the Shield node: {e}. "
+                                   f"Local-only mode is enabled, so cloud fallback is not available.")],
+            "error_info": {"error": str(e), "local_only": True}
+        }
 shield_node.name = "shield"  # type: ignore
+
 
 def mitra_node(state: AgentState) -> dict:
     """Mitra agent for general financial guidance and conversation."""
+    is_local_only = state.get('is_local_only', False)
+
     try:
-        # gemma3:latest - Conversational and friendly
-        llm = ChatOllama(
-            model="gemma3:latest",
+        # Using Groq for friendly interaction
+        llm = ChatGroq(
+            api_key=os.getenv("GROQ_API_KEY"),
+            model="llama-3.1-8b-instant",
             temperature=0.5,
-            num_predict=768,
-            num_ctx=4096,
+            max_tokens=768,
         )
         response = llm.invoke(state['messages'])
         return {"messages": [response]}
     except Exception as e:
         print(f"Mitra Node Error: {e}")
-        return {"messages": [AIMessage(content=f"Sorry, I encountered an error in the Mitra node: {e}")]}
+        if not is_local_only:
+            return _try_groq_fallback(state, str(e))
+        return {
+            "messages": [AIMessage(content=f"Sorry, I encountered an error in the Mitra node: {e}. "
+                                   f"Local-only mode is enabled, so cloud fallback is not available.")],
+            "error_info": {"error": str(e), "local_only": True}
+        }
 mitra_node.name = "mitra"  # type: ignore
+
 
 def groq_node(state: AgentState) -> dict:
     """Groq agent for fast responses using cloud API."""
     try:
         # Groq llama-3.1-8b-instant - FASTEST (cloud API)
         llm = ChatGroq(
+            api_key=os.getenv("GROQ_API_KEY"),
             model="llama-3.1-8b-instant",
             temperature=0.3,
             max_tokens=512,       # Groq uses max_tokens
@@ -89,7 +151,11 @@ def groq_node(state: AgentState) -> dict:
         return {"messages": [response]}
     except Exception as e:
         print(f"Groq Node Error: {e}")
-        return {"messages": [AIMessage(content=f"Sorry, I encountered an error in the Groq node: {e}")]}
+        error_msg = f"Sorry, I encountered an error with the Groq cloud service: {e}"
+        return {
+            "messages": [AIMessage(content=error_msg)],
+            "error_info": {"error": str(e), "fallback_message": "Cloud service unavailable. Try using local agents."}
+        }
 groq_node.name = "groq"  # type: ignore
 
 # Supervisor Router

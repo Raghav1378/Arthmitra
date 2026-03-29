@@ -12,12 +12,12 @@ from typing import Dict, Any
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-OLLAMA_CHAT_URL = "http://localhost:11434/api/chat"
-MODEL_NAME = "gemma3:latest"
+from langchain_groq import ChatGroq
+from langchain_core.messages import SystemMessage, HumanMessage
 
 def summarize_financial_document(text: str) -> Dict[str, Any]:
     """
-    Summarize a raw financial document into structured risk insights.
+    Summarize a raw financial document into structured risk insights using Groq.
     """
     if not text:
         return {
@@ -32,7 +32,7 @@ You are an expert financial auditor.
 Analyze the following document and extract key risks and hidden details.
 
 DOCUMENT TEXT:
-{text[:8000]}  # Truncate to avoid context window overflow
+{text[:12000]}  # Increased context window for Groq
 
 STRICT OUTPUT REQUIREMENT:
 Return a JSON object with the following structure:
@@ -51,25 +51,26 @@ GUIDELINES:
 - Output ONLY valid JSON.
 """
 
-    payload = {
-        "model": MODEL_NAME,
-        "messages": [
-            {"role": "system", "content": "You are a specific financial auditor that outputs JSON."},
-            {"role": "user", "content": prompt}
-        ],
-        "format": "json",
-        "stream": False,
-        "options": {
-            "temperature": 0.2
-        }
-    }
-    
     try:
-        response = requests.post(OLLAMA_CHAT_URL, json=payload)
-        response.raise_for_status()
-        result = response.json()
-        content = result.get("message", {}).get("content", "")
+        llm = ChatGroq(
+            model="llama-3.1-8b-instant",
+            temperature=0.1,
+        )
         
+        messages = [
+            SystemMessage(content="You are a specific financial auditor that outputs JSON."),
+            HumanMessage(content=prompt)
+        ]
+        
+        response = llm.invoke(messages)
+        content = response.content
+        
+        # Groq might return with extra characters if JSON mode isn't perfect
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0].strip()
+            
         parsed = json.loads(content)
         return parsed
         

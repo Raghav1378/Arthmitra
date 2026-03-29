@@ -18,12 +18,48 @@ import asyncio
 from app.shield_api import shield_router
 from app.brain.routes import brain_router
 from app.planner_endpoints import planner_router
+from app.shield_ml import check_or_train
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Load .env - check both current and parent directory
 load_dotenv()
+if not os.getenv("GROQ_API_KEY"):
+    parent_env = os.path.join(os.path.dirname(__file__), "..", ".env")
+    if os.path.exists(parent_env):
+        load_dotenv(parent_env)
+
+# Startup health check
+def perform_startup_checks():
+    """Perform startup health checks for Ollama and model files."""
+    import requests
+
+    logger.info("=" * 60)
+    logger.info("STARTUP HEALTH CHECK")
+    logger.info("=" * 60)
+
+    # 1. Check Groq Connectivity
+    groq_key = os.getenv("GROQ_API_KEY")
+    if groq_key:
+        masked_key = f"{groq_key[:4]}...{groq_key[-4:]}"
+        logger.info(f"[OK] Groq API Key found: {masked_key}")
+    else:
+        logger.warning("[MISSING] GROQ_API_KEY not found in .env. Cloud agents will fail.")
+
+    # 2. Check model files
+    models_dir = os.path.join(os.path.dirname(__file__), "app", "shield_ml", "models")
+    required_pkl_files = ["text_model.pkl", "text_vectorizer.pkl", "numeric_model.pkl"]
+
+    for pkl_file in required_pkl_files:
+        pkl_path = os.path.join(models_dir, pkl_file)
+        if os.path.exists(pkl_path):
+            logger.info(f"[OK] Model file exists: {pkl_file}")
+        else:
+            logger.warning(f"[MISSING] Model file not found: {pkl_file}. Run train_text_model.py and train_numeric_model.py")
+
+    logger.info("=" * 60)
 
 # Pydantic model for chat request - enables Swagger UI input field
 class ChatRequest(BaseModel):
@@ -40,16 +76,35 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify actual origins
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://*.vercel.app",    # Vercel preview & production deployments
+    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",  # catch all Vercel subdomains
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Accel-Buffering", "Cache-Control"],
 )
 
 # Register API routers
 app.include_router(shield_router)
 app.include_router(brain_router)
 app.include_router(planner_router)
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Run startup health checks and ensure ML models are trained."""
+    # Check and train models if needed
+    try:
+        check_or_train()
+    except Exception as e:
+        logger.warning(f"[Shield ML] Model check/train failed: {e}")
+
+    # Run other health checks
+    perform_startup_checks()
 
 
 @app.get("/")
@@ -75,22 +130,22 @@ async def list_agents():
         "agents": [
             {
                 "name": "auditor",
-                "model": "deepseek-r1:7b",
-                "provider": "ollama (local)",
+                "model": "llama-3.3-70b-versatile",
+                "provider": "groq (cloud)",
                 "best_for": "Math, calculations, reasoning, EMI, tax",
                 "keywords": ["tax", "audit", "math", "spend", "loan", "emi", "calculate"]
             },
             {
                 "name": "shield",
-                "model": "qwen2.5-coder:7b",
-                "provider": "ollama (local)",
+                "model": "llama-3.1-8b-instant",
+                "provider": "groq (cloud)",
                 "best_for": "Security analysis, fraud detection, UPI verification",
                 "keywords": ["scam", "link", "verify", "upi", "safe", "url", "phishing"]
             },
             {
                 "name": "mitra",
-                "model": "gemma3:latest",
-                "provider": "ollama (local)",
+                "model": "llama-3.1-8b-instant",
+                "provider": "groq (cloud)",
                 "best_for": "General chat, financial advice, explanations",
                 "keywords": ["(default - any other message)"]
             },
@@ -114,7 +169,7 @@ async def chat_endpoint(request: ChatRequest):
     """
     Main chat endpoint that routes to appropriate agents based on intent.
 
-    Streaming response provides tokens as they are generated.
+    Streaming response provides tokens as they are generated using LangGraph's astream().
     """
     message = request.message
     is_local_only = request.is_local_only
@@ -136,38 +191,81 @@ async def chat_endpoint(request: ChatRequest):
 
     async def stream_generator():
         try:
-            # Generate response using LangGraph
-            result = await arthmitra_app.ainvoke(initial_state)
-            messages = result.get('messages', [])
+            # Use LangGraph's astream for true streaming
+            async for event in arthmitra_app.astream(initial_state, stream_mode="messages"):
+                if isinstance(event, tuple) and len(event) == 2:
+                    msg, metadata = event
+                    if isinstance(msg, AIMessage) and msg.content:
+                        token: str = msg.content
+                        yield f"data: {json.dumps({'token': token})}\n\n"
 
-            if not messages:
-                yield f"data: {json.dumps({'error': 'No response generated'})}\n\n"
-                return
-
-            final_content = ""
-            for msg in messages:
-                if isinstance(msg, AIMessage):
-                    final_content += msg.content
-
-            if not final_content:
-                yield f"data: {json.dumps({'error': 'Empty response from agent'})}\n\n"
-                return
-
-            # Stream content in chunks for typing effect
-            chunk_size = 15
-            for i in range(0, len(final_content), chunk_size):
-                chunk = final_content[i:i+chunk_size]
-                yield f"data: {json.dumps({'content': chunk, 'done': False})}\n\n"
-                await asyncio.sleep(0.015)  # Typing effect delay
-
-            # Send completion signal
-            yield f"data: {json.dumps({'content': '', 'done': True})}\n\n"
+            # Sentinel — frontend stops reading on this
+            yield "data: [DONE]\n\n"
 
         except Exception as e:
             logger.error(f"Chat error: {str(e)}", exc_info=True)
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield "data: [DONE]\n\n"
 
-    return StreamingResponse(stream_generator(), media_type="text/event-stream")
+    sse_headers = {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+        "Content-Type": "text/event-stream",
+    }
+    return StreamingResponse(
+        stream_generator(),
+        media_type="text/event-stream",
+        headers=sse_headers,
+    )
+
+
+# Alias: /chat/stream → same handler as /api/chat (used by Next.js frontend)
+@app.post("/chat/stream")
+async def chat_stream_alias(request: ChatRequest):
+    """Alias for /api/chat — canonical SSE streaming endpoint."""
+    return await chat_endpoint(request)
+
+
+@app.post("/api/chat/static")
+async def chat_static_endpoint(request: ChatRequest):
+    """
+    Non-streaming version of the chat endpoint for easier testing in Swagger UI.
+    Waits for the full response and returns it as JSON.
+    """
+    message = request.message
+    is_local_only = request.is_local_only
+    user_id = request.user_id
+    agent = request.agent
+
+    logger.info(f"Static chat request from user: {user_id}, message: {message[:50]}...")
+
+    if not message or not message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    initial_state = {
+        "messages": [HumanMessage(content=message)],
+        "is_local_only": is_local_only,
+        "user_id": user_id,
+        "current_risk_score": 0.0,
+        "force_agent": agent
+    }
+
+    try:
+        # Use ainvoke for non-streaming execution
+        result = await arthmitra_app.ainvoke(initial_state)
+        
+        # Get the last message from the list
+        final_message = result['messages'][-1].content
+        
+        return {
+            "answer": final_message,
+            "user_id": user_id,
+            "status": "success"
+        }
+
+    except Exception as e:
+        logger.error(f"Static chat error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.exception_handler(Exception)

@@ -14,12 +14,12 @@ from typing import List, Dict, Any
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-OLLAMA_CHAT_URL = "http://localhost:11434/api/chat"
-MODEL_NAME = "gemma3:latest"
+from langchain_groq import ChatGroq
+from langchain_core.messages import SystemMessage, HumanMessage
 
 def generate_rag_answer(query: str, context_docs: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Generate a grounded answer using Gemma3 with strict domain isolation.
+    Generate a grounded answer using Groq with strict domain isolation.
     """
     if not context_docs:
         return {
@@ -62,25 +62,26 @@ OUTPUT FORMAT:
 }}
 """
 
-    payload = {
-        "model": MODEL_NAME,
-        "messages": [
-            {"role": "system", "content": "You are a helpful and strict financial assistant that outputs JSON."},
-            {"role": "user", "content": prompt}
-        ],
-        "format": "json",
-        "stream": False,
-        "options": {
-            "temperature": 0.1 # Low temperature for factual consistency
-        }
-    }
-
     try:
-        response = requests.post(OLLAMA_CHAT_URL, json=payload)
-        response.raise_for_status()
-        result = response.json()
-        content = result.get("message", {}).get("content", "")
+        llm = ChatGroq(
+            model="llama-3.1-8b-instant",
+            temperature=0.1,
+        )
         
+        messages = [
+            SystemMessage(content="You are a helpful and strict financial assistant that outputs JSON."),
+            HumanMessage(content=prompt)
+        ]
+        
+        response = llm.invoke(messages)
+        content = response.content
+        
+        # Groq might return with extra characters if JSON mode isn't perfect
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0].strip()
+            
         # Parse JSON
         parsed = json.loads(content)
         
