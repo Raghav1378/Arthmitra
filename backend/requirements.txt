@@ -1,24 +1,38 @@
-# Core Backend
-fastapi
-uvicorn
-python-dotenv
-requests
-click
+# --- Core FastAPI Stack ---
+fastapi[all]>=0.110.0
+uvicorn[standard]>=0.27.0
+python-dotenv>=1.0.1
+requests>=2.31.0
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
 
-# Stability Stack (DO NOT CHANGE VERSIONS)
-# These specific versions are required to prevent DLL conflicts on Windows
+# --- Stability Stack (Critical for Windows DLLs) ---
+# DO NOT CHANGE: These versions prevent common "Module Not Found" and DLL conflicts
 numpy<2.0.0
 scipy==1.13.1
 scikit-learn==1.3.2
-pandas
+pandas>=2.2.0
+joblib>=1.3.2
 
-# ML & AI
-faiss-cpu
-langchain
-langchain-community
-langchain-core
-langchain-ollama
-langchain-groq
-langgraph
-pypdf
-joblib
+# --- LangChain & Orchestration ---
+langchain>=0.1.0
+langchain-community>=0.0.10
+langchain-core>=0.1.0
+langchain-ollama>=0.0.1
+langchain-groq>=0.0.1
+langgraph>=0.0.10
+
+# --- Vector Store & Embeddings ---
+langchain-chroma>=0.1.0
+chromadb>=0.4.24
+sentence-transformers>=2.5.0 # Keep for local hybrid fallback
+
+# --- Research & Tools ---
+tavily-python>=0.3.0
+pypdf>=4.1.0
+beautifulsoup4>=4.12.0
+
+# --- Utilities ---
+aiohttp>=3.9.0
+python-multipart>=0.0.9
+colorama>=0.4.6

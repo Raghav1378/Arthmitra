@@ -1,298 +1,206 @@
 import os
-import time
 import logging
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, RedirectResponse, JSONResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from fastapi.encoders import jsonable_encoder
-
-from app.router import arthmitra_app
-from langchain_core.messages import HumanMessage, AIMessage, AIMessageChunk
 import json
-import asyncio
 
-# Import Shield ML API router
-from app.shield_api import shield_router
-from app.brain.routes import brain_router
-from app.planner_endpoints import planner_router
-from app.shield_ml import check_or_train
+# Load .env from PROJECT ROOT (one level up from backend/)
+_env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+load_dotenv(dotenv_path=_env_path, override=True)
 
-# Configure logging
+from langchain_groq import ChatGroq
+from langchain_ollama import ChatOllama
+from langchain_core.messages import HumanMessage, SystemMessage
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load .env - check both current and parent directory
-load_dotenv(override=True)
-if not os.getenv("GROQ_API_KEY"):
-    parent_env = os.path.join(os.path.dirname(__file__), "..", ".env")
-    if os.path.exists(parent_env):
-        load_dotenv(parent_env, override=True)
 
-# Startup health check
-def perform_startup_checks():
-    """Perform startup health checks for Ollama and model files."""
-    import requests
+# ── Routing ───────────────────────────────────────────────────────────────────
+AUDITOR_KW = ["tax", "math", "calculate", "loan", "emi", "interest", "investment", "budget", "salary"]
+SHIELD_KW  = ["scam", "link", "upi", "safe", "phishing", "fraud", "hack", "suspicious"]
 
-    logger.info("=" * 60)
-    logger.info("STARTUP HEALTH CHECK")
-    logger.info("=" * 60)
+def route(text: str, force: Optional[str]) -> str:
+    if force in ["auditor", "shield", "mitra", "groq"]: return force
+    t = text.lower()
+    if any(k in t for k in AUDITOR_KW): return "auditor"
+    if any(k in t for k in SHIELD_KW):  return "shield"
+    return "mitra"
 
-    # 1. Check Groq Connectivity
-    groq_key = os.getenv("GROQ_API_KEY")
-    if groq_key:
-        masked_key = f"{groq_key[:4]}...{groq_key[-4:]}"
-        logger.info(f"[OK] Groq API Key found: {masked_key}")
-    else:
-        logger.warning("[MISSING] GROQ_API_KEY not found in .env. Cloud agents will fail.")
+# ── System Prompts ────────────────────────────────────────────────────────────
+PROMPTS = {
+    "auditor": (
+        "You are a professional Financial Auditor. "
+        "Always respond in clear, fluent ENGLISH. "
+        "Only switch to Hindi or Hinglish if the user EXPLICITLY asks you to speak Hindi. "
+        "Give expert financial and mathematical answers. Be detailed but concise. "
+        "Do NOT include any URLs, links, or source citations inside your response text — "
+        "sources are handled separately and will be shown in the Evidence panel."
+    ),
+    "shield": (
+        "You are an expert Cyber-Security Specialist. "
+        "Always respond in clear, fluent ENGLISH. "
+        "Only switch to Hindi or Hinglish if the user EXPLICITLY asks you to speak Hindi. "
+        "Analyze risks, scam patterns, and phishing threats thoroughly. "
+        "Do NOT include any URLs, links, or source citations inside your response text — "
+        "sources are handled separately and will be shown in the Evidence panel."
+    ),
+    "mitra": (
+        "You are Mitra, a friendly and expert Financial Consultant. "
+        "Always respond in clear, fluent ENGLISH. "
+        "Only switch to Hindi or Hinglish if the user EXPLICITLY uses Hindi or asks you to speak Hindi. "
+        "Provide accurate, helpful financial guidance. "
+        "Do NOT include any URLs, links, or source citations inside your response text — "
+        "sources are handled separately and will be shown in the Evidence panel."
+    ),
+}
 
-    # 2. Check model files
-    models_dir = os.path.join(os.path.dirname(__file__), "app", "shield_ml", "models")
-    required_pkl_files = ["text_model.pkl", "text_vectorizer.pkl", "numeric_model.pkl"]
+# ── Tavily Deep Search ────────────────────────────────────────────────────────
+def run_tavily_deep_search(query: str) -> Dict[str, Any]:
+    """
+    Runs a Tavily advanced search and returns:
+      - context: formatted text to inject into the LLM prompt
+      - sources: list of {title, url} for frontend display
+    Only called when mode is Online + Deep Research.
+    """
+    tavily_key = os.getenv("TAVILY_API_KEY")
+    if not tavily_key:
+        logger.warning("TAVILY_API_KEY not found – deep search skipped.")
+        return {"context": "", "sources": []}
 
-    for pkl_file in required_pkl_files:
-        pkl_path = os.path.join(models_dir, pkl_file)
-        if os.path.exists(pkl_path):
-            logger.info(f"[OK] Model file exists: {pkl_file}")
-        else:
-            logger.warning(f"[MISSING] Model file not found: {pkl_file}. Run train_text_model.py and train_numeric_model.py")
+    try:
+        from tavily import TavilyClient
+        client = TavilyClient(api_key=tavily_key)
+        response = client.search(
+            query=query,
+            search_depth="advanced",
+            include_answer=True,
+            max_results=5,
+        )
+        results = response.get("results", [])
+        answer  = response.get("answer", "")
 
-    logger.info("=" * 60)
+        # Build context block to inject into LLM
+        context_lines = []
+        if answer:
+            context_lines.append(f"[Web Summary]: {answer}")
+        for r in results:
+            title   = r.get("title", "")
+            url     = r.get("url", "")
+            snippet = r.get("content", "")[:300]
+            context_lines.append(f"\n[Source: {title}]\nURL: {url}\n{snippet}")
 
-# Pydantic model for chat request - enables Swagger UI input field
+        sources = [{"title": r.get("title", r.get("url", "")), "url": r.get("url", "")} for r in results if r.get("url")]
+        return {"context": "\n".join(context_lines), "sources": sources}
+
+    except Exception as e:
+        logger.error(f"Tavily search failed: {e}")
+        return {"context": f"[Web search failed: {e}]", "sources": []}
+
+
+# ── FastAPI ──────────────────────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     message: str
     user_id: Optional[str] = "default_user"
     is_local_only: Optional[bool] = False
-    agent: Optional[str] = None  # Optional: "auditor", "shield", "mitra", or "groq"
+    deep_research: Optional[bool] = False
+    agent: Optional[str] = None
 
-app = FastAPI(
-    title="ArthMitra API",
-    description="AI Financial Guardian - Secure, Smart, and Scalable Financial Orchestrator",
-    version="1.0.0"
-)
+app = FastAPI(title="ArthMitra API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "https://*.vercel.app",    # Vercel preview & production deployments
-    ],
-    allow_origin_regex=r"https://.*\.vercel\.app",  # catch all Vercel subdomains
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Accel-Buffering", "Cache-Control"],
 )
 
-# Register API routers
-app.include_router(shield_router)
-app.include_router(brain_router)
-app.include_router(planner_router)
 
+@app.post("/chat/stream")
+async def streaming_chat(request: ChatRequest):
+    message       = request.message
+    is_local_only = request.is_local_only
+    deep_research = request.deep_research and not is_local_only  # Deep only in Online mode
+    agent_name    = route(message, request.agent)
 
-@app.on_event("startup")
-async def startup_event():
-    """Run startup health checks and ensure ML models are trained."""
-    # Check and train models if needed
-    try:
-        check_or_train()
-    except Exception as e:
-        logger.warning(f"[Shield ML] Model check/train failed: {e}")
+    logger.info(f"► MODE={'OFFLINE (Ollama)' if is_local_only else 'ONLINE (Groq)'} | DEEP={deep_research} | AGENT={agent_name} | MSG={message[:60]}")
 
-    # Run other health checks
-    perform_startup_checks()
+    # ── Pick model ───────────────────────────────────────────────────────────
+    if is_local_only:
+        model_display = "Qwen 3 (4B)" if agent_name in ["auditor", "shield"] else "Llama 3.2 (3B)"
+        llm_model_id  = "qwen3:4b"    if agent_name in ["auditor", "shield"] else "llama3.2:3b"
+        llm = ChatOllama(model=llm_model_id, temperature=0.4)
+    else:
+        model_display = "Llama 3.1 8B"
+        groq_key = os.getenv("GROQ_API_KEY")
+        if not groq_key:
+            async def key_err():
+                yield f"data: {json.dumps({'token': 'ERROR: GROQ_API_KEY missing from .env'})}\n\n"
+                yield "data: [DONE]\n\n"
+            return StreamingResponse(key_err(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+        llm = ChatGroq(api_key=groq_key, model="llama-3.1-8b-instant", temperature=0.4, streaming=True)
+
+    async def generate():
+        try:
+            web_context = ""
+            sources: List[Dict] = []
+
+            # ── Step 1: Tavily Deep Research (Online + Deep only) ─────────────
+            if deep_research:
+                logger.info(f"► Running Tavily deep search for: {message[:60]}")
+                result = run_tavily_deep_search(message)
+                web_context = result["context"]
+                sources     = result["sources"]
+
+                if sources:
+                    # Send sources metadata event BEFORE streaming begins
+                    yield f"data: {json.dumps({'sources': sources})}\n\n"
+
+            # ── Step 2: Build LLM messages ────────────────────────────────────
+            system_content = PROMPTS.get(agent_name, PROMPTS["mitra"])
+            if web_context:
+                system_content += f"\n\nWEB RESEARCH CONTEXT (use this to answer):\n{web_context}"
+
+            messages = [SystemMessage(content=system_content), HumanMessage(content=message)]
+
+            # ── Step 3: Stream tokens ─────────────────────────────────────────
+            async for chunk in llm.astream(messages):
+                token = chunk.content
+                if token:
+                    yield f"data: {json.dumps({'token': token, 'model': model_display})}\n\n"
+
+            yield "data: [DONE]\n\n"
+
+        except Exception as e:
+            logger.error(f"Stream error: {e}")
+            yield f"data: {json.dumps({'token': f' [Error: {str(e)}]'})}\n\n"
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.get("/")
 async def root():
-    """Redirect to API documentation."""
-    return RedirectResponse(url="/docs")
-
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint for monitoring."""
     return {
-        "status": "healthy",
-        "service": "ArthMitra Backend",
-        "timestamp": time.time()
+        "status": "online",
+        "groq_key": bool(os.getenv("GROQ_API_KEY")),
+        "tavily_key": bool(os.getenv("TAVILY_API_KEY")),
+        "service": "ArthMitra v2.3",
     }
-
-
-@app.get("/api/agents")
-async def list_agents():
-    """List all available agents and their models."""
-    return {
-        "agents": [
-            {
-                "name": "auditor",
-                "model": "llama-3.3-70b-versatile",
-                "provider": "groq (cloud)",
-                "best_for": "Math, calculations, reasoning, EMI, tax",
-                "keywords": ["tax", "audit", "math", "spend", "loan", "emi", "calculate"]
-            },
-            {
-                "name": "shield",
-                "model": "llama-3.1-8b-instant",
-                "provider": "groq (cloud)",
-                "best_for": "Security analysis, fraud detection, UPI verification",
-                "keywords": ["scam", "link", "verify", "upi", "safe", "url", "phishing"]
-            },
-            {
-                "name": "mitra",
-                "model": "llama-3.1-8b-instant",
-                "provider": "groq (cloud)",
-                "best_for": "General chat, financial advice, explanations",
-                "keywords": ["(default - any other message)"]
-            },
-            {
-                "name": "groq",
-                "model": "llama-3.1-8b-instant",
-                "provider": "groq (cloud - FAST!)",
-                "best_for": "Quick responses, general questions",
-                "keywords": ["fast", "quick", "groq", "instant"]
-            }
-        ],
-        "usage": {
-            "auto_routing": "Just ask naturally - keywords trigger the right agent",
-            "explicit": "Pass 'agent' parameter with name: auditor, shield, mitra, or groq"
-        }
-    }
-
-
-@app.post("/api/chat")
-async def chat_endpoint(request: ChatRequest):
-    """
-    Main chat endpoint that routes to appropriate agents based on intent.
-
-    Streaming response provides tokens as they are generated using LangGraph's astream().
-    """
-    message = request.message
-    is_local_only = request.is_local_only
-    user_id = request.user_id
-    agent = request.agent
-
-    logger.info(f"Chat request from user: {user_id}, agent: {agent}, message: {message[:50]}...")
-
-    if not message or not message.strip():
-        raise HTTPException(status_code=400, detail="Message cannot be empty")
-
-    initial_state = {
-        "messages": [HumanMessage(content=message)],
-        "is_local_only": is_local_only,
-        "user_id": user_id,
-        "current_risk_score": 0.0,
-        "force_agent": agent
-    }
-
-    async def stream_generator():
-        last_message_content = ""
-        try:
-            # Use LangGraph's astream to capture node outputs
-            async for msg, metadata in arthmitra_app.astream(initial_state, stream_mode="messages"):
-                if hasattr(msg, "content") and msg.content:
-                    # If we get chunks (true streaming), yield them as they arrive
-                    if isinstance(msg, AIMessageChunk):
-                        token = msg.content
-                        yield f"data: {json.dumps({'token': token})}\n\n"
-                    # If we get a full message (end of node), only yield if it's different from what we know
-                    # This prevents the duplicated content issue while ensuring no output is lost
-                    elif isinstance(msg, AIMessage):
-                        full_content = msg.content
-                        if full_content != last_message_content:
-                            # If it doesn't start with the last content, it's likely a new agent or response
-                            if not full_content.startswith(last_message_content):
-                                yield f"data: {json.dumps({'token': full_content})}\n\n"
-                            else:
-                                # Send only the delta
-                                delta = full_content[len(last_message_content):]
-                                if delta:
-                                    yield f"data: {json.dumps({'token': delta})}\n\n"
-                            last_message_content = full_content
-            
-            # Final terminal sentinel
-            yield "data: [DONE]\n\n"
-
-        except Exception as e:
-            logger.error(f"Chat error: {str(e)}", exc_info=True)
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
-            yield "data: [DONE]\n\n"
-
-    sse_headers = {
-        "Cache-Control": "no-cache",
-        "X-Accel-Buffering": "no",
-        "Content-Type": "text/event-stream",
-    }
-    return StreamingResponse(
-        stream_generator(),
-        media_type="text/event-stream",
-        headers=sse_headers,
-    )
-
-
-# Alias: /chat/stream → same handler as /api/chat (used by Next.js frontend)
-@app.post("/chat/stream")
-async def chat_stream_alias(request: ChatRequest):
-    """Alias for /api/chat — canonical SSE streaming endpoint."""
-    return await chat_endpoint(request)
-
-
-@app.post("/api/chat/static")
-async def chat_static_endpoint(request: ChatRequest):
-    """
-    Non-streaming version of the chat endpoint for easier testing in Swagger UI.
-    Waits for the full response and returns it as JSON.
-    """
-    message = request.message
-    is_local_only = request.is_local_only
-    user_id = request.user_id
-    agent = request.agent
-
-    logger.info(f"Static chat request from user: {user_id}, message: {message[:50]}...")
-
-    if not message or not message.strip():
-        raise HTTPException(status_code=400, detail="Message cannot be empty")
-
-    initial_state = {
-        "messages": [HumanMessage(content=message)],
-        "is_local_only": is_local_only,
-        "user_id": user_id,
-        "current_risk_score": 0.0,
-        "force_agent": agent
-    }
-
-    try:
-        # Use ainvoke for non-streaming execution
-        result = await arthmitra_app.ainvoke(initial_state)
-        
-        # Get the last message from the list
-        final_message = result['messages'][-1].content
-        
-        return {
-            "answer": final_message,
-            "user_id": user_id,
-            "status": "success"
-        }
-
-    except Exception as e:
-        logger.error(f"Static chat error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """Global exception handler for unhandled errors."""
-    logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error", "message": str(exc)}
-    )
-
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8000)
