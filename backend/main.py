@@ -16,11 +16,13 @@ from langchain_groq import ChatGroq
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from routes.documents import documents_router
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# ── Routing ───────────────────────────────────────────────────────────────────
+# ── Routing ────────────────────────────────────────────────────────────────────
 AUDITOR_KW = ["tax", "math", "calculate", "loan", "emi", "interest", "investment", "budget", "salary"]
 SHIELD_KW  = ["scam", "link", "upi", "safe", "phishing", "fraud", "hack", "suspicious"]
 
@@ -31,7 +33,7 @@ def route(text: str, force: Optional[str]) -> str:
     if any(k in t for k in SHIELD_KW):  return "shield"
     return "mitra"
 
-# ── System Prompts ────────────────────────────────────────────────────────────
+# ── System Prompts ─────────────────────────────────────────────────────────────
 PROMPTS = {
     "auditor": (
         "You are a professional Financial Auditor. "
@@ -40,6 +42,7 @@ PROMPTS = {
         "Give expert financial and mathematical answers. Be detailed but concise. "
         "Do NOT include any URLs, links, or source citations inside your response text — "
         "sources are handled separately and will be shown in the Evidence panel."
+        "\n\nIf document context is provided below, use it to answer accurately."
     ),
     "shield": (
         "You are an expert Cyber-Security Specialist. "
@@ -48,6 +51,7 @@ PROMPTS = {
         "Analyze risks, scam patterns, and phishing threats thoroughly. "
         "Do NOT include any URLs, links, or source citations inside your response text — "
         "sources are handled separately and will be shown in the Evidence panel."
+        "\n\nIf document context is provided below, use it to answer accurately."
     ),
     "mitra": (
         "You are Mitra, a friendly and expert Financial Consultant. "
@@ -56,61 +60,44 @@ PROMPTS = {
         "Provide accurate, helpful financial guidance. "
         "Do NOT include any URLs, links, or source citations inside your response text — "
         "sources are handled separately and will be shown in the Evidence panel."
+        "\n\nIf document context is provided below, use it to answer accurately."
     ),
 }
 
-# ── Tavily Deep Search ────────────────────────────────────────────────────────
+# ── Tavily Deep Search ─────────────────────────────────────────────────────────
 def run_tavily_deep_search(query: str) -> Dict[str, Any]:
-    """
-    Runs a Tavily advanced search and returns:
-      - context: formatted text to inject into the LLM prompt
-      - sources: list of {title, url} for frontend display
-    Only called when mode is Online + Deep Research.
-    """
     tavily_key = os.getenv("TAVILY_API_KEY")
     if not tavily_key:
         logger.warning("TAVILY_API_KEY not found – deep search skipped.")
         return {"context": "", "sources": []}
-
     try:
         from tavily import TavilyClient
         client = TavilyClient(api_key=tavily_key)
-        response = client.search(
-            query=query,
-            search_depth="advanced",
-            include_answer=True,
-            max_results=5,
-        )
+        response = client.search(query=query, search_depth="advanced", include_answer=True, max_results=5)
         results = response.get("results", [])
         answer  = response.get("answer", "")
-
-        # Build context block to inject into LLM
         context_lines = []
         if answer:
             context_lines.append(f"[Web Summary]: {answer}")
         for r in results:
-            title   = r.get("title", "")
-            url     = r.get("url", "")
-            snippet = r.get("content", "")[:300]
-            context_lines.append(f"\n[Source: {title}]\nURL: {url}\n{snippet}")
-
-        sources = [{"title": r.get("title", r.get("url", "")), "url": r.get("url", "")} for r in results if r.get("url")]
+            context_lines.append(f"\n[Source: {r.get('title','')}]\nURL: {r.get('url','')}\n{r.get('content','')[:300]}")
+        sources = [{"title": r.get("title", r.get("url","")), "url": r.get("url","")} for r in results if r.get("url")]
         return {"context": "\n".join(context_lines), "sources": sources}
-
     except Exception as e:
-        logger.error(f"Tavily search failed: {e}")
+        logger.error(f"Tavily error: {e}")
         return {"context": f"[Web search failed: {e}]", "sources": []}
 
 
-# ── FastAPI ──────────────────────────────────────────────────────────────────
+# ── FastAPI App ────────────────────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     message: str
     user_id: Optional[str] = "default_user"
+    session_id: Optional[str] = None          # for RAG context
     is_local_only: Optional[bool] = False
     deep_research: Optional[bool] = False
     agent: Optional[str] = None
 
-app = FastAPI(title="ArthMitra API")
+app = FastAPI(title="ArthMitra API v3 — Dual-Mode RAG")
 
 app.add_middleware(
     CORSMiddleware,
@@ -120,17 +107,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Register the documents router
+app.include_router(documents_router, prefix="/documents", tags=["documents"])
+
 
 @app.post("/chat/stream")
 async def streaming_chat(request: ChatRequest):
     message       = request.message
     is_local_only = request.is_local_only
-    deep_research = request.deep_research and not is_local_only  # Deep only in Online mode
+    deep_research = request.deep_research and not is_local_only
+    session_id    = request.session_id
     agent_name    = route(message, request.agent)
 
-    logger.info(f"► MODE={'OFFLINE (Ollama)' if is_local_only else 'ONLINE (Groq)'} | DEEP={deep_research} | AGENT={agent_name} | MSG={message[:60]}")
+    logger.info(
+        f"► MODE={'OFFLINE' if is_local_only else 'ONLINE'} | DEEP={deep_research} "
+        f"| AGENT={agent_name} | SESSION={session_id} | MSG={message[:60]}"
+    )
 
-    # ── Pick model ───────────────────────────────────────────────────────────
+    # Pick LLM
     if is_local_only:
         model_display = "Qwen 3 (4B)" if agent_name in ["auditor", "shield"] else "Llama 3.2 (3B)"
         llm_model_id  = "qwen3:4b"    if agent_name in ["auditor", "shield"] else "llama3.2:3b"
@@ -147,28 +141,37 @@ async def streaming_chat(request: ChatRequest):
 
     async def generate():
         try:
-            web_context = ""
+            extra_context = ""
             sources: List[Dict] = []
+            rag_sources: List[str] = []
 
-            # ── Step 1: Tavily Deep Research (Online + Deep only) ─────────────
+            # ── Step 1: Dual RAG Query ────────────────────────────────────────
+            if session_id:
+                from rag.retriever import query_dual_rag
+                rag_result = await query_dual_rag(query=message, session_id=session_id, top_k=5)
+                if rag_result["has_results"]:
+                    extra_context += f"\n\nDOCUMENT CONTEXT (answer from this):\n{rag_result['formatted']}"
+                    rag_sources = rag_result["sources"]
+                    if rag_sources:
+                        yield f"data: {json.dumps({'rag_sources': rag_sources})}\n\n"
+
+            # ── Step 2: Tavily Deep Search (Online + Deep only) ───────────────
             if deep_research:
-                logger.info(f"► Running Tavily deep search for: {message[:60]}")
-                result = run_tavily_deep_search(message)
-                web_context = result["context"]
-                sources     = result["sources"]
-
+                logger.info(f"► Tavily deep search: {message[:60]}")
+                tavily_result = run_tavily_deep_search(message)
+                if tavily_result["context"]:
+                    extra_context += f"\n\nWEB RESEARCH CONTEXT:\n{tavily_result['context']}"
+                sources = tavily_result["sources"]
                 if sources:
-                    # Send sources metadata event BEFORE streaming begins
                     yield f"data: {json.dumps({'sources': sources})}\n\n"
 
-            # ── Step 2: Build LLM messages ────────────────────────────────────
+            # ── Step 3: Build prompt + stream ─────────────────────────────────
             system_content = PROMPTS.get(agent_name, PROMPTS["mitra"])
-            if web_context:
-                system_content += f"\n\nWEB RESEARCH CONTEXT (use this to answer):\n{web_context}"
+            if extra_context:
+                system_content += extra_context
 
             messages = [SystemMessage(content=system_content), HumanMessage(content=message)]
 
-            # ── Step 3: Stream tokens ─────────────────────────────────────────
             async for chunk in llm.astream(messages):
                 token = chunk.content
                 if token:
@@ -184,11 +187,7 @@ async def streaming_chat(request: ChatRequest):
     return StreamingResponse(
         generate(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
     )
 
 
@@ -198,7 +197,7 @@ async def root():
         "status": "online",
         "groq_key": bool(os.getenv("GROQ_API_KEY")),
         "tavily_key": bool(os.getenv("TAVILY_API_KEY")),
-        "service": "ArthMitra v2.3",
+        "service": "ArthMitra v3 — Dual-Mode RAG",
     }
 
 if __name__ == "__main__":
