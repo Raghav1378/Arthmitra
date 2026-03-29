@@ -25,8 +25,12 @@ def try_tavily_search(query: str, max_results: int = 3) -> Optional[list]:
         if not tavily_api_key:
             return None
 
-        from langchain_community.tools.tavily_search import TavilySearchResults
-        tavily = TavilySearchResults(max_results=max_results, tavily_api_key=tavily_api_key)
+        try:
+            from langchain_tavily import TavilySearchResults
+            tavily = TavilySearchResults(max_results=max_results, api_key=tavily_api_key)
+        except ImportError:
+            from langchain_community.tools.tavily_search import TavilySearchResults
+            tavily = TavilySearchResults(max_results=max_results, tavily_api_key=tavily_api_key)
         return tavily.invoke(query)
     except ImportError:
         print("Warning: Tavily not installed. Install with: pip install tavily-python")

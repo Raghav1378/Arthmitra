@@ -4,11 +4,11 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 if not os.getenv("GROQ_API_KEY"):
     parent_env = os.path.join(os.path.dirname(__file__), "..", ".env")
     if os.path.exists(parent_env):
-        load_dotenv(parent_env)
+        load_dotenv(parent_env, override=True)
 
 def test_groq_direct():
     print("Testing Groq Direct Connection...")

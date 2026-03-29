@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from fastapi.encoders import jsonable_encoder
 
 from app.router import arthmitra_app
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, AIMessageChunk
 import json
 import asyncio
 
@@ -25,11 +25,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load .env - check both current and parent directory
-load_dotenv()
+load_dotenv(override=True)
 if not os.getenv("GROQ_API_KEY"):
     parent_env = os.path.join(os.path.dirname(__file__), "..", ".env")
     if os.path.exists(parent_env):
-        load_dotenv(parent_env)
+        load_dotenv(parent_env, override=True)
 
 # Startup health check
 def perform_startup_checks():
@@ -190,16 +190,31 @@ async def chat_endpoint(request: ChatRequest):
     }
 
     async def stream_generator():
+        last_message_content = ""
         try:
-            # Use LangGraph's astream for true streaming
-            async for event in arthmitra_app.astream(initial_state, stream_mode="messages"):
-                if isinstance(event, tuple) and len(event) == 2:
-                    msg, metadata = event
-                    if isinstance(msg, AIMessage) and msg.content:
-                        token: str = msg.content
+            # Use LangGraph's astream to capture node outputs
+            async for msg, metadata in arthmitra_app.astream(initial_state, stream_mode="messages"):
+                if hasattr(msg, "content") and msg.content:
+                    # If we get chunks (true streaming), yield them as they arrive
+                    if isinstance(msg, AIMessageChunk):
+                        token = msg.content
                         yield f"data: {json.dumps({'token': token})}\n\n"
-
-            # Sentinel — frontend stops reading on this
+                    # If we get a full message (end of node), only yield if it's different from what we know
+                    # This prevents the duplicated content issue while ensuring no output is lost
+                    elif isinstance(msg, AIMessage):
+                        full_content = msg.content
+                        if full_content != last_message_content:
+                            # If it doesn't start with the last content, it's likely a new agent or response
+                            if not full_content.startswith(last_message_content):
+                                yield f"data: {json.dumps({'token': full_content})}\n\n"
+                            else:
+                                # Send only the delta
+                                delta = full_content[len(last_message_content):]
+                                if delta:
+                                    yield f"data: {json.dumps({'token': delta})}\n\n"
+                            last_message_content = full_content
+            
+            # Final terminal sentinel
             yield "data: [DONE]\n\n"
 
         except Exception as e:
