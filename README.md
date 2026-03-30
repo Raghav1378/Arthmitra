@@ -1,84 +1,80 @@
-# ArthMitra Backend - Verified Features
+# 🔱 ArthMitra v3.0
 
-This repository hosts the backend for ArthMitra, a comprehensive financial security and intelligence platform. It exposes a robust API powered by local LLMs, deterministic ML models, and a unified policy engine.
+> **Empowering Financial Intelligence with Hybrid AI & Autonomous Security.**
 
-## ✅ Working E2E Features (Verified)
-
-The following modules are fully implemented, verified, and active.
-
-### 🛡️ 1. Shield ML (Scam Detection)
-*High-performance fraud detection independent of LLMs.*
-
-*   **Text Scam Detector**:
-    *   **Method**: TF-IDF + Logistic Regression (Supervised).
-    *   **Function**: Analyzes SMS/Text for phishing urgency ("KYC Blocked") and scam keywords.
-    *   **Endpoint**: `POST /api/shield/analyze-text`
-    
-*   **Transaction Risk Score**:
-    *   **Method**: Random Forest Classifier (Supervised).
-    *   **Function**: Evaluates transaction metadata (velocity, amount spikes, new payee).
-    *   **Endpoint**: `POST /api/shield/analyze-transaction`
-
-*   **Anomaly Detection Layer**:
-    *   **Method**: One-Class SVM (Text) & Isolation Forest (Transactions).
-    *   **Function**: "Novelty detection" for unknown attack vectors.
-    
-*   **Unified Policy Engine**:
-    *   **Method**: Deterministic Rules (R001-R010).
-    *   **Function**: Aggregates ML scores to output a final `BLOCK`, `WARNING`, or `SAFE` decision.
-    *   **Endpoint**: `POST /api/shield/assess-risk`
-
-### 🔍 2. UPI ID Risk Validator
-*Pre-payment safety check for Unified Payments Interface.*
-
-*   **Method**: Rule-based Heuristics (11 Checkpoints).
-*   **Function**: Validates UPI handles (e.g., `refund@sbi`) against known scam patterns and impersonation tactics.
-*   **Endpoints**:
-    *   `POST /api/shield/validate-upi` (Full Report)
-    *   `GET /api/shield/validate-upi-quick` (Fast Check)
-
-### 🧠 3. The Brain (Financial RAG)
-*Retrieval-Augmented Generation for regulatory queries.*
-
-*   **Core**: LangChain + ChromaDB (Vector Store).
-*   **Data Sources**: Indexed RBI Circulars, Consumer Rights Acts, Tax Laws.
-*   **Feature**: Generates grounded answers with strict source citation and **self-corrected confidence scoring**.
-*   **Endpoint**: `POST /api/brain/ask`
-
-### 🤖 4. Intelligent Swarm Router
-*Multi-Agent orchestration for specialized tasks.*
-
-*   **Architecture**: LangGraph Supervisor.
-*   **Agents**:
-    *   **Auditor** (`deepseek-r1`): Math, Tax, EMI calculations.
-    *   **Shield** (`qwen2.5`): Security explanations.
-    *   **Mitra** (`gemma3`): General guidance.
-    *   **Groq** (`llama-3.1`): Cloud fallback for speed.
-*   **Function**: Automatically routes user queries to the best-suited agent based on intent.
-*   **Endpoint**: `POST /api/chat`
+ArthMitra is a state-of-the-art financial security and intelligence platform. It combines high-performance LLM orchestration with dedicated ML-risk engines to provide users with expert guidance and defense against financial fraud.
 
 ---
 
-## 🛠️ Tech Stack
+## ⚡ Core Pillars
 
-*   **Framework**: FastAPI (Python)
-*   **Orchestration**: LangChain, LangGraph
-*   **Local Inference**: Ollama
-*   **Vector Database**: ChromaDB
-*   **ML Libraries**: Scikit-Learn, Pandas
+### 🛡️ 1. Scam Shield Antigravity v2
+A dual-engine fraud detection system designed for the Indian digital payment landscape.
+*   **Message Scanner**: Detects phishing, KYC threats, and lottery scams in texts using supervised ML and LLM reasoning.
+*   **Behavior Engine**: Mimics real-world bank fraud analysts to flag suspicious transactions based on amount patterns (e.g., UPI ₹1 pings), odd timing (12 AM–6 AM), and frequency spikes.
+
+### 🧠 2. Dual-Mode RAG (Retrieval-Augmented Generation)
+*   **Local Brain**: Zero-latency retrieval from your private documents (RBI circulars, Tax laws, EMI guides) using ChromaDB.
+*   **Global Research**: Advanced Tavily integration for deep-web extraction and real-time market analysis.
+
+### 🤖 3. Intelligent Swarm Router
+Queries are automatically routed to specialized autonomous agents:
+*   **The Auditor**: Precise math, calculations, and tax auditing.
+*   **The Shield**: Security-first analysis of suspicious links and messages.
+*   **The Mitra**: Friendly, proactive financial consultancy and budget planning.
 
 ---
 
-## 🚀 Usage
+## 🎨 Professional UI Experience
+*   **Glassmorphism Console**: A premium, dark-themed command center built with Next.js and Tailwind CSS.
+*   **Interactive Charts**: Effortlessly visualize your finances. Simply ask "Plot my monthly savings," and the AI generates real-time Bar, Line, or Pie charts.
+*   **Micro-Animations**: Powered by Framer Motion for a fluid, responsive interaction experience.
 
-**Health Check:**
+---
+
+## 🛠️ Technology Stack
+
+| Layer | Technology |
+| :--- | :--- |
+| **Frontend** | Next.js 14, TypeScript, Framer Motion, Lucide Icons |
+| **Backend** | FastAPI, Python 3.10+ |
+| **Orchestration**| LangChain, LangGraph |
+| **LLMs** | Llama 3.1 (Groq Cloud), Qwen 2.5 (Local), Gemma (Local) |
+| **Database** | ChromaDB (Vector Store), Scikit-Learn (ML screening) |
+| **Research** | Tavily Search API |
+
+---
+
+## 🚀 Quick Start
+
+### 1. Backend Setup
 ```bash
-curl http://localhost:8000/health
+cd backend
+python -m venv venv
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+pip install -r requirements.txt
+python main.py
 ```
 
-**Assess Risk (Unified):**
+### 2. Frontend Setup
 ```bash
-curl -X POST "http://localhost:8000/api/shield/assess-risk" \
-     -H "Content-Type: application/json" \
-     -d '{"text": "Win lottery now", "transaction": {"transaction_amount": 50000, "avg_transaction_amount": 2000}}'
+cd frontend
+npm install
+npm run dev
 ```
+
+### 3. Environment Configuration
+Create a `.env` file in the root:
+```env
+GROQ_API_KEY=your_key_here
+TAVILY_API_KEY=your_key_here
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+---
+
+## 🛡️ Trust & Privacy
+ArthMitra supports **Offline-First Mode**. Toggle to "Local Only" in the Shield console to use local Ollama models (Llama 3.2), ensuring your sensitive financial data never leaves your machine.
+
+---
+*Developed by Raghav1378 — Redefining Financial Security.*
