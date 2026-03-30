@@ -1,122 +1,86 @@
-# ArthMitra - Detailed Backend Engineering Report
+# 🔱 ArthMitra v3.0 - Backend Engineering Deep-Dive
 
-This document provides a deep technical dive into the ArthMitra backend. It explains the *why*, *how*, and *what* of every major component we have built, designed for developers and stakeholders to understand the system's core mechanics.
-
----
-
-## 🏗️ 1. High-Level Architecture
-
-ArthMitra is not just a chatbot; it is a **Hybrid AI System**. This means it combines two very different types of Artificial Intelligence to get the best of both worlds:
-1.  **Deterministic AI (Shield ML):** Fast, rule-based, and zero-hallucination models for security.
-2.  **Generative AI (The Brain):** Creative, understanding, and context-aware LLMs for advice.
-
-### System Flow
-```mermaid
-graph TD
-    User[User Request] --> API[FastAPI Router]
-    
-    subgraph "Layer 1: Security Shield"
-        API -->|Scam Check| ML[Shield ML Engine]
-        ML -->|Text| TFIDF[TF-IDF + LogReg]
-        ML -->|Transaction| RFC[Random Forest]
-        ML -->|Patterns| Anomaly[Anomaly Detection]
-        TFIDF & RFC & Anomaly --> Policy[Policy Engine (10 Rules)]
-        Policy -->|Block/Safe| API
-    end
-    
-    subgraph "Layer 2: The Brain (Intelligence)"
-        API -->|Chat/Query| Router[Agent Router]
-        Router -->|Math/Tax| Auditor[Auditor Agent (DeepSeek)]
-        Router -->|Security Info| ShieldAg[Shield Agent (Qwen)]
-        Router -->|General Help| Mitra[Mitra Agent (Gemma)]
-        
-        Auditor & ShieldAg & Mitra --> RAG[RAG Knowledge Base]
-        RAG -->|Retrieve Docs| VectorDB[(ChromaDB)]
-        VectorDB -->|Context| RAG
-    end
-```
+This report details the technical architecture of the ArthMitra backend (FastAPI/LangChain). It summarizes the design decisions behind the version 3.0 upgrades.
 
 ---
 
-## 🛡️ 2. Shield ML: The Security Core
-**Problem:** Large Language Models (LLMs) are too slow (average 2-5 seconds) and prone to "hallucnination" (making things up) to be trusted with real-time fraud blocking.
-**Solution:** We built a dedicated, lightweight Machine Learning module that runs locally and gives answers in milliseconds.
+## 🏗️ 1. Orchestration: The Intelligent Router
 
-### A. Text Scam Detector
-*   **How it works:** It turns text into numbers (TF-IDF) and checks for "scammy" words.
-*   **The "Secret Sauce":** It doesn't just look for words like "bank"; it looks for *combinations* that indicate **urgency** + **threat** (e.g., "KYC Expires Today" + "Link").
-*   **Tech Stack:** `scikit-learn`, `LogisticRegression`.
-*   **Key File:** `app/shield_ml/text_predict.py`
+The backend uses a **Functional Agent Swarm**. Instead of a monolithic LLM, the `Swarm Router` classifies incoming requests based on keywords and intent:
 
-### B. Transaction Risk Engine
-*   **How it works:** It looks at the *metadata* of a transfer, not the content.
-*   **What it catches:**
-    *   **Velocity:** 10 transfers in 1 minute? Flag it.
-    *   **New Receiver:** Sending ₹50,000 to a brand new person at 2 AM? Flag it.
-*   **Tech Stack:** `RandomForestClassifier`.
+| Entity | Agent Label | Domain expertise | Logic Path |
+| :---: | :--- | :--- | :--- |
+| 🧮 | **The Auditor** | Tax, Math, Interest, EMI | `auditor` |
+| 🛡️ | **The Shield** | Phishing, Safety, Scams, Security | `shield` |
+| 🤝 | **The Mitra** | General guidance, Charts, Budgeting | `mitra` |
 
-### C. The Policy Engine (Decision Maker)
-We don't let the AI decide alone. We use a **Deterministic Policy Layer**.
-*   **Rule R009 (Corroboration):** If the Anomaly Detector says "Weird" but the Risk Engine says "Safe", we just **WARN**, we don't **BLOCK**.
-*   **Rule R001 (Critical):** If a known phishing link is found, **BLOCK** immediately, no matter what else happens.
+**Routing Logic:**
+- **Deterministic Check:** Scans `message` for keywords like "tax," "scam," or "upi."
+- **Fallback:** Routes undefined intent to **The Mitra** for conversational assistance.
 
 ---
 
-## 🧠 3. The Brain: Financial RAG (Retrieval-Augmented Generation)
-**Problem:** LLMs like GPT or Llama don't know the specific rules of the *Income Tax Act 1961* or the latest *RBI Circular on Credit Cards*. They guess.
-**Solution:** RAG (Retrieval-Augmented Generation). We "teach" the AI by giving it an open-book test.
+## 🛡️ 2. Scam Shield v2 Architecture (Antigravity Engine)
 
-### How a Query is Answered:
-1.  **User Asks:** "What is the penalty for late ITR filing?"
-2.  **Retrieval:** The system searches our local database (ChromaDB) for official government documents (PDFs) that mention "ITR penalty".
-3.  **Context Injection:** It finds passage: *"Section 234F: Late fee of Rs 5,000..."*
-4.  **Generation:** The LLM is told: *"Answer the user ONLY using this passage."*
-5.  **Result:** Accurate, legally-cited answer.
+The version 3.0 upgrade brings **Antigravity Calibration** to the fraud detection layer.
 
-### Special Feature: Source Discipline
-We added a special safety check. If the LLM tries to answer without finding a source document, the system **forces** it to say "I don't know" instead of guessing.
+### A. The Two-Stage Text Pipeline (`/scam/analyze`)
+1.  **ML Pre-screen:** The system first passes the text through a local `TF-IDF + Logistic Regression` classifier in `shield_ml`. It provides a "statistical nudge" without calling the cloud.
+2.  **LLM Reasoning:** The raw text + ML context are sent to **Llama 3.1 8B**. The `SHIELD_SYSTEM_PROMPT` enforces:
+    - **High Recall:** Catching subtle threats (e.g., specific UPI collect requests).
+    - **Balanced Verdict:** Avoiding over-flagging neutral verification requests.
 
----
+### B. The Behavior Engine (`/scam/behavior`)
+*Objective: Mimic a human bank fraud analyst.*
 
-## 🤖 4. The Agent Swarm
-**Problem:** One AI model cannot be good at everything. A model good at writing poetry is usually bad at math.
-**Solution:** A "Swarm" of specialized agents.
-
-| Agent Name | Model Used | Specialty | Why? |
-| :--- | :--- | :--- | :--- |
-| **Auditor** | `deepseek-r1` | Math & Logic | This model is fine-tuned for reasoning. It won't mess up EMI checks. |
-| **Shield** | `qwen2.5-coder`| Code & Security | Designed to understand code and technical threats like SQL Injection or Phishing URLs. |
-| **Mitra** | `gemma3` | General Conversation | Friendly, lightweight, and great for explaining simple concepts to users. |
-
-### The "Router"
-We built a smart classifier that listens to the user.
-*   User: *"Calculate my tax"* -> Router sends to **Auditor**.
-*   User: *"Is this link safe?"* -> Router sends to **Shield**.
+Instead of hard rules, the Behavior Engine uses a **Probability Weight Model**:
+- **Baseline:** Starts at 50% confidence.
+- **Modifiers:**
+    - **Amount:** `₹1-₹10` pings add significant risk (+20 pts).
+    - **Timing:** Transactions between 12 AM – 6 AM add moderate risk (+10 pts).
+    - **Frequency:** Rapid repetition (10+ per hour) triggers "Attack Pattern" logic (+20 pts).
+- **Clamping:** Results are clamped between 10% and 92% to avoid the "90% Default" hallucination commonly seen in AI models.
 
 ---
 
-## 🔌 5. Infrastructure & Engineering Standards
+## 🧠 3. Dual-Mode Retrieval (RAG v3.0)
 
-### Folder Structure
-We organized the backend to be modular. You can delete the "Brain" folder, and the "Shield" will still work perfectly.
+Version 3.0 introduces a **Merged Retrieval Pipeline** (Local + Remote).
+
+### A. Local Doc Store
+Uses **ChromaDB** with `SentenceTransformers` embeddings. It provides grounded answers from:
+- RBI Financial Guidelines (indexed PDFs).
+- Income Tax Act (indexed text files).
+
+### B. Remote Knowledge (Tavily)
+If `deep_research` is toggled in the request:
+- The system uses **Tavily Advanced Search** to crawl the live web.
+- It extracts grounded snippets to answer questions about breaking financial news (e.g., "What is the new tax slab as of today?").
+
+---
+
+## 🚀 4. Performance & Hybrid Inference
+
+We've optimized the backend for **Low-Latency Streaming**:
+- **Cloud Path:** Uses **Groq LPU Inference** (Llama 3.1) for high-speed <500ms initial token response.
+- **Local Path:** Uses **ChatOllama** (Qwen 2.5 4B) for air-gapped, private execution.
+- **Chart Logic:** Mitra automatically detects requests for data trends and generates structured JSON blocks for the React frontend visualizer.
+
+---
+
+## 🔧 5. Backend Folder Organization (Code Standards)
+
 ```text
 backend/
 ├── app/
-│   ├── brain/          # LLM, RAG, and Agents
-│   │   ├── rag/        # Vector DB and Ingestion scripts
-│   │   └── agents/     # Prompts and Router logic
-│   ├── shield_ml/      # Pure ML models (pkl files)
-│   └── main.py         # The entry point
+│   ├── brain/          # Core AI logic (Swarm Router, Agent Prompts)
+│   ├── routes/         # FastAPI Route Endpoints (Chats, Docs, Scam)
+│   └── shield_ml/      # Scikit-learn Supervised ML pipelines
+├── rag/
+│   ├── retriever.py    # Merged Local + Tavily logic
+│   └── data/           # Raw PDF/Text datasets
+└── main.py             # Entry point (Unified API)
 ```
 
-### Git Hygiene & Security
-We realized early on that committing large files crashes Git.
-*   **Fixed:** Added `*.pkl` (Model files) and `chroma_db/` (Vector store) to `.gitignore`.
-*   **Fixed:** Added `.env` to `.gitignore` to prevent leaking API keys.
-
 ---
-
-## 6. What's Next? (Roadmap)
-*   **Frontend Integration:** Connecting this powerful backend to the React UI.
-*   **Voice Mode:** Adding Speech-to-Text to let users talk to Mitra.
-*   **Real Deployment:** Dockerizing the app for cloud hosting.
+*Technical Lead: Raghav1378*

@@ -1,162 +1,87 @@
-# ArthMitra - End-to-End Project Documentation
+# 🔱 ArthMitra v3.0 - Project Documentation
 
 **Project Name:** ArthMitra  
-**Description:** Next-Gen AI Financial Assistant & Scam Prevention Shield  
-**Architecture:** Hybrid AI System (Deterministic ML + LLM Swarm)
+**Status:** v3.0 (Dual-Mode Intelligence)  
+**Architecture:** Hybrid AI Swarm (Local Ollama + Groq Cloud + Deterministic ML)
 
 ---
 
 ## 1. Executive Summary
 
-ArthMitra is a comprehensive financial security platform designed to protect users from modern financial fraud while providing accurate, regulation-grounded financial advice. It combines **deterministic Machine Learning** (for high-speed, explainable scam detection) with **Generative AI** (for complex reasoning and conversational assistance).
+ArthMitra is a comprehensive financial security and intelligence ecosystem. It is designed to bridge the gap between complex financial regulations and user safety through a "Defense-in-Depth" strategy. 
 
-The system is built on a "Privacy & Reliability First" principle:
-- **Local Inference:** Uses local LLMs (via Ollama) where possible to ensure data privacy.
-- **Strict Grounding:** The RAG system prioritizes official regulatory documents over general LLM knowledge.
-- **Explainable AI:** Every risk assessment explains *why* a transaction was flagged (e.g., "High Velocity", "Keyword Match").
-
----
-
-## 2. System Architecture
-
-ArthMitra operates as a Monorepo with two distinct layers:
-
-### A. Frontend (`/frontend`)
-- **Tech Stack:** React, Vite, TailwindCSS (assumed).
-- **Role:** Provides the user interface for:
-    - **Chat Interface:** Interactive conversation with financial agents.
-    - **Panic Button:** One-click emergency response.
-    - **Scam Check UI:** Utilities to validate UPI IDs or Paste text for analysis.
-
-### B. Backend (`/backend`)
-- **Tech Stack:** FastAPI (Python), LangChain, Scikit-Learn.
-- **Role:** Handles all logic, AI inference, and database interactions.
-- **Components:**
-    1.  **Router/API Layer:** Exposes REST endpoints.
-    2.  **Shield Module (`shield_ml`):** Non-LLM machine learning for fraud detection.
-    3.  **Brain Module (`brain`):** RAG system and Agent Swarm orchestration.
+### Key Design Principles:
+- **Calibrated Risk:** Uses a realistic "Fraud Analyst" confidence model to avoid over-blocking.
+- **Dual-Mode RAG:** Synchronizes private local document retrieval with real-time web research (Tavily).
+- **Hybrid Inference:** Seamlessly toggles between local offline models (Ollama/Qwen) and high-speed cloud models (Groq/Llama 3.1).
+- **Visual Intelligence:** Translates dry financial data into interactive charts (Bar, Line, Pie).
 
 ---
 
-## 3. Deep Dive: Key Technical Capabilities
+## 2. System Architecture (v3.0)
 
-### 🛡️ A. Shield ML (Scam Detection Layer)
-*Objective: Catch frauds without the latency or hallucination risks of LLMs.*
+### A. Frontend Console (`/frontend`)
+- **Tech Stack:** Next.js 14, TypeScript, Tailwind CSS, Framer Motion.
+- **Interface Pillars:**
+    - **Mitra AI Chat:** The primary command center for financial advice and chart generation.
+    - **Scam Shield v2:** A dual-tabbed security module (Message Scanner + Behavior Engine).
+    - **RAG Dashboard:** Manage and query uploaded financial documents with source verification.
 
-1.  **Text Scam Detector**
-    - **Model:** TF-IDF Vectorizer + Logistic Regression.
-    - **Logic:** Trained on scam SMS/Emails to detect urgency ("ACT NOW"), threats ("KYC BLOCKED"), and phishing links.
-    - **Performance:** High speed (<50ms), ~91% accuracy on test data.
-
-2.  **Transaction Risk Engine**
-    - **Model:** Random Forest Classifier.
-    - **Logic:** Analyzes metadata (Amount, Time, Receiver History) to detect patterns like "Smurfing" (many small transfers) or "Account Takeover" (sudden high value to new payee).
-    - **Performance:** ~95% accuracy.
-
-3.  **Anomaly Detection (Unsupervised)**
-    - **Models:** One-Class SVM (Text), Isolation Forest (Transactions).
-    - **Role:** Flags "Unknown Unknowns" - patterns that don't look like known scams but are statistically weird.
-
-4.  **Policy Engine**
-    - **Mechanism:** A set of 10 deterministic rules (R001-R010) that aggregate scores from all models to make a final `BLOCK`, `WARN`, or `ALLOW` decision.
-
-### 🧠 B. The Brain (RAG & Knowledge)
-*Objective: Provide legal/financial answers that are legally accurate.*
-
-1.  **Source Discipline**
-    - **Strict Priority:** 1. Regulatory Docs (RBI/Laws) -> 2. Official Guidelines -> 3. General Knowledge.
-    - **Anti-Hallucination:** If confidence is low, the system explicitly states "I cannot find this in my connected documents" rather than guessing.
-    - **Tone:** Neutral, professional, non-advisory (avoids "You should invest in X").
-
-2.  **Vector Store**
-    - **Tech:** ChromaDB.
-    - **Content:** Indexed PDFs/Text of RBI Circulars, Income Tax Act, etc.
-
-### 🤖 C. Intelligent Agent Swarm
-*Objective: Route queries to the best expert.*
-
-The system uses a **Router** to classify user intent and direct it to one of three specialized agents:
-- **Auditor (`deepseek-r1`):** Mathematical precision, tax calculations, EMI logic.
-- **Shield Agent (`qwen2.5-coder`):** Explains security risks, cybersecurity advice.
-- **Mitra (`gemma3`):** General banking concepts, friendly financial literacy.
+### B. Distributed Backend (`/backend`)
+- **Tech Stack:** FastAPI, LangChain, LangGraph, Scikit-Learn.
+- **Logic Layers:**
+    1. **Intelligent Swarm Router:** Automatically routes intent to specialized agents (Auditor, Shield, Mitra).
+    2. **Scam Shield Antigravity v2:** Combines supervised ML screening with LLM-based behavioral reasoning.
+    3. **The Behavior Engine:** Analyzes transaction patterns (amounts, timing, frequency) using a realistic analyst confidence model.
 
 ---
 
-## 4. Setup & Installation Guide
+## 3. Core Technical Capabilities
+
+### 🛡️ A. Scam Shield Antigravity (Security)
+*Objective: Professional-grade fraud detection for the Indian digital ecosystem.*
+
+1. **Message Scanner (Text UI)**
+   - **Logic:** Detects threats, payment requests, and suspicious links (SBI, Paytm, HDFC contexts).
+   - **Calibration:** Strictly separates "Informational" from "Threat" (e.g., distinguishing "Verify info" vs "Account Blocked").
+
+2. **Behavior Engine (Transaction UI)**
+   - **Logic:** Identifies "pings" (₹1-₹10 verification scams) and high-velocity attacks.
+   - **Confidence Model:** Uses a 10%-92% realistic clamping system. Starts at 50% baseline and adds/subtracts points based on "Anomaly Weights."
+
+### 🧠 B. Integrated Brain (Knowledge)
+*Objective: Unifying local documents with the live web.*
+
+1. **Dual-Mode RAG**
+   - **Private Layer:** ChromaDB stores indexed RBI circulars, tax laws, and user-uploaded PDFs.
+   - **Public Layer:** Tavily API performs "Deep Research" for real-time market trends or breaking consumer laws.
+
+2. **Interactive Visualizer**
+   - **Mechanism:** Mitra Agent generates structured JSON chart blocks.
+   - **Output:** Native React components render bar/pie/line charts for any numeric trend found in the conversation.
+
+---
+
+## 4. Setup & Deployment
 
 ### Prerequisites
-- **Python:** 3.10 or higher
-- **Node.js:** 18+
-- **Ollama:** Installed and running.
+- Python 3.10+, Node.js 18+
+- Ollama (running locally)
+- API Keys: `GROQ_API_KEY`, `TAVILY_API_KEY` (in `.env`)
 
-### A. Environment Setup
-
-1.  **Clone & Prepare**
-    ```bash
-    git clone <repo_url>
-    cd arthmitra
-    ```
-
-2.  **Backend Setup**
-    ```bash
-    cd backend
-    python -m venv .venv
-    .venv\Scripts\activate  # Windows
-    pip install -r requirements.txt
-    ```
-
-3.  **Frontend Setup**
-    ```bash
-    cd frontend
-    npm install
-    ```
-
-4.  **AI Model Setup (Ollama)**
-    Pull the required models:
-    ```bash
-    ollama pull deepseek-r1:7b
-    ollama pull qwen2.5-coder:7b
-    ollama pull gemma3:latest
-    ollama pull nomic-embed-text
-    ```
-
-### B. Running the Application
-
-1.  **Start Backend**
-    ```bash
-    # Terminal 1
-    cd backend
-    .venv\Scripts\activate
-    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-    ```
-    *API Docs will be available at: http://localhost:8000/docs*
-
-2.  **Start Frontend**
-    ```bash
-    # Terminal 2
-    cd frontend
-    npm run dev
-    ```
-    *App will be available at: http://localhost:5173*
+### 🛠️ Quick Command reference
+- **Backend:** `uvicorn main:app --reload` (Port 8000)
+- **Frontend:** `npm run dev` (Port 3000)
 
 ---
 
-## 5. Development Workflow
+## 5. Development Roadmap (Changelog)
 
-- **Git Strategy:**
-    - A comprehensive `.gitignore` protects sensitive files (`.env`, `*.pkl`) and build artifacts (`node_modules`, `__pycache__`).
-    - Always run tests and linting before committing.
-
-- **Adding New Features:**
-    1.  **ML:** Add training data to `shield_ml/data`, retrain using `train_models.py`.
-    2.  **RAG:** Add new PDFs to `brain/rag/data`, run ingestion script.
-    3.  **Agents:** Define new agent prompt in `brain/prompts`, update Router logic.
+- **v3.0:** Integrated **Behavior Engine** with realistic confidence clamping.
+- **v3.0:** Added **Tavily Deep Research** toggle for online information extraction.
+- **v2.5:** Implemented **Intelligent Swarm Router** (Auditor/Shield/Mitra separation).
+- **v2.0:** Migrated infrastructure to **Groq Cloud** for 10x faster streaming response times.
+- **v1.5:** Built original **Shield ML** TF-IDF/Random Forest pipeline.
 
 ---
-
-## 6. Recent Achievements (Changelog)
-
-- **Feature:** Implemented End-to-End standalone `shield_ml` module with training pipeline and synthetic data generation.
-- **Hardening:** Enforced strict source citation in RAG to prevent regulatory misinformation.
-- **Fix:** Resolved Pydantic validation errors in RAG endpoints.
-- **Infra:** Configured comprehensive Git ignore rules and resolved index locking issues.
+*Document Version: 3.1.0 (March 2026)*
