@@ -540,7 +540,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-220px)] min-h-[500px] rounded-3xl border border-white/[0.06] bg-white/[0.015] backdrop-blur-2xl overflow-hidden">
+    <div className="flex flex-col h-full rounded-3xl border border-white/[0.06] bg-white/[0.015] backdrop-blur-2xl overflow-hidden">
       
       {/* ─── Minimal Chat Header ─── */}
       <div className="px-5 py-3.5 border-b border-white/[0.06] flex justify-between items-center bg-white/[0.01]">

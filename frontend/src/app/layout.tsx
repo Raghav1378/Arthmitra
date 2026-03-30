@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const jakarta = Plus_Jakarta_Sans({ 
+  subsets: ["latin"],
+  variable: '--font-jakarta'
+});
+
+const space = Space_Grotesk({ 
+  subsets: ["latin"],
+  variable: '--font-space'
+});
 
 export const metadata: Metadata = {
   title: "ArthMitra - AI Financial Guardian",
@@ -15,8 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className={inter.className}>{children}</body>
+    <html lang="en" className={`dark ${jakarta.variable} ${space.variable}`}>
+       <body className="font-sans antialiased text-white bg-[#0a0e1a]">{children}</body>
     </html>
   );
 }
