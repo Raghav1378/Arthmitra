@@ -8,7 +8,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 from langchain_chroma import Chroma
 
 from rag.embedder import get_embedder

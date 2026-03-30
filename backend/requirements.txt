@@ -21,6 +21,8 @@ langchain-core>=0.1.0
 langchain-ollama>=0.0.1
 langchain-groq>=0.0.1
 langgraph>=0.0.10
+langchain-text-splitters>=0.0.1
+
 
 # --- Vector Store & Embeddings ---
 langchain-chroma>=0.1.0

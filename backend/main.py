@@ -17,6 +17,7 @@ from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from routes.documents import documents_router
+from routes.chats import chats_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,28 +40,29 @@ PROMPTS = {
         "You are a professional Financial Auditor. "
         "Always respond in clear, fluent ENGLISH. "
         "Only switch to Hindi or Hinglish if the user EXPLICITLY asks you to speak Hindi. "
-        "Give expert financial and mathematical answers. Be detailed but concise. "
-        "Do NOT include any URLs, links, or source citations inside your response text — "
-        "sources are handled separately and will be shown in the Evidence panel."
-        "\n\nIf document context is provided below, use it to answer accurately."
+        "Give expert financial and mathematical answers. Be highly CONCISE and strict. "
+        "Do NOT include any URLs, links, or source citations inside your response text "
+        "(they are handled in the Evidence panel). "
+        "CRITICAL: If context is provided, answer EXACTLY what is asked based ONLY on that context without adding unrequested details."
     ),
     "shield": (
         "You are an expert Cyber-Security Specialist. "
         "Always respond in clear, fluent ENGLISH. "
         "Only switch to Hindi or Hinglish if the user EXPLICITLY asks you to speak Hindi. "
-        "Analyze risks, scam patterns, and phishing threats thoroughly. "
-        "Do NOT include any URLs, links, or source citations inside your response text — "
-        "sources are handled separately and will be shown in the Evidence panel."
-        "\n\nIf document context is provided below, use it to answer accurately."
+        "Analyze risks, scam patterns, and phishing threats thoroughly but CONCISELY. "
+        "Do NOT include any URLs, links, or source citations inside your response text. "
+        "CRITICAL: If context is provided, answer EXACTLY what is asked based ONLY on that context without adding unrequested details."
     ),
     "mitra": (
         "You are Mitra, a friendly and expert Financial Consultant. "
         "Always respond in clear, fluent ENGLISH. "
         "Only switch to Hindi or Hinglish if the user EXPLICITLY uses Hindi or asks you to speak Hindi. "
-        "Provide accurate, helpful financial guidance. "
-        "Do NOT include any URLs, links, or source citations inside your response text — "
-        "sources are handled separately and will be shown in the Evidence panel."
-        "\n\nIf document context is provided below, use it to answer accurately."
+        "Provide accurate, helpful financial guidance but be very CONCISE. "
+        "Do NOT include any URLs, links, or source citations inside your response text. "
+        "NEW FEATURE: If the user asks for a chart, visualization, or trend (e.g., 'Plot my expenses'), you can generate an interactive chart. "
+        "To generate a chart, include a JSON block in this EXACT format (only use numeric values for 'value'): "
+        "[CHART:{\"type\":\"bar|line|area|pie\",\"data\":[{\"name\":\"Label\",\"value\":10},...],\"title\":\"Chart Title\"}] "
+        "CRITICAL: If context is provided, answer EXACTLY what is asked based ONLY on that context without adding unrequested details. Stop when you have answered."
     ),
 }
 
@@ -107,15 +109,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register the documents router
+# Register the documents and chats routers
 app.include_router(documents_router, prefix="/documents", tags=["documents"])
+app.include_router(chats_router, prefix="/chats", tags=["chats"])
 
 
 @app.post("/chat/stream")
 async def streaming_chat(request: ChatRequest):
     message       = request.message
     is_local_only = request.is_local_only
-    deep_research = request.deep_research and not is_local_only
+    deep_research = request.deep_research
     session_id    = request.session_id
     agent_name    = route(message, request.agent)
 
@@ -150,7 +153,7 @@ async def streaming_chat(request: ChatRequest):
                 from rag.retriever import query_dual_rag
                 rag_result = await query_dual_rag(query=message, session_id=session_id, top_k=5)
                 if rag_result["has_results"]:
-                    extra_context += f"\n\nDOCUMENT CONTEXT (answer from this):\n{rag_result['formatted']}"
+                    extra_context += f"\n\n--- RELEVANT DOCUMENT CONTEXT ---\n{rag_result['formatted']}\n-----------------------------------\n\nIf the answer to the user's question is in the context above, strictly use it and be concise. Do NOT add unrequested info."
                     rag_sources = rag_result["sources"]
                     if rag_sources:
                         yield f"data: {json.dumps({'rag_sources': rag_sources})}\n\n"

@@ -35,8 +35,8 @@ UUID_RE = re.compile(
 )
 
 def _validate_session(session_id: str) -> None:
-    if not UUID_RE.match(session_id):
-        raise HTTPException(status_code=400, detail="Invalid session_id — must be a UUID.")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Invalid session_id.")
 
 def _user_collection_name(session_id: str) -> str:
     return f"user_docs_{session_id}"
