@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Send, User, Bot, Sparkles, RefreshCw, AlertTriangle, Globe, ChevronDown, ChevronUp, ExternalLink, FileText, Cpu, Paperclip, Plus, X, Image as ImageIcon, Database, CheckCircle2, History, Mic, MicOff, Download, PieChart as ChartIcon } from "lucide-react";
+import { Send, User, Bot, Sparkles, Globe, ChevronDown, ChevronUp, ExternalLink, Cpu, Paperclip, Plus, X, History, Mic, MicOff, Download, FileText, Image as ImageIcon, Database, LineChart as ChartIcon } from "lucide-react";
 import { getSessionId } from "@/lib/session";
 import ChartRenderer from "./ChartRenderer";
 import { jsPDF } from "jspdf";
@@ -139,7 +139,7 @@ export default function Chat() {
     }
   }, []);
 
-  const toggleRecording = () => {
+  const toggleRecording = useCallback(() => {
     if (isRecording) {
       isRecordingRef.current = false;
       setIsRecording(false);
@@ -160,9 +160,9 @@ export default function Chat() {
         } catch(e2) {}
       }
     }
-  };
+  }, [input, isRecording]);
 
-  const handleDownloadReport = () => {
+  const handleDownloadReport = useCallback(() => {
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
@@ -195,7 +195,29 @@ export default function Chat() {
     });
     
     doc.save(`ArthMitra_Report_${currentSessionId.substring(0,6)}.pdf`);
-  };
+  }, [messages, currentSessionId]);
+
+  const saveToBackend = useCallback(async (sid: string, msgs: Message[]) => {
+    if (!sid || msgs.length === 0) return;
+    try {
+      const title = msgs.find(m => m.role === 'user')?.content.substring(0, 30) + "..." || "New Chat";
+      await fetch(`${API_BASE}/chats/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: sid,
+          title,
+          timestamp: Date.now(),
+          messages: msgs,
+          user_id: "default_user"
+        })
+      });
+      // Refresh history list
+      const listRes = await fetch(`${API_BASE}/chats/list`);
+      const hList = await listRes.json();
+      setHistoryList(hList || []);
+    } catch(e) {}
+  }, []);
 
   // Initialize and load session history
   useEffect(() => {
@@ -227,29 +249,7 @@ export default function Chat() {
     };
 
     initHistory();
-  }, []);
-
-  const saveToBackend = async (sid: string, msgs: Message[]) => {
-    if (!sid || msgs.length === 0) return;
-    try {
-      const title = msgs.find(m => m.role === 'user')?.content.substring(0, 30) + "..." || "New Chat";
-      await fetch(`${API_BASE}/chats/save`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: sid,
-          title,
-          timestamp: Date.now(),
-          messages: msgs,
-          user_id: "default_user"
-        })
-      });
-      // Refresh history list
-      const listRes = await fetch(`${API_BASE}/chats/list`);
-      const hList = await listRes.json();
-      setHistoryList(hList || []);
-    } catch(e) {}
-  };
+  }, [saveToBackend]);
 
   // Save to backend on change
   useEffect(() => {
@@ -258,7 +258,7 @@ export default function Chat() {
       const timeout = setTimeout(() => saveToBackend(currentSessionId, messages), 1000);
       return () => clearTimeout(timeout);
     }
-  }, [messages, currentSessionId]);
+  }, [messages, currentSessionId, saveToBackend]);
 
   // Load docs when session changes
   useEffect(() => {
@@ -273,16 +273,16 @@ export default function Chat() {
     fetchDocs();
   }, [currentSessionId]);
 
-  const handleNewSession = () => {
+  const handleNewSession = useCallback(() => {
     const newSid = "sid_" + Math.random().toString(36).substring(2, 11);
     localStorage.setItem("arthmitra_session_id", newSid);
     setCurrentSessionId(newSid);
     setMessages([]);
     setActiveDocs([]);
     setExpandedSources({});
-  };
+  }, []);
 
-  const switchSession = async (sid: string) => {
+  const switchSession = useCallback(async (sid: string) => {
     localStorage.setItem("arthmitra_session_id", sid);
     setCurrentSessionId(sid);
     setExpandedSources({});
@@ -294,8 +294,8 @@ export default function Chat() {
       } else {
         setMessages([]);
       }
-    } catch(e) { setMessages([]) }
-  };
+    } catch { setMessages([]) }
+  }, []);
 
 
   useEffect(() => {
@@ -405,7 +405,7 @@ export default function Chat() {
     }
   }, [isLoading, isStreaming, isWebSearchEnabled, isDeepSearchEnabled, currentSessionId]);
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = useCallback(async (file: File) => {
     if (file.size > 10 * 1024 * 1024) return;
     setIsUploading(true);
     const formData = new FormData();
@@ -420,10 +420,10 @@ export default function Chat() {
         const listData = await listRes.json();
         if (listData.documents) setActiveDocs(listData.documents);
       }
-    } catch (e) {} finally { setIsUploading(false); }
-  };
+    } catch {} finally { setIsUploading(false); }
+  }, [currentSessionId]);
 
-  const handleRemoveDocument = async (filename: string) => {
+  const handleRemoveDocument = useCallback(async (filename: string) => {
     try {
       const res = await fetch(`${API_BASE}/documents/remove/${encodeURIComponent(filename)}?session_id=${currentSessionId}`, {
         method: "DELETE",
@@ -433,34 +433,68 @@ export default function Chat() {
         const listData = await listRes.json();
         setActiveDocs(listData.documents || []);
       }
-    } catch (e) {}
-  };
+    } catch {}
+  }, [currentSessionId]);
 
-  const handleSend = () => sendMessage(input);
+  const handleSend = useCallback(() => {
+    if (!input.trim()) return;
+    sendMessage(input);
+  }, [input, sendMessage]);
 
   const renderMessageContent = (msg: Message) => {
-    // Sources come from the SSE metadata event (msg.sources), NOT from response text
     const shouldShowSources = msg.isDeepResearchResult && msg.sources && msg.sources.length > 0;
 
     return (
       <div className="space-y-4 relative pb-2 overflow-hidden">
         <div className="whitespace-pre-wrap leading-relaxed">
           {(() => {
-            const chartPattern = /\[CHART:({.*?})\]/g;
+            const content = msg.content;
             const parts = [];
             let lastIdx = 0;
-            let match;
-            while ((match = chartPattern.exec(msg.content)) !== null) {
-              parts.push(msg.content.slice(lastIdx, match.index));
-              try {
-                const chartData = JSON.parse(match[1]);
-                parts.push(<ChartRenderer key={match.index} type={chartData.type} data={chartData.data} title={chartData.title} />);
-              } catch (e) {
-                parts.push(<div className="text-xs text-red-400 bg-red-400/10 p-2 rounded">Error rendering chart: Malformed data</div>);
+            
+            let startIdx = content.indexOf("[CHART:");
+            while (startIdx !== -1) {
+              parts.push(<span key={`text-${lastIdx}`}>{content.slice(lastIdx, startIdx)}</span>);
+              
+              let jsonStartIdx = content.indexOf("{", startIdx);
+              if (jsonStartIdx !== -1) {
+                let bracketCount = 0;
+                let jsonEndIdx = -1;
+                
+                for (let i = jsonStartIdx; i < content.length; i++) {
+                  if (content[i] === "{") bracketCount++;
+                  else if (content[i] === "}") bracketCount--;
+                  
+                  if (bracketCount === 0) {
+                    jsonEndIdx = i;
+                    break;
+                  }
+                }
+                
+                if (jsonEndIdx !== -1) {
+                  const blockEndIdx = content.indexOf("]", jsonEndIdx);
+                  if (blockEndIdx !== -1) {
+                    const rawJson = content.slice(jsonStartIdx, jsonEndIdx + 1);
+                    try {
+                      const chartData = JSON.parse(rawJson);
+                      parts.push(<ChartRenderer key={`chart-${startIdx}`} type={chartData.type} data={chartData.data} title={chartData.title} />);
+                    } catch (e) {
+                      parts.push(<div key={`err-${startIdx}`} className="my-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400">Malformed Data Block</div>);
+                    }
+                    lastIdx = blockEndIdx + 1;
+                  } else {
+                    lastIdx = jsonEndIdx + 1;
+                  }
+                } else {
+                  parts.push(<span key={`partial-${startIdx}`} className="text-cyan-500 animate-pulse text-[10px] px-2 italic uppercase tracking-widest font-black">Synthesizing...</span>);
+                  lastIdx = jsonStartIdx + 1;
+                }
+              } else {
+                lastIdx = startIdx + 7;
               }
-              lastIdx = chartPattern.lastIndex;
+              startIdx = content.indexOf("[CHART:", lastIdx);
             }
-            parts.push(msg.content.slice(lastIdx));
+            parts.push(<span key="text-end">{content.slice(lastIdx)}</span>);
             return parts.length > 1 ? parts : msg.content;
           })()}
           {isStreaming && msg.id === messages[messages.length-1].id && msg.role === "bot" && <BlinkingCursor />}
@@ -506,108 +540,108 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex h-[650px] bg-slate-900/40 border border-white/5 rounded-[2.5rem] overflow-hidden backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+    <div className="flex flex-col h-[calc(100vh-220px)] min-h-[500px] rounded-3xl border border-white/[0.06] bg-white/[0.015] backdrop-blur-2xl overflow-hidden">
       
-      {/* Sidebar Panel */}
+      {/* ─── Minimal Chat Header ─── */}
+      <div className="px-5 py-3.5 border-b border-white/[0.06] flex justify-between items-center bg-white/[0.01]">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.08] transition-all">
+            <History className="w-4 h-4" />
+          </button>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white leading-none">Mitra AI</h3>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]" />
+                <span className="text-[10px] text-slate-500 font-semibold">Online</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button onClick={() => { setIsWebSearchEnabled(!isWebSearchEnabled); if (isWebSearchEnabled) setIsDeepSearchEnabled(false); }} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${isWebSearchEnabled ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-white/[0.03] border-white/[0.06] text-slate-500"}`}>
+            <Globe className="w-3 h-3" />
+            {isWebSearchEnabled ? "Web" : "Local"}
+          </button>
+          <AnimatePresence>
+            {isWebSearchEnabled && (
+              <motion.button initial={{ opacity: 0, scale: 0.9, width: 0 }} animate={{ opacity: 1, scale: 1, width: "auto" }} exit={{ opacity: 0, scale: 0.9, width: 0 }} onClick={() => setIsDeepSearchEnabled(!isDeepSearchEnabled)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border overflow-hidden ${isDeepSearchEnabled ? "bg-violet-500/10 border-violet-500/20 text-violet-400" : "bg-white/[0.03] border-white/[0.06] text-slate-500"}`}>
+                <Sparkles className="w-3 h-3" />
+                Deep
+              </motion.button>
+            )}
+          </AnimatePresence>
+          <button onClick={handleNewSession} className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all" title="New Chat">
+            <Plus className="w-4 h-4" />
+          </button>
+          {messages.length > 0 && (
+            <button onClick={handleDownloadReport} className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all" title="Export PDF">
+              <Download className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ─── History Drawer (slides down from top) ─── */}
       <AnimatePresence>
         {isSidebarOpen && (
           <motion.div 
-            initial={{ width: 0, opacity: 0 }} 
-            animate={{ width: 280, opacity: 1 }} 
-            exit={{ width: 0, opacity: 0 }} 
-            className="border-r border-white/5 bg-slate-950/50 flex flex-col overflow-hidden"
+            initial={{ height: 0, opacity: 0 }} 
+            animate={{ height: "auto", opacity: 1 }} 
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="border-b border-white/[0.06] bg-white/[0.02] overflow-hidden"
           >
-            <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-              <h3 className="font-extrabold text-white text-sm tracking-widest uppercase">History</h3>
-              <button onClick={() => setIsSidebarOpen(false)} className="p-1 rounded-md hover:bg-white/10 text-slate-400 hover:text-white transition-all"><X className="w-4 h-4" /></button>
-            </div>
-            
-            <div className="p-4 space-y-3">
-              <button onClick={handleNewSession} className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold rounded-xl hover:bg-emerald-500/20 transition-all uppercase tracking-widest text-[11px] shadow-[0_0_15px_rgba(16,185,129,0.1)]">
-                <Plus className="w-3.5 h-3.5" />
-                New Chat
-              </button>
-              {messages.length > 0 && (
-                <button onClick={handleDownloadReport} className="w-full flex items-center justify-center gap-2 py-3 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-bold rounded-xl hover:bg-cyan-500/20 transition-all uppercase tracking-widest text-[11px] shadow-[0_0_15px_rgba(6,182,212,0.1)]">
-                  <Download className="w-3.5 h-3.5" />
-                  PDF Report
-                </button>
-              )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 custom-scrollbar">
-              {historyList.map(item => (
-                <div 
-                  key={item.id} 
-                  onClick={() => switchSession(item.id)}
-                  className={`p-3 rounded-xl border flex flex-col gap-1 cursor-pointer transition-all ${item.id === currentSessionId ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-50' : 'bg-white/[0.03] border-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-200'}`}
-                >
-                  <span className="text-xs font-bold leading-tight truncate">{item.title}</span>
-                  <span className="text-[9px] text-slate-500 uppercase font-mono tracking-wider">{new Date(item.timestamp).toLocaleDateString()}</span>
-                </div>
-              ))}
+            <div className="p-4 max-h-48 overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {historyList.map(item => (
+                  <button 
+                    key={item.id} 
+                    onClick={() => { switchSession(item.id); setIsSidebarOpen(false); }}
+                    className={`p-3 rounded-xl border text-left transition-all ${item.id === currentSessionId ? 'bg-violet-500/10 border-violet-500/20' : 'bg-white/[0.02] border-white/[0.04] hover:bg-white/[0.05]'}`}
+                  >
+                    <span className="text-[11px] font-bold text-slate-300 leading-tight line-clamp-1 block">{item.title}</span>
+                    <span className="text-[9px] text-slate-600 mt-1 block">{new Date(item.timestamp).toLocaleDateString()}</span>
+                  </button>
+                ))}
+                {historyList.length === 0 && (
+                  <p className="col-span-3 text-xs text-slate-600 text-center py-4">No chat history yet</p>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02] backdrop-blur-md">
-          <div className="flex items-center gap-4">
-            {!isSidebarOpen && (
-              <button 
-                onClick={() => setIsSidebarOpen(true)}
-                className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-cyan-400 hover:border-cyan-500/50 transition-all group shrink-0"
-              >
-                <History className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              </button>
-            )}
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.3)] shrink-0">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-          <div>
-            <h3 className="font-extrabold text-white text-lg tracking-tight italic">Mitra AI</h3>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" />
-              <span className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">Hinglish Guardian</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button onClick={() => { setIsWebSearchEnabled(!isWebSearchEnabled); if (isWebSearchEnabled) setIsDeepSearchEnabled(false); }} className={`flex items-center gap-2.5 px-4 py-2 rounded-xl text-[11px] font-black transition-all duration-300 border ${isWebSearchEnabled ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-slate-800 border-slate-700 text-slate-500 opacity-40"}`}>
-            <Globe className="w-3.5 h-3.5" />
-            {isWebSearchEnabled ? "Online" : "Offline"}
-          </button>
-          <AnimatePresence>
-            {isWebSearchEnabled && (
-              <motion.button initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} onClick={() => setIsDeepSearchEnabled(!isDeepSearchEnabled)} className={`flex items-center gap-2.5 px-4 py-2 rounded-xl text-[11px] font-black transition-all duration-300 border ${isDeepSearchEnabled ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400" : "bg-slate-800 border-slate-700 text-slate-500"}`}>
-                <Sparkles className="w-3.5 h-3.5" />
-                {isDeepSearchEnabled ? "Deep Search" : "Fast Search"}
-              </motion.button>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth custom-scrollbar">
+      {/* ─── Message Area ─── */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-6 space-y-6 scroll-smooth custom-scrollbar">
         {messages.length === 0 && !isLoading && (
-          <div className="h-full flex flex-col items-center justify-center text-slate-400/40 gap-6">
-            <div className="w-20 h-20 rounded-[2rem] bg-white/5 flex items-center justify-center">
-              <Sparkles className="w-10 h-10 opacity-20" />
+          <div className="h-full flex flex-col items-center justify-center gap-6">
+            {/* Iridescent Orb */}
+            <div className="relative w-20 h-20">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-400 via-fuchsia-300 to-cyan-400 opacity-40 blur-2xl animate-pulse" style={{ animationDuration: '4s' }} />
+              <div className="relative w-full h-full rounded-full bg-gradient-to-br from-violet-500/80 via-fuchsia-400/80 to-cyan-400/80 shadow-xl flex items-center justify-center">
+                <Sparkles className="w-8 h-8 text-white/70" />
+              </div>
             </div>
-            <p className="max-w-[280px] text-center text-sm font-medium italic">"Financial security ka bharosa, Mitra AI ka saath." 👋</p>
+            <div className="text-center space-y-2">
+              <p className="text-base font-bold text-white/60">How can I help you today?</p>
+              <p className="text-xs text-slate-500 max-w-xs">Example: "Explain SIP investment in simple terms" or "Check if this UPI link is safe"</p>
+            </div>
           </div>
         )}
         <AnimatePresence initial={false}>
           {messages.map((msg) => (
-            <motion.div key={msg.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className={`flex group ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`flex gap-4 max-w-[90%] ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 mt-1 border ${msg.role === "user" ? "bg-slate-800 border-white/5" : "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"}`}>
-                  {msg.role === "user" ? <User className="w-5 h-5 text-slate-500" /> : <Bot className="w-5 h-5" />}
+            <motion.div key={msg.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className={`flex gap-3 max-w-[85%] ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 ${msg.role === "user" ? "bg-violet-500/10" : "bg-cyan-500/10"}`}>
+                  {msg.role === "user" ? <User className="w-4 h-4 text-violet-400" /> : <Bot className="w-4 h-4 text-cyan-400" />}
                 </div>
-                <div className={`px-5 py-4 rounded-3xl text-[14px] leading-relaxed tracking-wide shadow-2xl ${msg.role === "user" ? "bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-tr-none" : "bg-slate-800/60 text-slate-200 rounded-tl-none border border-white/5 backdrop-blur-md"}`}>
+                <div className={`px-4 py-3 rounded-2xl text-[13.5px] leading-relaxed ${msg.role === "user" ? "bg-gradient-to-br from-violet-600 to-indigo-700 text-white rounded-tr-sm" : "bg-white/[0.04] text-slate-200 rounded-tl-sm border border-white/[0.06]"}`}>
                   {renderMessageContent(msg)}
                 </div>
               </div>
@@ -617,53 +651,82 @@ export default function Chat() {
         {isLoading && <TypingDots />}
       </div>
 
-      <div className="p-6 bg-slate-950/40 border-t border-white/5 backdrop-blur-3xl">
+      {/* ─── Input Area (NanoAI style) ─── */}
+      <div className="px-5 pb-5 pt-3 space-y-3">
+        {/* Active Documents */}
         {activeDocs.length > 0 && (
-          <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
-            {activeDocs.map((doc, i) => (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.8 }} 
-                animate={{ opacity: 1, scale: 1 }}
-                key={i} 
-                className="flex items-center gap-2 px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-full text-[10px] text-cyan-400 font-bold whitespace-nowrap shadow-[0_0_10px_rgba(6,182,212,0.1)] group cursor-default"
-                title={`Active Document: ${doc.filename} (${doc.type || 'File'}) - Integrated in context`}
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                {doc.filename}
-                <button 
-                  onClick={() => handleRemoveDocument(doc.filename)}
-                  className="ml-1 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-opacity p-0.5 rounded-full hover:bg-cyan-500/20"
-                  title="Remove Document from Context"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </motion.div>
-            ))}
+          <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+            {activeDocs.map((doc, i) => {
+              const ext = doc.filename.split('.').pop()?.toLowerCase();
+              const getIcon = () => {
+                if (['pdf'].includes(ext)) return <FileText className="w-3 h-3" />;
+                if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) return <ImageIcon className="w-3 h-3" />;
+                if (['csv', 'xlsx', 'xls'].includes(ext)) return <Database className="w-3 h-3" />;
+                return <FileText className="w-3 h-3" />;
+              };
+              return (
+                <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} key={i} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.04] border border-white/[0.06] rounded-xl text-[10px] text-slate-300 font-semibold whitespace-nowrap group">
+                  <div className="text-cyan-400">{getIcon()}</div>
+                  {doc.filename}
+                  <button onClick={() => handleRemoveDocument(doc.filename)} className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"><X className="w-3 h-3" /></button>
+                </motion.div>
+              );
+            })}
           </div>
         )}
-        <div className="relative flex gap-3 max-w-5xl mx-auto">
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading || isLoading}
-            className={`px-4 py-4 bg-slate-900/50 border border-white/10 rounded-2xl flex items-center justify-center hover:bg-slate-800 transition-all group ${activeDocs.length > 0 ? 'border-cyan-500/30 bg-cyan-500/5' : ''}`}
-            title="Upload Document (PDF, Image, CSV, Text)"
-          >
-            <Paperclip className={`w-5 h-5 transition-all ${isUploading ? 'text-emerald-400 animate-bounce' : activeDocs.length > 0 ? 'text-cyan-400' : 'text-slate-400 group-hover:text-white'}`} />
-          </button>
 
-          <input type="file" className="hidden" ref={fileInputRef} onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} accept=".pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,.xls,.txt" />
-          
-          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()} placeholder={isUploading ? "Uploading file..." : "Ask Mitra... (Documents & Search active)"} disabled={isLoading || isStreaming} className="flex-1 bg-slate-900/50 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-white" />
-          
-          <button onClick={toggleRecording} className={`w-14 h-14 rounded-2xl border transition-all flex items-center justify-center outline-none ${isRecording ? 'bg-red-500/20 border-red-500 animate-pulse text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-slate-900/50 border-white/10 text-slate-400 hover:text-white hover:bg-slate-800'}`}>
-            {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+        {/* Main Input Bar */}
+        <div className="relative flex items-center gap-2 bg-white/[0.03] border border-white/[0.08] rounded-2xl px-4 py-1 shadow-lg shadow-black/10 focus-within:border-violet-500/30 focus-within:shadow-violet-500/5 transition-all">
+          <span className="text-slate-600 text-lg select-none">+</span>
+          <input 
+            id="chat-input" 
+            value={input} 
+            onChange={(e) => setInput(e.target.value)} 
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()} 
+            placeholder={isUploading ? "Uploading file..." : 'Example: "Explain quantum computing in simple terms"'} 
+            disabled={isLoading || isStreaming} 
+            className="flex-1 bg-transparent py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none" 
+          />
+          <button onClick={toggleRecording} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isRecording ? 'bg-red-500/20 text-red-400' : 'text-slate-500 hover:text-white hover:bg-white/[0.06]'}`}>
+            {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
-
-          <button onClick={handleSend} disabled={!input.trim() || isLoading} className="px-6 py-4 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl shadow-xl shadow-cyan-500/20 active:scale-95 transition-all outline-none">
-            <Send className="w-5 h-5 text-white" />
+          <button onClick={handleSend} disabled={!input.trim() || isLoading} className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-30">
+            <Send className="w-4 h-4 text-white" />
           </button>
         </div>
-      </div>
+
+        {/* Contextual Action Chips (NanoAI style) */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button 
+            onClick={() => { setIsDeepSearchEnabled(!isDeepSearchEnabled); if (!isWebSearchEnabled) setIsWebSearchEnabled(true); }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${isDeepSearchEnabled ? 'bg-violet-500/10 border-violet-500/20 text-violet-400' : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
+          >
+            <Sparkles className="w-3 h-3" /> Deep Research
+          </button>
+          <button 
+            onClick={() => {
+              setInput("[CHART:{\"type\":\"bar\",\"title\":\"My Data\",\"data\":[{\"name\":\"A\",\"value\":10},{\"name\":\"B\",\"value\":20}]}]");
+              setTimeout(() => { document.getElementById("chat-input")?.focus(); }, 100);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold bg-white/[0.02] border border-white/[0.05] text-slate-500 hover:text-slate-300 hover:bg-white/[0.04] transition-all"
+          >
+            <ChartIcon className="w-3 h-3" /> Chart
+          </button>
+          <button 
+            onClick={() => { setIsWebSearchEnabled(!isWebSearchEnabled); if (isWebSearchEnabled) setIsDeepSearchEnabled(false); }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${isWebSearchEnabled ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
+          >
+            <Globe className="w-3 h-3" /> Search
+          </button>
+          <button 
+            onClick={() => fileInputRef.current?.click()} 
+            disabled={isUploading || isLoading}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${activeDocs.length > 0 ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
+          >
+            <Paperclip className={`w-3 h-3 ${isUploading ? 'animate-bounce' : ''}`} /> Attach
+          </button>
+          <input type="file" className="hidden" ref={fileInputRef} onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} accept=".pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,.xls,.txt" />
+        </div>
       </div>
     </div>
   );

@@ -13,8 +13,8 @@
   --color-amber-400: 251 191 36;
   --color-red-500: 239 68 68;
 
-  --glass-bg: rgba(15, 23, 42, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-bg: rgba(10, 18, 38, 0.72);
+  --glass-border: rgba(148, 163, 184, 0.18);
 }
 
 * {
@@ -75,17 +75,19 @@ body {
 /* Glass Morphism Effect */
 @layer utilities {
   .glass {
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: linear-gradient(135deg, rgba(12, 20, 40, 0.78), rgba(2, 6, 23, 0.92));
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--glass-border);
+    box-shadow: 0 24px 60px rgba(2, 6, 23, 0.55);
   }
 
   .glass-strong {
-    background: rgba(15, 23, 42, 0.8);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: linear-gradient(140deg, rgba(15, 23, 42, 0.88), rgba(2, 6, 23, 0.96));
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    box-shadow: 0 28px 70px rgba(2, 6, 23, 0.65);
   }
 }
 
@@ -185,13 +187,16 @@ body {
 /* Button Styles */
 @layer components {
   .btn-primary {
-    @apply px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-xl
-           transition-all duration-200 active:scale-95 shadow-lg shadow-cyan-500/20;
+    @apply px-8 py-3.5 text-white font-semibold rounded-xl
+           transition-all duration-200 active:scale-95 shadow-lg 
+           bg-gradient-to-r from-cyan-600 to-emerald-600
+           hover:from-cyan-500 hover:to-emerald-500
+           shadow-cyan-500/20 hover:shadow-cyan-500/30;
   }
 
   .btn-secondary {
-    @apply px-6 py-3 bg-slate-700 hover:bg-slate-600 text-slate-100 font-semibold rounded-xl
-           transition-all duration-200 active:scale-95;
+    @apply px-6 py-3 bg-white/10 hover:bg-white/15 text-slate-100 font-semibold rounded-xl
+           transition-all duration-200 active:scale-95 border border-white/20 hover:border-white/40;
   }
 
   .btn-danger {
@@ -200,33 +205,35 @@ body {
   }
 
   .btn-ghost {
-    @apply px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800/50 rounded-lg
-           transition-all duration-200;
+    @apply px-6 py-3 text-slate-100 bg-white/5 border border-white/20 rounded-xl
+           hover:bg-white/10 hover:border-white/40 transition-all duration-200;
   }
 }
 
 /* Input Styles */
 @layer components {
   .input-field {
-    @apply w-full bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-3
+    @apply w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3
            text-sm text-slate-100 placeholder-slate-500
            focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-transparent
            transition-all duration-200;
   }
 
   .input-field:focus {
-    @apply shadow-lg shadow-cyan-500/10;
+    @apply shadow-lg shadow-cyan-500/10 border-white/30;
   }
 }
 
 /* Card Styles */
 @layer components {
   .card {
-    @apply bg-slate-900/50 border border-slate-800 rounded-2xl backdrop-blur-md;
+    @apply bg-slate-900/50 border border-white/10 rounded-2xl backdrop-blur-xl 
+           shadow-[0_20px_50px_rgba(2,6,23,0.5)];
   }
 
   .card-hover {
-    @apply card hover:border-slate-700 hover:shadow-lg transition-all duration-200;
+    @apply card hover:border-cyan-500/40 hover:shadow-[0_26px_70px_rgba(14,116,144,0.3)] 
+           transition-all duration-300;
   }
 }
 
@@ -295,6 +302,29 @@ body {
     text-wrap: balance;
   }
 
+  .bg-aurora {
+    background-image:
+      radial-gradient(1200px circle at 10% 10%, rgba(34, 211, 238, 0.18), transparent 55%),
+      radial-gradient(900px circle at 90% 15%, rgba(168, 85, 247, 0.16), transparent 50%),
+      radial-gradient(800px circle at 20% 85%, rgba(16, 185, 129, 0.18), transparent 55%),
+      linear-gradient(180deg, rgba(2, 6, 23, 0.9), rgba(2, 6, 23, 1));
+  }
+
+  .bg-hero {
+    background-image:
+      radial-gradient(520px circle at 15% 20%, rgba(56, 189, 248, 0.25), transparent 60%),
+      radial-gradient(480px circle at 85% 15%, rgba(168, 85, 247, 0.22), transparent 55%),
+      radial-gradient(420px circle at 30% 85%, rgba(16, 185, 129, 0.25), transparent 60%);
+  }
+
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.6), transparent 75%);
+  }
+
   .gradient-border {
     position: relative;
     background: var(--glass-bg);
@@ -346,7 +376,7 @@ body {
 }
 
 /* Responsive Text Sizes */
-@responsive {
+@layer utilities {
   .text-responsive-xs {
     font-size: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
   }
