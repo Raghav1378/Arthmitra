@@ -114,6 +114,21 @@ app.include_router(documents_router, prefix="/documents", tags=["documents"])
 app.include_router(chats_router, prefix="/chats", tags=["chats"])
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Ensure ML models are trained at startup."""
+    try:
+        from app.shield_ml import check_or_train
+        check_or_train()
+        logger.info("Scam Shield ML models verified/trained.")
+    except Exception as e:
+        logger.error(f"Failed to initialize Scam Shield ML: {e}")
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "ArthMitra API"}
+
+
 @app.post("/chat/stream")
 async def streaming_chat(request: ChatRequest):
     message       = request.message
@@ -211,112 +226,101 @@ class ScamAnalyzeRequest(BaseModel):
     time_of_message: Optional[str] = None
     message_frequency: Optional[str] = None
 
-SCAM_SHIELD_SYSTEM_PROMPT = """You are "Scam Shield Antigravity v2", an advanced fraud detection AI designed for REAL-WORLD financial scam detection.
+SCAM_SHIELD_SYSTEM_PROMPT = """You are a financial fraud detection engine analyzing payment-related messages.
 
-Your goal is HIGH RECALL with TARGETED PRECISION:
-- Do not miss scams
-- But do NOT classify everything as HIGH_RISK or SCAM
-- Use balanced judgment with proper confidence
-- Understand Hinglish + Indian context (SBI, HDFC, RBI, Paytm, PhonePe, BHIM)
+CRITICAL RULES:
+- Return ONLY valid JSON
+- No explanations, no markdown, no extra text
+- Output must start with { and end with }
 
----
-STEP 1: SIGNAL DETECTION
-Detect the following signals strictly. Do NOT over-interpret neutral text:
+--------------------------------------
 
-STRONG SIGNALS:
-- Threat: ONLY classify if explicit negative consequence mentioned ("account will be blocked", "legal action will be taken", "account suspended"). Do NOT mark "verify account" or "confirm request" as threats.
-- Payment request: UPI, OTP, fee, collect request
-- Suspicious link: fake domains, shortened URLs
-- Sensitive info request: OTP, password, CVV
+INPUT:
+{input_value}
 
-MEDIUM SIGNALS:
-- Urgency: "urgent", "act now", "limited time"
-- Authority impersonation: SBI, RBI, Paytm, Govt, etc.
-- Prize / job / reward claims
+--------------------------------------
 
-WEAK SIGNALS:
-- Simple reminders
-- Mild urgency without threat
-- Generic system notifications
+STEP 1: DETECT INTENT
+Classify if message involves:
+- payment request
+- urgency
+- verification (KYC / bank / OTP)
+- reward / prize / refund
 
----
-STEP 2: RISK SCORING (IMPORTANT)
-Assign internal score:
-- Each STRONG signal = +40
-- Each MEDIUM signal = +20
-- Each WEAK signal = +5
+--------------------------------------
 
-Add behavioral modifiers:
-- Odd timing = +10 (ONLY TRUE if between 12:00 AM - 6:00 AM, OR late-night spam pattern after 11 PM with repetition. DO NOT mark morning/afternoon/early evening as odd timing.)
-- Repeated messages = +10
+STEP 2: DETECT SCAM SIGNALS
 
----
-STEP 3: DECISION RULE & VERDICT MAPPING
-Rule of thumb:
-- Payment request alone -> SUSPICIOUS
-- Urgency alone -> SAFE or SUSPICIOUS
-- Link + payment -> HIGH_RISK
-- Threat + urgency -> HIGH_RISK
+HIGH RISK:
+- urgency ("urgent", "immediately", "now")
+- threats ("account blocked", "legal action")
+- KYC / OTP requests
+- asking money for verification
 
-Map risk score to final verdict strictly:
-- 0-29 -> SAFE (no real scam signals exist)
-- 30-69 -> SUSPICIOUS (borderline cases, partial signals)
-- 70-100 -> HIGH_RISK (multiple strong signals)
+MEDIUM RISK:
+- unknown person asking money
+- reward / lottery claims
+- refund traps
 
----
-STEP 4: CONFIDENCE CALIBRATION (CRITICAL)
-Confidence must vary and reflect true signal strength. Do NOT default to 75 or 90.
-- 85-95 -> multiple strong signals (clear scam)
-- 65-85 -> strong + medium signals
-- 45-65 -> only medium signals
-- 25-45 -> weak signals only
-- 10-25 -> no meaningful signals
+LOW RISK:
+- normal casual payment request
 
----
-STEP 5: SCAM TYPE DETECTION
-Choose one:
-- kyc
-- upi
-- phishing
-- job
-- lottery
-- delivery
-- impersonation
-- unknown
+--------------------------------------
 
----
-STEP 6: OUTPUT (STRICT JSON)
+STEP 3: RISK SCORE
+
+Initialize risk_score = 0
+
+- urgency → +25  
+- threat language → +30  
+- KYC / OTP → +40  
+- payment request → +20  
+- reward / lottery → +30  
+
+--------------------------------------
+
+STEP 4: FINAL LABEL
+
+risk_score <= 20 → SAFE  
+21–50 → LOW  
+51–75 → SUSPICIOUS  
+>75 → HIGH  
+
+--------------------------------------
+
+STEP 5: CONFIDENCE
+
+SAFE → 80–95  
+LOW → 60–80  
+SUSPICIOUS → 40–70  
+HIGH → 70–95  
+
+--------------------------------------
+
+STEP 6: OUTPUT
+
 {
-  "final_decision": {
-    "risk": "SAFE | SUSPICIOUS | HIGH_RISK",
-    "confidence": 0-100,
-    "risk_score": 0-100,
-    "scam_type": "type"
-  },
-  "signals_detected": {
-    "strong": ["list of detected strong signals"],
-    "medium": ["list of detected medium signals"],
-    "weak": ["list of detected weak signals"],
-    "behavioral": ["list of detected behavioral modifiers"]
+  "type": "transaction_message",
+  "risk": "SAFE | LOW | SUSPICIOUS | HIGH",
+  "confidence": number,
+  "risk_score": number,
+  "intent_detected": {
+    "payment_request": boolean,
+    "urgency": boolean,
+    "threat": boolean,
+    "kyc_request": boolean,
+    "reward_trap": boolean
   },
   "reasoning": {
     "summary": "short explanation",
-    "detailed_reasons": [
-      "reason 1",
-      "reason 2"
-    ]
+    "details": ["point 1", "point 2"]
   },
-  "user_advice": [
-    "clear actionable advice"
+  "advice": [
+    "Do not send money if unsure",
+    "Verify from official source"
   ]
 }
-
----
-RULES:
-- Be precise, not paranoid. Do NOT classify everything as scam.
-- Use SUSPICIOUS properly for borderline cases.
-- SAFE must be used when no real scam signals exist.
-- Return ONLY the JSON object, no other text."""
+"""
 
 @app.post("/scam/analyze")
 async def scam_analyze(request: ScamAnalyzeRequest):
@@ -599,6 +603,151 @@ async def scam_behavior(request: BehaviorAnalyzeRequest):
         raise HTTPException(status_code=500, detail="Analysis returned malformed output")
     except Exception as e:
         logger.error(f"Scam Behavior error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class LinkAnalyzeRequest(BaseModel):
+    input_value: str
+
+SCAM_LINK_UPI_SYSTEM_PROMPT = """You are a cybersecurity analysis engine for detecting scam links and UPI IDs.
+
+CRITICAL OUTPUT RULES:
+- You MUST return ONLY valid JSON.
+- Do NOT include explanations, markdown, headings, or text before/after JSON.
+- Output MUST start with { and end with }.
+- If you fail, the system will crash.
+
+--------------------------------------
+
+INPUT:
+{input_value}
+
+--------------------------------------
+
+STEP 1: IDENTIFY TYPE
+- If contains "http", "https", "www" → type = "url"
+- If contains "@" → type = "upi"
+- Else → type = "unknown"
+
+--------------------------------------
+
+STEP 2: URL ANALYSIS (if type = url)
+Check:
+- fake_domain (typos like paytm-secure, g00gle)
+- brand_impersonation (sbi, paytm, phonepe, gpay misuse)
+- suspicious_tld (.xyz, .top, .click, .ru)
+- shortened_link (bit.ly, tinyurl)
+
+--------------------------------------
+
+STEP 3: UPI ANALYSIS (if type = upi)
+
+IMPORTANT:
+- Numbers in UPI IDs are COMMON in India → NOT a strong risk signal
+- Do NOT mark UPI as suspicious just because it contains numbers
+
+Check:
+
+HIGH RISK:
+- impersonation words → "support", "help", "bank", "refund", "kyc", "official"
+- examples: sbi-support@upi, helpdesk@okaxis
+
+MEDIUM RISK:
+- suspicious words → "urgent", "claim", "lottery", "prize", "win"
+
+LOW RISK (NORMAL):
+- name + numbers → rahul123@okaxis
+- firstname.lastname@bank
+
+--------------------------------------
+
+STEP 4: RISK SCORING
+
+Initialize risk_score = 0
+
+URL:
+- fake_domain → +40
+- impersonation → +30
+- suspicious_tld → +20
+- shortened → +10
+
+UPI:
+- impersonation → +50
+- suspicious words → +30
+- random numbers ONLY → +5 (very weak signal)
+
+--------------------------------------
+
+STEP 5: FINAL LABEL
+
+risk_score <= 20 → SAFE  
+21–50 → LOW  
+51–75 → SUSPICIOUS  
+>75 → HIGH  
+
+--------------------------------------
+
+STEP 6: CONFIDENCE
+
+SAFE → 80–95  
+LOW → 60–80  
+SUSPICIOUS → 40–70  
+HIGH → 70–95  
+
+--------------------------------------
+
+STEP 7: OUTPUT FORMAT
+
+Return ONLY this JSON:
+
+{
+  "type": "url | upi | unknown",
+  "risk": "SAFE | LOW | SUSPICIOUS | HIGH",
+  "confidence": number,
+  "risk_score": number,
+  "signals_detected": {
+    "fake_domain": boolean,
+    "brand_impersonation": boolean,
+    "suspicious_tld": boolean,
+    "shortened_link": boolean,
+    "random_upi": boolean
+  },
+  "reasoning": {
+    "summary": "short explanation",
+    "details": ["point 1", "point 2"]
+  },
+  "advice": ["action 1", "action 2"]
+}
+"""
+
+@app.post("/scam/link_upi")
+async def scam_link_upi(request: LinkAnalyzeRequest):
+    """
+    Scam Shield Link & UPI Analyst — detects phishing links and suspicious payment handles.
+    """
+    try:
+        llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.1)
+        response = await llm.ainvoke([
+            SystemMessage(content=SCAM_LINK_UPI_SYSTEM_PROMPT),
+            HumanMessage(content=f"input_value: {request.input_value}"),
+        ])
+        
+        raw = response.content.strip()
+
+        # Extract JSON from response (handle if model wraps in markdown)
+        if "```json" in raw:
+            raw = raw.split("```json")[1].split("```")[0].strip()
+        elif "```" in raw:
+            raw = raw.split("```")[1].split("```")[0].strip()
+
+        result = json.loads(raw)
+        return result
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Scam Link/UPI JSON parse error: {e}\nRaw: {raw}")
+        raise HTTPException(status_code=500, detail="Analysis returned malformed output")
+    except Exception as e:
+        logger.error(f"Scam Link/UPI error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

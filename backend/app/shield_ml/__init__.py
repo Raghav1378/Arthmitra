@@ -85,9 +85,23 @@ def check_or_train():
         filepath = os.path.join(models_dir, filename)
         if not os.path.exists(filepath):
             missing_models.add(trainer)
+        else:
+            # Check if models are actually loadable and have necessary attributes
+            try:
+                import joblib
+                obj = joblib.load(filepath)
+                if filename == 'text_vectorizer.pkl':
+                    # Verify if TF-IDF vectorizer is actually fitted
+                    from sklearn.feature_extraction.text import TfidfVectorizer
+                    if not hasattr(obj, 'idf_'):
+                         print(f"[Shield ML] Vectorizer at {filename} is NOT fitted.")
+                         missing_models.add(trainer)
+            except Exception as e:
+                print(f"[Shield ML] Failed to load {filename}: {e}")
+                missing_models.add(trainer)
 
     if missing_models:
-        print(f"[Shield ML] Missing model files. Training: {', '.join(missing_models)}")
+        print(f"[Shield ML] Missing or invalid model files. Training: {', '.join(missing_models)}")
 
         for trainer in missing_models:
             try:
@@ -102,11 +116,11 @@ def check_or_train():
                 print(f"[Shield ML] {trainer} completed.")
             except Exception as e:
                 print(f"[Shield ML] ERROR training {trainer}: {e}")
-                raise RuntimeError(f"Failed to train {trainer}: {e}")
-
-        print("[Shield ML] All models trained successfully.")
+                # Don't raise, just log it. We want the API to start anyway (non-fatal)
+        
+        print("[Shield ML] Model maintenance complete.")
     else:
-        print("[Shield ML] All model files found.")
+        print("[Shield ML] All model files verified and found to be valid.")
 
 
 __all__ = [
