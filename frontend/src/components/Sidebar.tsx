@@ -16,7 +16,7 @@ interface SidebarProps {
 
 const navItems = [
   { id: 'chat', label: 'Mitra Chat', icon: MessageSquare, color: 'text-cyan-400', active: true },
-  { id: 'expenses', label: 'Expense Tracker', icon: PieChart, color: 'text-emerald-400', active: false, badge: 'Soon' },
+  { id: 'expenses', label: 'Expense Tracker', icon: PieChart, color: 'text-emerald-400', active: true },
   { id: 'security', label: 'Safety Check', icon: Shield, color: 'text-violet-400', active: true },
   { id: 'analytics', label: 'Net Worth', icon: Activity, color: 'text-amber-400', active: false, badge: 'Soon' },
 ];

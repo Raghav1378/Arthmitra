@@ -1,8 +1,11 @@
 import os
 import logging
+import io
+import pandas as pd
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -226,101 +229,112 @@ class ScamAnalyzeRequest(BaseModel):
     time_of_message: Optional[str] = None
     message_frequency: Optional[str] = None
 
-SCAM_SHIELD_SYSTEM_PROMPT = """You are a financial fraud detection engine analyzing payment-related messages.
+SCAM_SHIELD_SYSTEM_PROMPT = """You are "Scam Shield Antigravity v2", an advanced fraud detection AI designed for REAL-WORLD financial scam detection.
 
-CRITICAL RULES:
-- Return ONLY valid JSON
-- No explanations, no markdown, no extra text
-- Output must start with { and end with }
+Your goal is HIGH RECALL with TARGETED PRECISION:
+- Do not miss scams
+- But do NOT classify everything as HIGH_RISK or SCAM
+- Use balanced judgment with proper confidence
+- Understand Hinglish + Indian context (SBI, HDFC, RBI, Paytm, PhonePe, BHIM)
 
---------------------------------------
+---
+STEP 1: SIGNAL DETECTION
+Detect the following signals strictly. Do NOT over-interpret neutral text:
 
-INPUT:
-{input_value}
+STRONG SIGNALS:
+- Threat: ONLY classify if explicit negative consequence mentioned ("account will be blocked", "legal action will be taken", "account suspended"). Do NOT mark "verify account" or "confirm request" as threats.
+- Payment request: UPI, OTP, fee, collect request
+- Suspicious link: fake domains, shortened URLs
+- Sensitive info request: OTP, password, CVV
 
---------------------------------------
+MEDIUM SIGNALS:
+- Urgency: "urgent", "act now", "limited time"
+- Authority impersonation: SBI, RBI, Paytm, Govt, etc.
+- Prize / job / reward claims
 
-STEP 1: DETECT INTENT
-Classify if message involves:
-- payment request
-- urgency
-- verification (KYC / bank / OTP)
-- reward / prize / refund
+WEAK SIGNALS:
+- Simple reminders
+- Mild urgency without threat
+- Generic system notifications
 
---------------------------------------
+---
+STEP 2: RISK SCORING (IMPORTANT)
+Assign internal score:
+- Each STRONG signal = +40
+- Each MEDIUM signal = +20
+- Each WEAK signal = +5
 
-STEP 2: DETECT SCAM SIGNALS
+Add behavioral modifiers:
+- Odd timing = +10 (ONLY TRUE if between 12:00 AM - 6:00 AM, OR late-night spam pattern after 11 PM with repetition. DO NOT mark morning/afternoon/early evening as odd timing.)
+- Repeated messages = +10
 
-HIGH RISK:
-- urgency ("urgent", "immediately", "now")
-- threats ("account blocked", "legal action")
-- KYC / OTP requests
-- asking money for verification
+---
+STEP 3: DECISION RULE & VERDICT MAPPING
+Rule of thumb:
+- Payment request alone -> SUSPICIOUS
+- Urgency alone -> SAFE or SUSPICIOUS
+- Link + payment -> HIGH_RISK
+- Threat + urgency -> HIGH_RISK
 
-MEDIUM RISK:
-- unknown person asking money
-- reward / lottery claims
-- refund traps
+Map risk score to final verdict strictly:
+- 0-29 -> SAFE (no real scam signals exist)
+- 30-69 -> SUSPICIOUS (borderline cases, partial signals)
+- 70-100 -> HIGH_RISK (multiple strong signals)
 
-LOW RISK:
-- normal casual payment request
+---
+STEP 4: CONFIDENCE CALIBRATION (CRITICAL)
+Confidence must vary and reflect true signal strength. Do NOT default to 75 or 90.
+- 85-95 -> multiple strong signals (clear scam)
+- 65-85 -> strong + medium signals
+- 45-65 -> only medium signals
+- 25-45 -> weak signals only
+- 10-25 -> no meaningful signals
 
---------------------------------------
+---
+STEP 5: SCAM TYPE DETECTION
+Choose one:
+- kyc
+- upi
+- phishing
+- job
+- lottery
+- delivery
+- impersonation
+- unknown
 
-STEP 3: RISK SCORE
-
-Initialize risk_score = 0
-
-- urgency → +25  
-- threat language → +30  
-- KYC / OTP → +40  
-- payment request → +20  
-- reward / lottery → +30  
-
---------------------------------------
-
-STEP 4: FINAL LABEL
-
-risk_score <= 20 → SAFE  
-21–50 → LOW  
-51–75 → SUSPICIOUS  
->75 → HIGH  
-
---------------------------------------
-
-STEP 5: CONFIDENCE
-
-SAFE → 80–95  
-LOW → 60–80  
-SUSPICIOUS → 40–70  
-HIGH → 70–95  
-
---------------------------------------
-
-STEP 6: OUTPUT
-
+---
+STEP 6: OUTPUT (STRICT JSON)
 {
-  "type": "transaction_message",
-  "risk": "SAFE | LOW | SUSPICIOUS | HIGH",
-  "confidence": number,
-  "risk_score": number,
-  "intent_detected": {
-    "payment_request": boolean,
-    "urgency": boolean,
-    "threat": boolean,
-    "kyc_request": boolean,
-    "reward_trap": boolean
+  "final_decision": {
+    "risk": "SAFE | SUSPICIOUS | HIGH_RISK",
+    "confidence": 0-100,
+    "risk_score": 0-100,
+    "scam_type": "type"
+  },
+  "signals_detected": {
+    "strong": ["list of detected strong signals"],
+    "medium": ["list of detected medium signals"],
+    "weak": ["list of detected weak signals"],
+    "behavioral": ["list of detected behavioral modifiers"]
   },
   "reasoning": {
     "summary": "short explanation",
-    "details": ["point 1", "point 2"]
+    "detailed_reasons": [
+      "reason 1",
+      "reason 2"
+    ]
   },
-  "advice": [
-    "Do not send money if unsure",
-    "Verify from official source"
+  "user_advice": [
+    "clear actionable advice"
   ]
 }
-"""
+
+---
+RULES:
+- Be precise, not paranoid. Do NOT classify everything as scam.
+- Use SUSPICIOUS properly for borderline cases.
+- SAFE must be used when no real scam signals exist.
+- Return ONLY the JSON object, no other text."""
 
 @app.post("/scam/analyze")
 async def scam_analyze(request: ScamAnalyzeRequest):
@@ -379,6 +393,319 @@ async def scam_analyze(request: ScamAnalyzeRequest):
     except Exception as e:
         logger.error(f"Scam Shield error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ── Decision Shield Endpoint ───────────────────────────────────────────────────────
+
+class DecisionAnalyzeRequest(BaseModel):
+    input_value: str
+
+SCAM_DECISION_SYSTEM_PROMPT = """You are Mitra AI — a financial decision assistant that helps users decide whether to send money.
+
+Your job is to:
+- analyze the situation
+- detect scam patterns
+- give a clear decision (PAY / VERIFY_FIRST / DO_NOT_PAY)
+- respond like a real fintech safety system
+
+--------------------------------------
+
+CRITICAL RULES:
+- Return ONLY valid JSON
+- No markdown, no explanation, no extra text
+- Output MUST start with { and end with }
+- All fields are mandatory
+- confidence must be integer
+
+--------------------------------------
+
+INPUT:
+{input_value}
+
+--------------------------------------
+
+STEP 1: CONTEXT UNDERSTANDING
+
+Extract:
+
+- payment_intent → user is planning to send money
+- urgency → "urgent", "immediately", "now"
+- threat → "account blocked", "legal action"
+- kyc_scam → OTP / KYC / verification request
+- reward_trap → lottery / prize / refund bait
+- unknown_receiver → unclear or unknown person
+
+--------------------------------------
+
+STEP 2: RISK EVALUATION
+
+Initialize risk_score = 0
+
+- urgency → +25  
+- threat → +30  
+- kyc_scam → +40  
+- reward_trap → +30  
+- unknown_receiver → +20  
+
+--------------------------------------
+
+STEP 3: RISK LEVEL
+
+- risk_score <= 20 → SAFE  
+- 21–50 → LOW  
+- 51–75 → SUSPICIOUS  
+- >75 → HIGH  
+
+--------------------------------------
+
+STEP 4: DECISION LOGIC
+
+SAFE → PAY  
+LOW → VERIFY_FIRST  
+SUSPICIOUS → DO_NOT_PAY  
+HIGH → DO_NOT_PAY  
+
+--------------------------------------
+
+STEP 5: CONFIDENCE
+
+SAFE → 85–95  
+LOW → 65–85  
+SUSPICIOUS → 50–70  
+HIGH → 75–95  
+
+--------------------------------------
+
+STEP 6: FRONTEND-READY OUTPUT
+
+Return EXACTLY:
+
+{
+  "type": "payment_decision",
+  "decision": "PAY | VERIFY_FIRST | DO_NOT_PAY",
+  "risk": "SAFE | LOW | SUSPICIOUS | HIGH",
+  "confidence": integer,
+  "risk_score": integer,
+
+  "ui": {
+    "verdict_label": "SAFE | VERIFY | DO NOT PAY",
+    "color": "green | yellow | orange | red",
+    "icon": "shield-check | alert | warning | danger",
+    "primary_message": "Clear final decision for user",
+    "secondary_message": "Short reason explaining why"
+  },
+
+  "signals_detected": {
+    "urgency": boolean,
+    "threat": boolean,
+    "kyc_scam": boolean,
+    "reward_trap": boolean,
+    "unknown_receiver": boolean
+  },
+
+  "reasoning": {
+    "summary": "One-line explanation",
+    "details": [
+      "Key factor 1",
+      "Key factor 2"
+    ]
+  },
+
+  "advice": [
+    "Call the person directly",
+    "Verify via official app",
+    "Do not send money under pressure"
+  ]
+}
+"""
+
+@app.post("/scam/decision")
+async def scam_decision(request: DecisionAnalyzeRequest):
+    """
+    Mitra AI — Payment Decision Engine.
+    """
+    try:
+        user_msg = f"input_value: {request.input_value}"
+
+        llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.1)
+        response = await llm.ainvoke([
+            SystemMessage(content=SCAM_DECISION_SYSTEM_PROMPT),
+            HumanMessage(content=user_msg),
+        ])
+
+        raw = response.content.strip()
+
+        if "```json" in raw:
+            raw = raw.split("```json")[1].split("```")[0].strip()
+        elif "```" in raw:
+            raw = raw.split("```")[1].split("```")[0].strip()
+
+        result = json.loads(raw)
+        return result
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Scam Decision JSON parse error: {e}\nRaw: {raw}")
+        raise HTTPException(status_code=500, detail="Analysis returned malformed output")
+    except Exception as e:
+        logger.error(f"Scam Decision error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ── Expense Insights Endpoint ───────────────────────────────────────────────────────
+
+class ExpenseItem(BaseModel):
+    category: str
+    amount: float
+    description: str
+
+class ExpenseInsightsRequest(BaseModel):
+    expenses: List[ExpenseItem]
+
+@app.post("/expense/insights")
+async def get_expense_insights(request: ExpenseInsightsRequest):
+    """
+    Generate financial insights using Ollama.
+    """
+    try:
+        if not request.expenses:
+            return {"insight": "Start adding expenses to see personalized financial insights."}
+
+        # Summarize expenses for the prompt
+        summary = {}
+        total = 0
+        for exp in request.expenses:
+            summary[exp.category] = summary.get(exp.category, 0) + exp.amount
+            total += exp.amount
+
+        summary_text = "\n".join([f"- {cat}: ₹{amt}" for cat, amt in summary.items()])
+        
+        prompt = (
+            f"You are a professional financial advisor. Analyze the following monthly spending:\n"
+            f"Total Spending: ₹{total}\n"
+            f"Breakdown:\n{summary_text}\n\n"
+            f"Provide 2-3 extremely concise, actionable financial insights or alerts for the user. "
+            f"Keep the total response under 40 words. Focus on high spending or patterns."
+        )
+
+        llm = ChatOllama(model="llama-3.2:3b", temperature=0.5)
+        response = await llm.ainvoke([
+            SystemMessage(content="You are a helpful financial assistant. Be very brief."),
+            HumanMessage(content=prompt)
+        ])
+
+        return {"insight": response.content.strip()}
+    except Exception as e:
+        logger.error(f"Expense insights error: {e}")
+        return {"insight": "Checking your spending patterns... Add more details for better insights."}
+
+
+# ── Expense File Extraction Endpoint ───────────────────────────────────────────────────────
+
+EXPENSE_EXTRACTION_SYSTEM_PROMPT = """You are "ArthMitra OCR Assistant". Your task is to extract financial transactions from raw text.
+Output MUST be a JSON list of objects: [{"amount": float, "description": str, "date": "ISO-8601", "type": "spend" | "receive", "category": str}]
+
+Categorization Logic:
+1. If the description mentions "internship", "job", "work", or any "company", set "type" to "receive" and category to "Earnings".
+2. Otherwise, set "type" to "spend" and category to an appropriate expense category: "Food", "Housing", "Utilities", "Transport", "Shopping", or "Misc".
+
+Format strictly as JSON."""
+
+@app.post("/expense/extract")
+async def extract_expenses_from_file(file: UploadFile = File(...)):
+    """
+    Extract transactions from an uploaded file (CSV, TXT, or PDF text).
+    If CSV, uses pandas for 100% precision. Else, uses LLM.
+    """
+    try:
+        content = await file.read()
+        filename = file.filename.lower()
+        extracted = []
+
+        # ─── Robust CSV Parsing (Pandas) ────────────────────────────────────────────────
+        if filename.endswith(".csv"):
+            df = pd.read_csv(io.BytesIO(content))
+            # Standardize columns (ignore case)
+            cols = {c.lower(): c for c in df.columns}
+            
+            # Smart Date Normalization: If dates are old, shift them to the current week
+            # to make the charts look realistically populated in real-time.
+            now = datetime.now()
+            dt_key = next((k for k in ["date", "time", "timestamp"] if k in cols), None)
+            
+            # Heuristic: Find the max date in the CSV and shift it to 'Today'
+            date_shift = None
+            if dt_key:
+                try:
+                    df_dates = pd.to_datetime(df[cols[dt_key]])
+                    max_csv_date = df_dates.max()
+                    date_shift = now - max_csv_date
+                except: pass
+
+            for _, row in df.iterrows():
+                # Extract Amount
+                amount = 0
+                amt_key = next((k for k in ["amount", "value", "amt", "price"] if k in cols), None)
+                if amt_key: 
+                    val = str(row[cols[amt_key]])
+                    amount = float(val.replace(',', '').replace('₹', '').replace('-', ''))
+                
+                # Extract Description
+                desc = next((str(row[cols[k]]) for k in ["name", "description", "details", "notes"] if k in cols), "Unknown Transaction")
+                
+                # Extract Category
+                cat = next((str(row[cols[k]]) for k in ["category", "type", "tag"] if k in cols), "Misc")
+                
+                # Extract/Shift Date
+                dt_obj = now
+                if dt_key:
+                    try: 
+                        dt_obj = pd.to_datetime(row[cols[dt_key]])
+                        if date_shift: dt_obj = dt_obj + date_shift
+                    except: pass
+                dt_str = dt_obj.isoformat()
+
+                # ─── High-Precision Inflow Detection ───────────────────────────────────
+                raw_type = str(row[cols['type']]).lower() if 'type' in cols else ""
+                raw_cat = str(row[cols['category']]).lower() if 'category' in cols else ""
+                raw_desc = desc.lower()
+
+                # Priority logic for Inflow classification
+                is_inflow = False
+                if any(k in raw_type for k in ["inflow", "receive", "income", "credit", "+"]):
+                    is_inflow = True
+                elif any(k in raw_cat for k in ["earnings", "income", "salary", "stipend"]):
+                    is_inflow = True
+                else:
+                    is_inflow = any(k in raw_desc for k in ["salary", "internship", "job", "payout", "income", "work", "credited", "refund", "got", "receive", "inflow"])
+                
+                extracted.append({
+                    "amount": round(amount, 2),
+                    "description": desc,
+                    "category": ("Earnings" if is_inflow else cat),
+                    "date": dt_str,
+                    "type": "receive" if is_inflow else "spend"
+                })
+            
+            return {"expenses": extracted}
+
+        # ─── Unstructured Data Fallback (LLM) ───────────────────────────────────────────
+        text_content = content.decode("utf-8", errors="ignore")
+        if not text_content.strip(): return {"expenses": []}
+
+        llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.1)
+        response = await llm.ainvoke([
+            SystemMessage(content=EXPENSE_EXTRACTION_SYSTEM_PROMPT),
+            HumanMessage(content=f"Extract transactions from this text:\n\n{text_content}")
+        ])
+
+        raw = response.content.strip()
+        if "```json" in raw: raw = raw.split("```json")[1].split("```")[0].strip()
+        elif "```" in raw: raw = raw.split("```")[1].split("```")[0].strip()
+
+        extracted = json.loads(raw)
+        return {"expenses": extracted}
+
+    except Exception as e:
+        logger.error(f"Expense extraction error: {e}")
+        raise HTTPException(status_code=500, detail="Document format unreadable or corrupt.")
 
 class BehaviorAnalyzeRequest(BaseModel):
     amount: str

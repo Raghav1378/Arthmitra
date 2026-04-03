@@ -15,7 +15,7 @@ interface Message {
   id: string;
   modelName?: string;
   isDeepResearchResult?: boolean;
-  sources?: Array<{title: string; url: string}>;
+  sources?: Array<{ title: string; url: string }>;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ export default function Chat() {
   const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
   const [activeDocs, setActiveDocs] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [historyList, setHistoryList] = useState<{ id: string, title: string, timestamp: number }[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>("");
@@ -94,7 +94,7 @@ export default function Chat() {
         recognition.interimResults = true;
         recognition.lang = 'en-IN'; // Good for English + Hinglish
         recognition.maxAlternatives = 1;
-        
+
         recognition.onresult = (event: any) => {
           let interim = "";
           let finalText = "";
@@ -112,11 +112,11 @@ export default function Chat() {
           }
           setInput(lastInputRef.current + finalTranscriptRef.current + interim);
         };
-        
+
         recognition.onend = () => {
           // If user still wants to record, auto-restart (browser killed it due to silence)
           if (isRecordingRef.current) {
-            try { recognition.start(); } catch(e) {}
+            try { recognition.start(); } catch (e) { }
           } else {
             setIsRecording(false);
           }
@@ -152,12 +152,12 @@ export default function Chat() {
       setIsRecording(true);
       try {
         recognitionRef.current?.start();
-      } catch(e) {
+      } catch (e) {
         // If it's already started, abort and retry
         try {
           recognitionRef.current?.stop();
-          setTimeout(() => { try { recognitionRef.current?.start(); } catch(e2) {} }, 100);
-        } catch(e2) {}
+          setTimeout(() => { try { recognitionRef.current?.start(); } catch (e2) { } }, 100);
+        } catch (e2) { }
       }
     }
   }, [input, isRecording]);
@@ -168,33 +168,33 @@ export default function Chat() {
     doc.setFontSize(22);
     doc.setTextColor(6, 182, 212); // Cyan theme color
     doc.text("ArthMitra Financial Report", 20, 20);
-    
+
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 28);
     doc.text(`Session ID: ${currentSessionId}`, 20, 32);
-    
+
     doc.setDrawColor(200);
     doc.line(20, 38, 190, 38);
-    
+
     let y = 50;
     messages.forEach((msg) => {
       if (y > 270) { doc.addPage(); y = 20; }
-      
+
       doc.setFont("helvetica", "bold");
       doc.setTextColor(msg.role === 'user' ? 60 : 0);
       doc.text(msg.role.toUpperCase(), 20, y);
-      
+
       doc.setFont("helvetica", "normal");
       doc.setTextColor(50);
       const content = msg.content.replace(/\[CHART:.*?\]/g, "[Interactive Chart omitted in PDF]");
       const lines = doc.splitTextToSize(content, 160);
       doc.text(lines, 24, y + 6);
-      
+
       y += (lines.length * 5) + 15;
     });
-    
-    doc.save(`ArthMitra_Report_${currentSessionId.substring(0,6)}.pdf`);
+
+    doc.save(`ArthMitra_Report_${currentSessionId.substring(0, 6)}.pdf`);
   }, [messages, currentSessionId]);
 
   const saveToBackend = useCallback(async (sid: string, msgs: Message[]) => {
@@ -216,21 +216,21 @@ export default function Chat() {
       const listRes = await fetch(`${API_BASE}/chats/list`);
       const hList = await listRes.json();
       setHistoryList(hList || []);
-    } catch(e) {}
+    } catch (e) { }
   }, []);
 
   // Initialize and load session history
   useEffect(() => {
     const sid = getSessionId();
     setCurrentSessionId(sid);
-    
+
     const initHistory = async () => {
       try {
         // 1. Fetch chat sessions from backend
         const listRes = await fetch(`${API_BASE}/chats/list`);
         const hList = await listRes.json();
         setHistoryList(hList || []);
-        
+
         // 2. Load the current chat content from backend
         const chatRes = await fetch(`${API_BASE}/chats/${sid}`);
         if (chatRes.ok) {
@@ -245,7 +245,7 @@ export default function Chat() {
             await saveToBackend(sid, localMsgs);
           }
         }
-      } catch(e) {}
+      } catch (e) { }
     };
 
     initHistory();
@@ -268,7 +268,7 @@ export default function Chat() {
         const res = await fetch(`${API_BASE}/documents/list?session_id=${currentSessionId}`);
         const data = await res.json();
         if (data.documents) setActiveDocs(data.documents);
-      } catch (e) {}
+      } catch (e) { }
     };
     fetchDocs();
   }, [currentSessionId]);
@@ -323,9 +323,9 @@ export default function Chat() {
       const response = await fetch(STREAM_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          message: text, 
-          is_local_only: !isWebSearchEnabled, 
+        body: JSON.stringify({
+          message: text,
+          is_local_only: !isWebSearchEnabled,
           deep_research: currentIsDeep,
           session_id: currentSessionId
         }),
@@ -350,12 +350,12 @@ export default function Chat() {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        
+
         let boundary = buffer.indexOf("\n\n");
         while (boundary !== -1) {
           const packet = buffer.slice(0, boundary);
           buffer = buffer.slice(boundary + 2);
-          
+
           if (packet.startsWith("data: ")) {
             const data = packet.slice(6).trim();
             if (data === "[DONE]") {
@@ -365,7 +365,7 @@ export default function Chat() {
             }
             try {
               const event = JSON.parse(data);
-              
+
               // Sources metadata arrives before streaming begins
               if (event.sources) {
                 setMessages((prev) =>
@@ -374,7 +374,7 @@ export default function Chat() {
                   )
                 );
               }
-              
+
               if (event.token) {
                 if (!streamStarted) {
                   streamStarted = true;
@@ -391,7 +391,7 @@ export default function Chat() {
                   )
                 );
               }
-            } catch (e) {}
+            } catch (e) { }
           }
           boundary = buffer.indexOf("\n\n");
         }
@@ -420,7 +420,7 @@ export default function Chat() {
         const listData = await listRes.json();
         if (listData.documents) setActiveDocs(listData.documents);
       }
-    } catch {} finally { setIsUploading(false); }
+    } catch { } finally { setIsUploading(false); }
   }, [currentSessionId]);
 
   const handleRemoveDocument = useCallback(async (filename: string) => {
@@ -433,7 +433,7 @@ export default function Chat() {
         const listData = await listRes.json();
         setActiveDocs(listData.documents || []);
       }
-    } catch {}
+    } catch { }
   }, [currentSessionId]);
 
   const handleSend = useCallback(() => {
@@ -451,26 +451,26 @@ export default function Chat() {
             const content = msg.content;
             const parts = [];
             let lastIdx = 0;
-            
+
             let startIdx = content.indexOf("[CHART:");
             while (startIdx !== -1) {
               parts.push(<span key={`text-${lastIdx}`}>{content.slice(lastIdx, startIdx)}</span>);
-              
+
               let jsonStartIdx = content.indexOf("{", startIdx);
               if (jsonStartIdx !== -1) {
                 let bracketCount = 0;
                 let jsonEndIdx = -1;
-                
+
                 for (let i = jsonStartIdx; i < content.length; i++) {
                   if (content[i] === "{") bracketCount++;
                   else if (content[i] === "}") bracketCount--;
-                  
+
                   if (bracketCount === 0) {
                     jsonEndIdx = i;
                     break;
                   }
                 }
-                
+
                 if (jsonEndIdx !== -1) {
                   const blockEndIdx = content.indexOf("]", jsonEndIdx);
                   if (blockEndIdx !== -1) {
@@ -497,12 +497,12 @@ export default function Chat() {
             parts.push(<span key="text-end">{content.slice(lastIdx)}</span>);
             return parts.length > 1 ? parts : msg.content;
           })()}
-          {isStreaming && msg.id === messages[messages.length-1].id && msg.role === "bot" && <BlinkingCursor />}
+          {isStreaming && msg.id === messages[messages.length - 1].id && msg.role === "bot" && <BlinkingCursor />}
         </div>
-        
+
         {shouldShowSources && (
           <div className="mt-4 pt-3 border-t border-slate-700/50">
-            <button 
+            <button
               onClick={() => setExpandedSources(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))}
               className="flex items-center gap-2 text-[10px] font-bold text-cyan-400 bg-cyan-400/10 px-3 py-1.5 rounded-lg hover:bg-cyan-400/20 transition-all uppercase tracking-wider"
             >
@@ -528,7 +528,7 @@ export default function Chat() {
         )}
 
         {msg.role === "bot" && (
-          <div className={`mt-2 flex justify-end transition-opacity duration-1000 ${isStreaming && msg.id === messages[messages.length-1].id ? "opacity-30" : "opacity-100"}`}>
+          <div className={`mt-2 flex justify-end transition-opacity duration-1000 ${isStreaming && msg.id === messages[messages.length - 1].id ? "opacity-30" : "opacity-100"}`}>
             <span className="flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/5 rounded-full text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-cyan-400 transition-colors">
               <Cpu className="w-3 h-3" />
               {msg.modelName || "Llama 3"}
@@ -541,7 +541,7 @@ export default function Chat() {
 
   return (
     <div className="flex flex-col h-full rounded-3xl border border-white/[0.06] bg-white/[0.015] backdrop-blur-2xl overflow-hidden">
-      
+
       {/* ─── Minimal Chat Header ─── */}
       <div className="px-5 py-3.5 border-b border-white/[0.06] flex justify-between items-center bg-white/[0.01]">
         <div className="flex items-center gap-3">
@@ -589,9 +589,9 @@ export default function Chat() {
       {/* ─── History Drawer (slides down from top) ─── */}
       <AnimatePresence>
         {isSidebarOpen && (
-          <motion.div 
-            initial={{ height: 0, opacity: 0 }} 
-            animate={{ height: "auto", opacity: 1 }} 
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25 }}
             className="border-b border-white/[0.06] bg-white/[0.02] overflow-hidden"
@@ -599,8 +599,8 @@ export default function Chat() {
             <div className="p-4 max-h-48 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {historyList.map(item => (
-                  <button 
-                    key={item.id} 
+                  <button
+                    key={item.id}
                     onClick={() => { switchSession(item.id); setIsSidebarOpen(false); }}
                     className={`p-3 rounded-xl border text-left transition-all ${item.id === currentSessionId ? 'bg-violet-500/10 border-violet-500/20' : 'bg-white/[0.02] border-white/[0.04] hover:bg-white/[0.05]'}`}
                   >
@@ -678,14 +678,14 @@ export default function Chat() {
         {/* Main Input Bar */}
         <div className="relative flex items-center gap-2 bg-white/[0.03] border border-white/[0.08] rounded-2xl px-4 py-1 shadow-lg shadow-black/10 focus-within:border-violet-500/30 focus-within:shadow-violet-500/5 transition-all">
           <span className="text-slate-600 text-lg select-none">+</span>
-          <input 
-            id="chat-input" 
-            value={input} 
-            onChange={(e) => setInput(e.target.value)} 
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()} 
-            placeholder={isUploading ? "Uploading file..." : 'Example: "Explain quantum computing in simple terms"'} 
-            disabled={isLoading || isStreaming} 
-            className="flex-1 bg-transparent py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none" 
+          <input
+            id="chat-input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+            placeholder={isUploading ? "Uploading file..." : 'Example: "Explain quantum computing in simple terms"'}
+            disabled={isLoading || isStreaming}
+            className="flex-1 bg-transparent py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none"
           />
           <button onClick={toggleRecording} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isRecording ? 'bg-red-500/20 text-red-400' : 'text-slate-500 hover:text-white hover:bg-white/[0.06]'}`}>
             {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -697,13 +697,13 @@ export default function Chat() {
 
         {/* Contextual Action Chips (NanoAI style) */}
         <div className="flex items-center gap-2 flex-wrap">
-          <button 
+          <button
             onClick={() => { setIsDeepSearchEnabled(!isDeepSearchEnabled); if (!isWebSearchEnabled) setIsWebSearchEnabled(true); }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${isDeepSearchEnabled ? 'bg-violet-500/10 border-violet-500/20 text-violet-400' : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
           >
             <Sparkles className="w-3 h-3" /> Deep Research
           </button>
-          <button 
+          <button
             onClick={() => {
               setInput("[CHART:{\"type\":\"bar\",\"title\":\"My Data\",\"data\":[{\"name\":\"A\",\"value\":10},{\"name\":\"B\",\"value\":20}]}]");
               setTimeout(() => { document.getElementById("chat-input")?.focus(); }, 100);
@@ -712,14 +712,14 @@ export default function Chat() {
           >
             <ChartIcon className="w-3 h-3" /> Chart
           </button>
-          <button 
+          <button
             onClick={() => { setIsWebSearchEnabled(!isWebSearchEnabled); if (isWebSearchEnabled) setIsDeepSearchEnabled(false); }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${isWebSearchEnabled ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
           >
             <Globe className="w-3 h-3" /> Search
           </button>
-          <button 
-            onClick={() => fileInputRef.current?.click()} 
+          <button
+            onClick={() => fileInputRef.current?.click()}
             disabled={isUploading || isLoading}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${activeDocs.length > 0 ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
           >

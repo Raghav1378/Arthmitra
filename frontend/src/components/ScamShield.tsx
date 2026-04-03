@@ -5,23 +5,54 @@ import {
   Shield, AlertTriangle, CheckCircle, XCircle,
   Link, Loader2, Send, Clock, RotateCcw,
   Eye, Zap, Globe, CreditCard, Briefcase,
-  ChevronDown, ChevronUp, Info, IndianRupee, Hash, Lock, Gift
+  ChevronDown, ChevronUp, Info, IndianRupee, Hash, Lock, Gift, Wallet, Brain
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ScamResult {
+  final_decision: {
+    risk: "SAFE" | "SUSPICIOUS" | "HIGH_RISK";
+    confidence: number;
+    risk_score: number;
+    scam_type: string;
+  };
+  signals_detected: {
+    strong: string[];
+    medium: string[];
+    weak: string[];
+    behavioral: string[];
+  };
+  reasoning: {
+    summary: string;
+    detailed_reasons: string[];
+  };
+  user_advice: string[];
+}
+
+interface DecisionResult {
   type: string;
+  decision: "PAY" | "VERIFY_FIRST" | "DO_NOT_PAY";
   risk: "SAFE" | "LOW" | "SUSPICIOUS" | "HIGH_RISK" | "HIGH";
   confidence: number;
   risk_score: number;
-  intent_detected: {
-    payment_request: boolean;
+  signals_detected: {
+    payment_intent?: boolean;
     urgency: boolean;
     threat: boolean;
-    kyc_request: boolean;
+    kyc_scam: boolean;
     reward_trap: boolean;
+    unknown_receiver: boolean;
+    budget_issue?: boolean;
+    impulse_trigger?: boolean;
+  };
+  ui: {
+    verdict_label: string;
+    color: string;
+    icon: string;
+    primary_message: string;
+    secondary_message: string;
   };
   reasoning: {
     summary: string;
@@ -29,6 +60,7 @@ interface ScamResult {
   };
   advice: string[];
 }
+
 
 interface BehaviorResult {
   risk: "SAFE" | "SUSPICIOUS" | "HIGH_RISK";
@@ -128,17 +160,37 @@ function ConfidenceBar({ value, risk }: { value: number; risk: string }) {
   );
 }
 
-function SignalChip({ label, active, icon }: { label: string; active: boolean; icon: React.ReactNode }) {
+function SignalChip({ label, active = true, icon, color = "red" }: { label: string; active?: boolean; icon: React.ReactNode; color?: "red" | "purple" | "yellow" | "orange" | "gray" }) {
+  if (!active) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-xl border text-[11px] font-bold transition-all bg-white/[0.02] border-white/[0.05] text-slate-600">
+        <span className="text-slate-600">{icon}</span>
+        {label}
+      </div>
+    );
+  }
+
+  const styles = {
+    red: "bg-red-500/10 border-red-500/20 text-red-400",
+    purple: "bg-purple-500/10 border-purple-500/20 text-purple-400",
+    yellow: "bg-yellow-500/10 border-yellow-500/20 text-yellow-500",
+    orange: "bg-orange-500/10 border-orange-500/20 text-orange-400",
+    gray: "bg-slate-500/10 border-slate-500/20 text-slate-400"
+  };
+
+  const glowStyles = {
+    red: "bg-red-400 shadow-[0_0_6px_#f87171]",
+    purple: "bg-purple-400 shadow-[0_0_6px_#c084fc]",
+    yellow: "bg-yellow-500 shadow-[0_0_6px_#eab308]",
+    orange: "bg-orange-400 shadow-[0_0_6px_#fb923c]",
+    gray: "bg-slate-400 shadow-[0_0_6px_#94a3b8]"
+  };
+
   return (
-    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[11px] font-bold transition-all
-      ${active
-        ? "bg-red-500/10 border-red-500/20 text-red-400"
-        : "bg-white/[0.02] border-white/[0.05] text-slate-600"
-      }`}
-    >
-      <span className={active ? "text-red-400" : "text-slate-600"}>{icon}</span>
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[11px] font-bold transition-all ${styles[color]}`}>
+      <span>{icon}</span>
       {label}
-      {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_6px_#f87171]" />}
+      <span className={`ml-auto w-1.5 h-1.5 rounded-full ${glowStyles[color]}`} />
     </div>
   );
 }
@@ -198,7 +250,7 @@ function RiskMeterArc({ score }: { score: number }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ScamShield() {
-  const [activeTab, setActiveTab] = useState<"message" | "behavior" | "link">("message");
+  const [activeTab, setActiveTab] = useState<"message" | "behavior" | "link" | "decision">("message");
 
   // Message states
   const [message, setMessage] = useState("");
@@ -215,6 +267,10 @@ export default function ScamShield() {
   const [linkInput, setLinkInput] = useState("");
   const [linkResult, setLinkResult] = useState<LinkResult | null>(null);
 
+  // Decision states
+  const [decisionInput, setDecisionInput] = useState("");
+  const [decisionResult, setDecisionResult] = useState<DecisionResult | null>(null);
+
   // Shared states
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -225,6 +281,7 @@ export default function ScamShield() {
     if (activeTab === "message" && !message.trim()) return;
     if (activeTab === "behavior" && !amount.trim()) return;
     if (activeTab === "link" && !linkInput.trim()) return;
+    if (activeTab === "decision" && !decisionInput.trim()) return;
     if (isAnalyzing) return;
 
     setIsAnalyzing(true);
@@ -269,6 +326,16 @@ export default function ScamShield() {
         if (!res.ok) throw new Error(`Server error: ${res.status}`);
         const data = await res.json();
         setLinkResult(data);
+      } else if (activeTab === "decision") {
+        setDecisionResult(null);
+        const res = await fetch(`${API_BASE}/scam/decision`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ input_value: decisionInput }),
+        });
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        const data = await res.json();
+        setDecisionResult(data);
       }
       setAnalysisCount(c => c + 1);
     } catch (e: any) {
@@ -276,7 +343,7 @@ export default function ScamShield() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [message, timeOfMessage, amount, timeOfTransaction, frequency, linkInput, activeTab, isAnalyzing]);
+  }, [message, timeOfMessage, amount, timeOfTransaction, frequency, linkInput, decisionInput, activeTab, isAnalyzing]);
 
   const reset = () => {
     setMessage("");
@@ -288,11 +355,22 @@ export default function ScamShield() {
     setBehaviorResult(null);
     setLinkInput("");
     setLinkResult(null);
+    setDecisionInput("");
+    setDecisionResult(null);
     setError(null);
     setShowReasoning(false);
   };
 
-  // Context logic (old derived props removed as intent_detected returns bools now)
+  const hasSignal = (word: string) => {
+    if (!messageResult) return false;
+    const all = [
+      ...messageResult.signals_detected.strong,
+      ...messageResult.signals_detected.medium,
+      ...messageResult.signals_detected.weak,
+      ...messageResult.signals_detected.behavioral
+    ].join(" ").toLowerCase();
+    return all.includes(word.toLowerCase());
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-transparent">
@@ -349,6 +427,12 @@ export default function ScamShield() {
               className={`flex-1 py-3 justify-center items-center flex gap-2 rounded-xl text-xs font-black uppercase tracking-widest font-display transition-all ${activeTab === "link" ? "bg-emerald-500/20 text-emerald-400 shadow-lg border border-emerald-500/20" : "text-slate-500 hover:text-slate-300"}`}
             >
               <Globe className="w-4 h-4" /> Link/UPI Shield
+            </button>
+            <button
+              onClick={() => setActiveTab("decision")}
+              className={`flex-1 py-3 justify-center items-center flex gap-2 rounded-xl text-xs font-black uppercase tracking-widest font-display transition-all ${activeTab === "decision" ? "bg-rose-500/20 text-rose-400 shadow-lg border border-rose-500/20" : "text-slate-500 hover:text-slate-300"}`}
+            >
+              <Wallet className="w-4 h-4" /> 💰 Payment Decision
             </button>
           </div>
 
@@ -429,7 +513,7 @@ export default function ScamShield() {
                     />
                   </div>
                 </>
-              ) : (
+              ) : activeTab === "link" ? (
                 <>
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] font-display">Phishing Source (Link or UPI)</label>
                   <div className="relative">
@@ -449,6 +533,22 @@ export default function ScamShield() {
                     />
                   </div>
                 </>
+              ) : (
+                <>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] font-display">Payment Situation Details</label>
+                  <div className="relative">
+                    <textarea
+                      value={decisionInput}
+                      onChange={e => setDecisionInput(e.target.value)}
+                      placeholder="Ask Mitra: 'Should I send Rs 2000 to this person claiming they are from FedEx?'"
+                      rows={4}
+                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-5 py-4 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-rose-500/40 focus:bg-white/[0.05] transition-all font-sans resize-none"
+                      disabled={isAnalyzing}
+                      onKeyDown={e => e.key === "Enter" && e.ctrlKey && analyze()}
+                    />
+                    <div className="absolute bottom-3 right-3 text-[10px] text-slate-600 font-display font-bold">Ctrl+Enter to analyze</div>
+                  </div>
+                </>
               )}
 
               {/* Action Buttons */}
@@ -458,18 +558,22 @@ export default function ScamShield() {
                   disabled={
                     (activeTab === "message" ? !message.trim() :
                      activeTab === "behavior" ? !amount.trim() :
+                     activeTab === "decision" ? !decisionInput.trim() :
                      !linkInput.trim()) || isAnalyzing
                   }
                   className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl text-white text-sm font-black uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed shadow-xl font-display
-                    ${activeTab === "message" ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 shadow-violet-500/20" : activeTab === "behavior" ? "bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 shadow-cyan-500/20" : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20"}`}
+                    ${activeTab === "message" ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 shadow-violet-500/20" 
+                    : activeTab === "behavior" ? "bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 shadow-cyan-500/20" 
+                    : activeTab === "decision" ? "bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-500 hover:to-orange-500 shadow-rose-500/20"
+                    : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20"}`}
                 >
                   {isAnalyzing ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing…</>
                   ) : (
-                    <><Shield className="w-4 h-4" /> Scan {activeTab === "message" ? "Text" : activeTab === "behavior" ? "Behavior" : "Link/UPI"}</>
+                    <><Shield className="w-4 h-4" /> Scan {activeTab === "message" ? "Text" : activeTab === "behavior" ? "Behavior" : activeTab === "decision" ? "Decision" : "Link/UPI"}</>
                   )}
                 </button>
-                {(messageResult || behaviorResult || linkResult) && (
+                {(messageResult || behaviorResult || linkResult || decisionResult) && (
                   <button
                     onClick={reset}
                     className="flex items-center gap-2 px-6 py-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-slate-400 text-sm font-black hover:bg-white/[0.07] hover:text-white transition-all font-display uppercase tracking-wider"
@@ -519,18 +623,18 @@ export default function ScamShield() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-6 rounded-3xl bg-white/[0.03] border border-white/[0.06] space-y-4">
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] font-display">Final Verdict</p>
-                    <RiskBadge risk={messageResult.risk} />
-                    <ConfidenceBar value={messageResult.confidence} risk={messageResult.risk} />
+                    <RiskBadge risk={messageResult.final_decision.risk} />
+                    <ConfidenceBar value={messageResult.final_decision.confidence} risk={messageResult.final_decision.risk} />
                     <div className="flex items-center gap-2 pt-1">
-                      {SCAM_TYPE_ICONS[messageResult.type] || <AlertTriangle className="w-4 h-4" />}
-                      <span className="text-xs text-slate-400 font-bold font-display uppercase tracking-wider">{messageResult.type.replace('_', ' ')}</span>
+                      {SCAM_TYPE_ICONS[messageResult.final_decision.scam_type] || <AlertTriangle className="w-4 h-4" />}
+                      <span className="text-xs text-slate-400 font-bold font-display uppercase tracking-wider">{messageResult.final_decision.scam_type.replace('_', ' ')}</span>
                     </div>
                   </div>
                   <div className="p-6 rounded-3xl bg-white/[0.03] border border-white/[0.06] flex flex-col items-center justify-center">
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] font-display mb-2">Risk Gauge</p>
-                    <RiskMeterArc score={messageResult.risk_score} />
+                    <RiskMeterArc score={messageResult.final_decision.risk_score} />
                     <div className="flex items-center gap-2 mt-1 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.05]">
-                      <span className="text-[10px] font-black text-slate-500 font-display uppercase tracking-widest">{messageResult.risk}</span>
+                      <span className="text-[10px] font-black text-slate-500 font-display uppercase tracking-widest">{messageResult.final_decision.risk}</span>
                     </div>
                   </div>
                 </div>
@@ -543,18 +647,19 @@ export default function ScamShield() {
                 <div className="space-y-3">
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] font-display">Detected Signals</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    <SignalChip label="Urgency" active={messageResult.intent_detected.urgency} icon={<Zap className="w-3.5 h-3.5" />} />
-                    <SignalChip label="Threat" active={messageResult.intent_detected.threat} icon={<AlertTriangle className="w-3.5 h-3.5" />} />
-                    <SignalChip label="Payment Req" active={messageResult.intent_detected.payment_request} icon={<CreditCard className="w-3.5 h-3.5" />} />
-                    <SignalChip label="KYC / OTP" active={messageResult.intent_detected.kyc_request} icon={<Lock className="w-3.5 h-3.5" />} />
-                    <SignalChip label="Reward Trap" active={messageResult.intent_detected.reward_trap} icon={<Gift className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Urgency" active={hasSignal('urgenc') || hasSignal('act') || hasSignal('time')} icon={<Zap className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Threat" active={hasSignal('threat') || hasSignal('block') || hasSignal('legal')} icon={<AlertTriangle className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Payment Request" active={hasSignal('payment') || hasSignal('fee') || hasSignal('upi')} icon={<CreditCard className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Suspicious Link" active={hasSignal('link') || hasSignal('url') || hasSignal('domain')} icon={<Link className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Odd Timing" active={hasSignal('odd timing') || hasSignal('late night')} icon={<Clock className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Repetition" active={hasSignal('repeat') || hasSignal('repetition') || hasSignal('spam')} icon={<Eye className="w-3.5 h-3.5" />} />
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] font-display">Your Action Plan</p>
                   <div className="space-y-2">
-                    {messageResult.advice.map((advice, i) => (
+                    {messageResult.user_advice.map((advice, i) => (
                       <div key={i} className="flex items-start gap-3 p-4 rounded-xl bg-white/[0.03] border border-white/[0.05]">
                         <div className="w-5 h-5 rounded-full bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center text-[10px] font-black text-white shrink-0 mt-0.5">{i + 1}</div>
                         <p className="text-sm text-slate-300 font-sans leading-relaxed">{advice}</p>
@@ -572,7 +677,7 @@ export default function ScamShield() {
                     {showReasoning && (
                       <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
                         <div className="px-5 pb-5 space-y-2 pt-2">
-                          {messageResult.reasoning.details.map((r, i) => (
+                          {messageResult.reasoning.detailed_reasons.map((r, i) => (
                             <div key={i} className="flex items-start gap-3 text-sm text-slate-400 font-sans"><span className="text-violet-400 mt-0.5 shrink-0">→</span>{r}</div>
                           ))}
                         </div>
@@ -718,6 +823,98 @@ export default function ScamShield() {
                         <div className="px-5 pb-5 space-y-2 pt-2">
                           {linkResult.reasoning.details.map((r, i) => (
                             <div key={i} className="flex items-start gap-3 text-sm text-slate-400 font-sans"><span className="text-emerald-400 mt-0.5 shrink-0">→</span>{r}</div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── Results (Decision) ── */}
+          <AnimatePresence>
+            {activeTab === "decision" && decisionResult && !isAnalyzing && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.5, ease: "easeOut" }}
+                className="space-y-5"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-6 rounded-3xl bg-white/[0.03] border border-white/[0.06] space-y-4">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] font-display">Mitra's Decision</p>
+                    <RiskBadge risk={decisionResult.risk} />
+                    <ConfidenceBar value={decisionResult.confidence} risk={decisionResult.risk} />
+                    <div className="flex flex-col gap-1 pt-2">
+                       <span className={`text-sm font-black font-display uppercase tracking-wider ${decisionResult.ui.color === 'green' ? 'text-emerald-400' : decisionResult.ui.color === 'yellow' ? 'text-amber-400' : 'text-red-400'}`}>{decisionResult.ui.primary_message}</span>
+                       <span className="text-xs text-slate-400">{decisionResult.ui.secondary_message}</span>
+                    </div>
+                  </div>
+                  <div className="p-6 rounded-3xl bg-white/[0.03] border border-white/[0.06] flex flex-col items-center justify-center">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] font-display mb-2">Decision Score</p>
+                    <RiskMeterArc score={decisionResult.risk_score} />
+                    <div className="flex items-center gap-2 mt-1 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.05]">
+                      <span className="text-[10px] font-black text-slate-500 font-display uppercase tracking-widest">{decisionResult.decision.replace('_', ' ')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex items-start gap-4">
+                  <Info className="w-5 h-5 text-rose-400 mt-0.5 shrink-0" />
+                  <p className="text-sm text-slate-300 leading-relaxed font-sans">{decisionResult.reasoning.summary}</p>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] font-display">Context Signals Detected</p>
+                  
+                  {(!decisionResult.signals_detected.urgency && 
+                    !decisionResult.signals_detected.threat && 
+                    !decisionResult.signals_detected.kyc_scam && 
+                    !decisionResult.signals_detected.reward_trap && 
+                    !decisionResult.signals_detected.unknown_receiver && 
+                    !decisionResult.signals_detected.budget_issue && 
+                    !decisionResult.signals_detected.impulse_trigger) ? (
+                    <div className="flex items-center gap-2 px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                      <CheckCircle className="w-5 h-5 text-emerald-400" />
+                      <span className="text-sm text-emerald-400 font-bold">✅ No major risk signals detected</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {decisionResult.signals_detected.threat && <SignalChip color="red" label="Threat" icon={<AlertTriangle className="w-3.5 h-3.5" />} />}
+                      {decisionResult.signals_detected.kyc_scam && <SignalChip color="purple" label="KYC Scam" icon={<Lock className="w-3.5 h-3.5" />} />}
+                      {decisionResult.signals_detected.urgency && <SignalChip color="yellow" label="Urgency" icon={<Zap className="w-3.5 h-3.5" />} />}
+                      {decisionResult.signals_detected.reward_trap && <SignalChip color="orange" label="Reward Trap" icon={<Gift className="w-3.5 h-3.5" />} />}
+                      {decisionResult.signals_detected.budget_issue && <SignalChip color="orange" label="Budget Risk" icon={<IndianRupee className="w-3.5 h-3.5" />} />}
+                      {decisionResult.signals_detected.impulse_trigger && <SignalChip color="yellow" label="Impulse Spending" icon={<Brain className="w-3.5 h-3.5" />} />}
+                      {decisionResult.signals_detected.unknown_receiver && <SignalChip color="gray" label="Unknown Receiver" icon={<Eye className="w-3.5 h-3.5" />} />}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] font-display">Recommended Actions</p>
+                  <div className="space-y-2">
+                    {decisionResult.advice.map((advice, i) => (
+                      <div key={i} className="flex items-start gap-3 p-4 rounded-xl bg-white/[0.03] border border-white/[0.05]">
+                        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-rose-500 to-orange-500 flex items-center justify-center text-[10px] font-black text-white shrink-0 mt-0.5">{i + 1}</div>
+                        <p className="text-sm text-slate-300 font-sans leading-relaxed">{advice}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/[0.06] overflow-hidden">
+                  <button onClick={() => setShowReasoning(!showReasoning)} className="w-full flex items-center justify-between px-5 py-4 bg-white/[0.02] hover:bg-white/[0.04] transition-all">
+                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest font-display">Technical Breakdown</span>
+                    {showReasoning ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                  </button>
+                  <AnimatePresence>
+                    {showReasoning && (
+                      <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
+                        <div className="px-5 pb-5 space-y-2 pt-2">
+                          {decisionResult.reasoning.details.map((r, i) => (
+                            <div key={i} className="flex items-start gap-3 text-sm text-slate-400 font-sans"><span className="text-rose-400 mt-0.5 shrink-0">→</span>{r}</div>
                           ))}
                         </div>
                       </motion.div>

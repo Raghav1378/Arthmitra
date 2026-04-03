@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Chat from '../components/Chat';
 import ScamShield from '../components/ScamShield';
+import ExpenseTracker from '../components/ExpenseTracker';
 import Sidebar from '../components/Sidebar';
 import ApiStatusIndicator from '../components/ApiStatusIndicator';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -107,6 +108,17 @@ export default function Home() {
                     >
                         <ScamShield />
                     </motion.div>
+                ) : activeView === "expenses" ? (
+                    <motion.div
+                        key="expenses-view"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        className="w-full h-full flex flex-col shadow-2xl shadow-black/40 rounded-3xl overflow-hidden glass-strong border border-white/[0.05]"
+                    >
+                        <ExpenseTracker />
+                    </motion.div>
                 ) : (
                     <motion.div 
                         key="placeholder-view"
@@ -137,21 +149,7 @@ export default function Home() {
             </AnimatePresence>
         </div>
 
-        {/* ─── Fixed Global Footer Overlay ─────────────────────── */}
-        <footer className="absolute bottom-6 left-1/2 -translate-x-1/2 px-8 py-2.5 flex items-center gap-8 rounded-full border border-white/[0.08] bg-black/50 backdrop-blur-3xl text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] z-30 shadow-2xl font-display">
-            <div className="flex items-center gap-2 border-r border-white/10 pr-6">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-                <span className="text-emerald-400">Secure Session</span>
-            </div>
-            <div className="flex items-center gap-2 border-r border-white/10 pr-6">
-                <Info className="w-3.5 h-3.5 text-slate-500" />
-                <span>RAG v3.2-Stable</span>
-            </div>
-            <div className="flex items-center gap-3">
-                <Globe className="w-3.5 h-3.5 text-slate-500" />
-                <span>India-West (Mumbai)</span>
-            </div>
-        </footer>
+
       </div>
     </main>
   );
