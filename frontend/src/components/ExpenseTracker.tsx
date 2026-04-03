@@ -7,21 +7,42 @@ import {
 import { 
   Plus, IndianRupee, PieChart as PieIcon, TrendingUp,
   Coffee, Home, Zap, Car, ShoppingBag, Package, Sparkles, History, Trash2, Wallet, ArrowDownCircle, ArrowUpCircle, Shuffle, Loader2,
-  BookOpen, HeartPulse, Dumbbell, Film, Leaf, ScanSearch, CheckCircle2, TrendingDown
+  BookOpen, HeartPulse, Dumbbell, Film, Leaf, ScanSearch, CheckCircle2, TrendingDown, Bot, GraduationCap, Target, RefreshCw, Shield, Activity,
+  X, AlertCircle, AlertTriangle, Fingerprint, Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Types ---
-interface Expense {
+export interface Expense {
   id: string;
   amount: number;
   category: string;
   description: string;
   date: Date;
   type: 'spend' | 'receive';
+  riskInfo?: {
+    risk: 'SAFE' | 'SUSPICIOUS' | 'HIGH_RISK';
+    score: number;
+    reasoning: string;
+    details?: string[];
+    advice: string[];
+    signals?: {
+      amount_pattern?: string;
+      odd_timing?: boolean;
+      repetition_pattern?: string;
+      suspicious_context?: boolean;
+    };
+  };
 }
 
-// --- Constants & Config ---
+interface ExpenseTrackerProps {
+  expenses: Expense[];
+  setExpenses: React.Dispatch<React.SetStateAction<Expense[]>>;
+  onClose?: () => void;
+  onOpenSecurityAudit?: () => void;
+}
+
+
 const CATEGORIES = {
   Food: { icon: Coffee, color: '#f43f5e', keywords: ['zomato', 'swiggy', 'pizza', 'burger', 'food', 'restaurant', 'chai', 'coffee', 'dinner', 'lunch', 'momos', 'juice', 'cake', 'cafe'] },
   Housing: { icon: Home, color: '#8b5cf6', keywords: ['rent', 'emi', 'house', 'maintenance', 'builder'] },
@@ -46,61 +67,135 @@ const INCOME_CATS = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
-const INITIAL_EXPENSES: Expense[] = [];
-
-export default function ExpenseTracker() {
-  const [expenses, setExpenses] = useState<Expense[]>(INITIAL_EXPENSES);
+export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenSecurityAudit }: ExpenseTrackerProps) {
   const [input, setInput] = useState('');
   const [inputType, setInputType] = useState<'spend' | 'receive'>('spend');
   const [scanState, setScanState] = useState<'idle' | 'scanning' | 'extracting' | 'complete'>('idle');
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0, lastItem: '' });
-  const [aiInsight, setAiInsight] = useState<string>("Analyzing your financial state...");
+  const [aiInsight, setAiInsight] = useState<string>("Awaiting resource audit. Load your transactions or sync a CSV to activate the Wealth Strategist.");
   const [isInsightLoading, setIsInsightLoading] = useState(false);
   
   const [pieMode, setPieMode] = useState<'spend' | 'receive'>('spend');
-  const [lineMode, setLineMode] = useState<'spend' | 'receive'>('spend');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDeleteExpense = (id: string) => setExpenses(prev => prev.filter(exp => exp.id !== id));
+  // --- Initial Load Persistence ---
+  useEffect(() => {
+    const loadFromDB = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/expenses`);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setExpenses(data.map(e => ({
+            ...e,
+            date: new Date(e.date)
+          })));
+        }
+      } catch (err) { console.error("Persistence Load Error:", err); }
+    };
+    loadFromDB();
+  }, [setExpenses]);
+
+  const handleDeleteExpense = async (id: string) => {
+    try {
+      await fetch(`${API_BASE}/expenses/${id}`, { method: "DELETE" });
+      setExpenses(prev => prev.filter(exp => exp.id !== id));
+    } catch (err) { console.error("Persistence Delete Error:", err); }
+  };
+
+  const handleResetExpenses = async () => {
+    if (!window.confirm("This will permanently delete all transaction history and reset the audit. Proceed?")) return;
+    try {
+      await fetch(`${API_BASE}/expenses`, { method: "DELETE" });
+      setExpenses([]);
+      setAiInsight("Awaiting resource audit. Load your transactions or sync a CSV to activate the Wealth Strategist.");
+    } catch (err) { console.error("Persistence Reset Error:", err); }
+  };
+
+  const handleAnalyzeExpense = async (exp: Expense) => {
+    try {
+      const res = await fetch(`${API_BASE}/expense/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          expense_text: exp.description,
+          amount: exp.amount,
+          time_of_transaction: exp.date.toLocaleTimeString(),
+          frequency: 1
+        })
+      });
+      const data = await res.json();
+      setExpenses(prev => prev.map(e => e.id === exp.id ? {
+        ...e,
+        riskInfo: {
+          risk: data.risk || 'SAFE',
+          score: data.risk_score || 0,
+          reasoning: data.reasoning?.summary || "No anomaly detected.",
+          details: data.reasoning?.details || [],
+          advice: data.advice || [],
+          signals: data.signals_detected
+        }
+      } : e));
+    } catch (err) { console.error("Risk Analysis Error:", err); }
+  };
+
+  const handleAuditAll = async () => {
+    const unanalyzed = expenses.filter(e => !e.riskInfo);
+    if (unanalyzed.length === 0) return;
+    for (const exp of unanalyzed) {
+      await handleAnalyzeExpense(exp);
+      // Small delay to prevent rate limit and show progress
+      await new Promise(r => setTimeout(r, 200));
+    }
+  };  const handleRefresh = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/expenses`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setExpenses(data.map(e => ({
+          ...e,
+          date: new Date(e.date)
+        })));
+      }
+    } catch (err) { console.error("Persistence Refresh Error:", err); }
+  };
+
+  const handleFinishSession = async () => {
+    if (!window.confirm("Finish Audit session? This will clear all data from the Live Treasury and return to the Command Center.")) return;
+    try {
+      await fetch(`${API_BASE}/expenses`, { method: "DELETE" });
+      setExpenses([]);
+      if (onClose) onClose();
+    } catch (err) { console.error("Persistence Finish Error:", err); }
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     setScanState('scanning');
     const formData = new FormData();
     formData.append("file", file);
-
     try {
       const res = await fetch(`${API_BASE}/expense/extract`, { method: "POST", body: formData });
       const data = await res.json();
-      
       if (data.expenses && data.expenses.length > 0) {
         setScanState('extracting');
         setScanProgress({ current: 0, total: data.expenses.length, lastItem: '' });
-        
-        // MIMIC "REAL-TIME" FLOW: Inject items one by one
         for (let i = 0; i < data.expenses.length; i++) {
           const e = data.expenses[i];
           setScanProgress(p => ({ ...p, current: i + 1, lastItem: e.description }));
-          
-          await new Promise(r => setTimeout(r, 400)); // Mimicking real-time discovery speed
-          const newExp: Expense = {
-            id: Math.random().toString(36).substr(2, 9),
-            amount: e.amount, category: e.category || 'Misc', description: e.description,
-            date: e.date ? new Date(e.date) : new Date(), type: e.type || 'spend'
-          };
+          await new Promise(r => setTimeout(r, 100)); // Fast extraction feel
+          const newExp: Expense = { ...e, date: new Date(e.date) };
           setExpenses(prev => [newExp, ...prev]);
+          
+          // Background analysis - doesn't block the next extraction step
+          handleAnalyzeExpense(newExp);
         }
         setScanState('complete');
         setTimeout(() => setScanState('idle'), 2500);
+
       }
-    } catch (e) {
-      console.error("Extraction error:", e);
-      setScanState('idle');
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    } catch (e) { setScanState('idle'); } 
+    finally { if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
   const fetchAIInsights = useCallback(async (currentExpenses: Expense[]) => {
@@ -114,17 +209,19 @@ export default function ExpenseTracker() {
         })
       });
       const data = await res.json();
-      setAiInsight(data.insight || "Stabilizing your treasury...");
+      setAiInsight(data.insight || "Strategy audit completed.");
     } catch (e) { setAiInsight("Analyzing global flow..."); } 
     finally { setIsInsightLoading(false); }
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => fetchAIInsights(expenses), 3000);
-    return () => clearTimeout(timer);
-  }, [expenses, fetchAIInsights]);
+    if (expenses.length > 0 && (scanState === 'idle' || scanState === 'complete')) {
+        const timer = setTimeout(() => fetchAIInsights(expenses), 1500);
+        return () => clearTimeout(timer);
+    }
+  }, [expenses, fetchAIInsights, scanState]);
 
-  const handleAddExpense = (e?: React.FormEvent) => {
+  const handleAddExpense = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim()) return;
     let amt = 0;
@@ -138,53 +235,116 @@ export default function ExpenseTracker() {
     const dict = typ === 'receive' ? INCOME_CATS : CATEGORIES;
     for (const [n, d] of Object.entries(dict)) { if (d.keywords?.some(k => low.includes(k))) { cat = n; break; } }
     const desc = input.replace(/(?:rs\.?|₹)?\s*\d+(?:,\d+)*(?:\.\d+)?/i, '').replace(/\+|receive|got|income|salary|credited/gi, '').trim();
-    setExpenses(prev => [{ id: Math.random().toString(36).substr(2,9), amount: amt, category: cat, description: desc || cat, date: new Date(), type: typ }, ...prev]);
-    setInput('');
-  };
+    
+      // Save to Persistence
+      try {
+        const res = await fetch(`${API_BASE}/expenses`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: amt, category: cat, description: desc || cat, type: typ })
+        });
+        const saved = await res.json();
+        const newExp: Expense = { ...saved, date: new Date(saved.date) };
+        setExpenses(prev => [newExp, ...prev]);
+        setInput('');
+        
+        // Trigger Risk Analysis
+        handleAnalyzeExpense(newExp);
+      } catch (err) { console.error("Persistence Save Error:", err); }
+    };
+
 
   const metrics = useMemo(() => {
     let inflow = 0, outflow = 0;
     const spendS: Record<string, number> = {}, incomeS: Record<string, number> = {};
-    const dSpend: Record<string, number> = {}, dIncome: Record<string, number> = {};
-    const week = new Date(Date.now() - 7 * 24*60*60*1000);
-
-    for (let i = 6; i >= 0; i--) {
-      const day = new Date(Date.now() - i*24*60*60*1000).toLocaleDateString('en-US', { weekday: 'short' });
-      dSpend[day] = 0; dIncome[day] = 0;
-    }
-
     expenses.forEach(e => {
-        // GLOBAL CALCULATIONS (Session Tracking)
-        if (e.type === 'receive') { 
-            inflow += e.amount; 
-            incomeS[e.category] = (incomeS[e.category] || 0) + e.amount; 
-        } else { 
-            outflow += e.amount; 
-            spendS[e.category] = (spendS[e.category] || 0) + e.amount; 
-        }
-
-        // Velocity Tracking (Last 7 Days)
-        const dStr = e.date.toLocaleDateString('en-US', { weekday: 'short' });
-        if (e.date >= week) {
-            if (e.type === 'receive') { if (dIncome[dStr] !== undefined) dIncome[dStr] += e.amount; }
-            else { if (dSpend[dStr] !== undefined) dSpend[dStr] += e.amount; }
-        }
+        if (e.type === 'receive') { inflow += e.amount; incomeS[e.category] = (incomeS[e.category] || 0) + e.amount; } 
+        else { outflow += e.amount; spendS[e.category] = (spendS[e.category] || 0) + e.amount; }
     });
-
     return { 
         inflow, outflow, net: inflow - outflow, 
         spendData: Object.entries(spendS).map(([name, value]) => ({ name, value })).sort((a,b)=>b.value-a.value), 
         incomeData: Object.entries(incomeS).map(([name, value]) => ({ name, value })).sort((a,b)=>b.value-a.value), 
-        lineS: Object.keys(dSpend).map(d => ({ day: d, amount: dSpend[d] })), 
-        lineI: Object.keys(dIncome).map(d => ({ day: d, amount: dIncome[d] })) 
     };
+  }, [expenses]);
+
+  const securityMetrics = useMemo(() => {
+    const threats = expenses.filter(e => e.riskInfo && (e.riskInfo.risk === 'HIGH_RISK' || e.riskInfo.risk === 'SUSPICIOUS'));
+    const highRisk = threats.filter(e => e.riskInfo?.risk === 'HIGH_RISK').length;
+    const suspicious = threats.filter(e => e.riskInfo?.risk === 'SUSPICIOUS').length;
+    const totalAnalyzed = expenses.filter(e => e.riskInfo).length;
+    const score = totalAnalyzed === 0 ? 100 : Math.max(0, 100 - (highRisk * 15) - (suspicious * 5));
+    
+    return { threats, highRisk, suspicious, totalAnalyzed, score };
   }, [expenses]);
 
   return (
     <div className="w-full h-full flex flex-col pt-2 pb-6 px-4 md:px-8 max-w-7xl mx-auto overflow-y-auto custom-scrollbar font-sans text-slate-200">
       
-      {/* IDENTIFIED SUMMARY (REAL-TIME UPDATING) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 mt-4 shrink-0">
+      {/* IDENTIFIED SUMMARY & HEADER */}
+      <div className="flex justify-between items-end mb-4 mt-6 shrink-0">
+         <div>
+            <h2 className="text-2xl font-black text-white tracking-tighter uppercase">Wealth Auditor</h2>
+            <p className="text-[10px] font-black text-slate-500 tracking-[0.3em] uppercase mt-1 flex items-center gap-2">
+                <Sparkles className="w-3 h-3 text-cyan-400" /> Advanced Financial Trace Engine
+            </p>
+         </div>
+         <div className="flex gap-4">
+            <button 
+              onClick={() => onClose?.()}
+              className="px-6 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-slate-400 text-[11px] font-black uppercase tracking-widest hover:bg-white/10 hover:text-white transition-all shadow-lg active:scale-95"
+            >
+              Exit Workspace
+            </button>
+            <button 
+              onClick={handleFinishSession}
+              className="px-6 py-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[11px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all shadow-lg active:scale-95"
+            >
+              Finish & Clear Audit
+            </button>
+         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 mt-4 shrink-0">
+        
+        {/* Security Audit Pulse */}
+        <motion.div 
+          onClick={() => securityMetrics.threats.length > 0 && onOpenSecurityAudit?.()}
+          whileHover={{ y: -6 }} 
+          className={`relative overflow-hidden rounded-[2.5rem] p-7 bg-gradient-to-br from-rose-500/10 to-violet-500/10 border border-white/10 shadow-2xl group transition-all duration-700 backdrop-blur-xl ${securityMetrics.threats.length > 0 ? 'cursor-pointer hover:border-rose-500/40 ring-1 ring-rose-500/20' : ''}`}
+        >
+            <div className={`absolute -right-8 -bottom-8 p-4 transition-opacity ${securityMetrics.threats.length > 0 ? 'opacity-20 group-hover:opacity-40 animate-pulse' : 'opacity-10 group-hover:opacity-20'}`}>
+                <Shield className={`w-32 h-32 ${securityMetrics.score < 80 ? 'text-rose-400' : 'text-cyan-400'}`} />
+            </div>
+            <div className="relative z-10">
+                <p className="text-[10px] font-black text-rose-400 uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
+                    <Activity className="w-3 h-3 animate-pulse" /> Security Pulse
+                </p>
+                <div className="flex items-baseline gap-2">
+                    <h2 className="text-4xl font-black text-white tracking-tighter mb-1">{securityMetrics.score}%</h2>
+                    {securityMetrics.threats.length > 0 && (
+                        <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20 animate-bounce">ACTION REQ</span>
+                    )}
+                </div>
+                <div className="flex items-center gap-2 mt-4">
+                    <div className="flex -space-x-1">
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className={`w-2 h-2 rounded-full border border-black/20 ${i < securityMetrics.highRisk ? 'bg-rose-500 shadow-[0_0_10px_#f43f5e]' : 'bg-white/10'}`} />
+                        ))}
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest pl-2">
+                        {securityMetrics.highRisk} Threats • {securityMetrics.totalAnalyzed} Traced
+                    </span>
+                </div>
+            </div>
+            {securityMetrics.threats.length > 0 && (
+                <div className="absolute top-4 right-4 group-hover:translate-x-1 transition-transform">
+                    <div className="p-2 rounded-full bg-rose-500/20 border border-rose-500/30">
+                        <Plus className="w-3 h-3 text-rose-400 rotate-45" />
+                    </div>
+                </div>
+            )}
+        </motion.div>
+
         {[
           { l: "Identified Inflow", v: metrics.inflow, i: ArrowDownCircle, c: "emerald", s: "Capture" },
           { l: "Identified Outflow", v: metrics.outflow, i: ArrowUpCircle, c: "rose", s: "Expenditure" },
@@ -204,9 +364,9 @@ export default function ExpenseTracker() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8 shrink-0 md:h-[420px]">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8 shrink-0 md:min-h-[420px]">
         {/* Pie Breakdown */}
-        <motion.div className="bg-white/[0.02] border border-white/[0.06] rounded-[2.5rem] p-8 shadow-2xl flex flex-col h-full group/chart relative overflow-hidden backdrop-blur-3xl">
+        <motion.div className="bg-white/[0.02] border border-white/[0.06] rounded-[2.5rem] p-8 shadow-2xl flex flex-col min-h-[400px] group/chart relative overflow-hidden backdrop-blur-3xl">
           <div className="flex justify-between items-center mb-10 relative z-10">
              <h3 className="text-[12px] font-black text-slate-500 uppercase tracking-[0.25em] flex items-center gap-3">
                 <PieIcon className={`w-5 h-5 ${pieMode === 'spend' ? 'text-cyan-400' : 'text-emerald-400'}`} /> 
@@ -231,7 +391,7 @@ export default function ExpenseTracker() {
                       return <div className="bg-[#0f172a]/95 border border-white/10 p-5 rounded-3xl shadow-2xl backdrop-blur-2xl">
                           <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-1">{d.name}</p>
                           <p className="text-2xl font-black text-white">₹{d.value.toLocaleString()}</p>
-                          <p className="text-[10px] font-bold text-slate-600 mt-2">IDENTIFIED ({((d.value/tot)*100).toFixed(0)}%)</p>
+                          <p className="text-[10px] font-bold text-slate-600 mt-2">IDENTIFIED ({tot > 0 ? ((d.value/tot)*100).toFixed(0) : 0}%)</p>
                         </div>;
                     } return null;
                   }}
@@ -245,50 +405,101 @@ export default function ExpenseTracker() {
           </div>
         </motion.div>
 
-        {/* Real-Time Velocity Plot */}
-        <motion.div className="bg-white/[0.02] border border-white/[0.06] rounded-[2.5rem] p-8 shadow-2xl flex flex-col h-full group/line relative overflow-hidden backdrop-blur-3xl">
-           <div className="flex justify-between items-center mb-10 relative z-10">
-              <h3 className="text-[12px] font-black text-slate-500 uppercase tracking-[0.25em] flex items-center gap-3">
-                <TrendingUp className={`w-5 h-5 ${lineMode === 'spend' ? 'text-rose-400' : 'text-emerald-400'}`} /> 
-                {lineMode === 'spend' ? 'Outflow Heatmap' : 'Inflow Velocity'}
-              </h3>
-              <button onClick={() => setLineMode(prev => prev === 'spend' ? 'receive' : 'spend')} className={`w-11 h-11 flex items-center justify-center rounded-2xl border transition-all duration-300 ${lineMode === 'spend' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/25' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/25'}`}>
-                <Shuffle className="w-5 h-5" />
-              </button>
+        {/* --- Mitra Strategist (The Advisor Bot) --- */}
+        <motion.div className="bg-white/[0.02] border border-white/[0.1] rounded-[3rem] p-10 shadow-2xl flex flex-col h-full group/bot relative overflow-hidden backdrop-blur-3xl ring-1 ring-white/10 min-h-[400px]">
+           <div className="absolute top-0 right-0 p-8">
+              <motion.div animate={isInsightLoading ? { rotate: 360 } : {}} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}>
+                 <RefreshCw className={`w-5 h-5 ${isInsightLoading ? 'text-cyan-400' : 'text-slate-700'}`} />
+              </motion.div>
            </div>
-           <div className="flex-1 w-full relative">
+           
+           <div className="flex items-center gap-5 mb-12 relative z-10">
+              <div className="relative">
+                 <div className="w-16 h-16 rounded-[2rem] bg-gradient-to-br from-cyan-600 to-emerald-600 flex items-center justify-center border border-white/20 shadow-[0_0_30px_rgba(34,211,238,0.3)]">
+                    <Bot className="w-8 h-8 text-white" />
+                 </div>
+                 {isInsightLoading && (
+                   <motion.div 
+                     initial={{ scale: 0.8, opacity: 0 }}
+                     animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                     transition={{ repeat: Infinity, duration: 2 }}
+                     className="absolute inset-0 bg-cyan-400 rounded-[2rem]" 
+                   />
+                 )}
+              </div>
+              <div>
+                 <h3 className="text-lg font-black text-white tracking-tight uppercase leading-none mb-1">ArthMitra Strategist</h3>
+                 <p className="text-[10px] font-black text-cyan-400 tracking-[0.3em] uppercase">Wealth Auditor v4.2</p>
+              </div>
+           </div>
+
+           <div className="flex-1 flex flex-col relative z-10">
               <AnimatePresence mode="wait">
-                <motion.div key={lineMode} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="w-full h-full absolute inset-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={lineMode === 'spend' ? metrics.lineS : metrics.lineI} margin={{ top: 20, right: 10, left: -10, bottom: 0 }}>
-                      <XAxis dataKey="day" hide />
-                      <RechartsTooltip content={({ active, payload }) => {
-                            if (active && payload && payload.length) {
-                              return <div className="bg-[#0f172a]/95 border border-white/10 p-4 rounded-2xl shadow-2xl backdrop-blur-xl">
-                                  <p className={`text-lg font-black ${lineMode === 'spend' ? 'text-rose-400' : 'text-emerald-400'}`}>₹{payload[0].value?.toLocaleString()}</p>
-                                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{payload[0].payload.day}</p>
-                                </div>;
-                            } return null;
-                        }}
-                      />
-                      <Line type="monotone" dataKey="amount" stroke={lineMode === 'spend' ? '#f43f5e' : '#10b981'} strokeWidth={7} dot={false} strokeLinecap="round" animationDuration={1000} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </motion.div>
+                 {isInsightLoading ? (
+                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="h-4 bg-white/5 rounded-full animate-pulse" style={{ width: `${100 - (i * 15)}%` }} />
+                      ))}
+                      <p className="text-[11px] font-black text-slate-600 uppercase tracking-widest animate-pulse">Running Wealth Audit Trace...</p>
+                   </motion.div>
+                 ) : (
+                   <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-8">
+                      <div className="p-8 bg-white/[0.03] border border-white/10 rounded-[2.5rem] shadow-inner relative overflow-hidden backdrop-blur-md">
+                         <div className="absolute top-0 right-0 p-4 opacity-10"><Target className="w-12 h-12" /></div>
+                         <p className="text-[16px] leading-[1.7] text-slate-200 font-medium italic">"{aiInsight}"</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                         <div className="p-5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-4">
+                            <GraduationCap className="w-5 h-5 text-emerald-400" />
+                            <span className="text-[11px] font-black text-emerald-300 uppercase tracking-wider">Strategy Ready</span>
+                         </div>
+                         <div className="p-5 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl flex items-center gap-4">
+                            <Target className="w-5 h-5 text-cyan-400" />
+                            <span className="text-[11px] font-black text-cyan-300 uppercase tracking-wider">Audit Synced</span>
+                         </div>
+                      </div>
+                   </motion.div>
+                 )}
               </AnimatePresence>
            </div>
+           
+           <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-emerald-500/10 blur-[80px] rounded-full pointer-events-none" />
         </motion.div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8 mb-40 shrink-0">
-        {/* Transaction stream */}
+      <div className="flex flex-col lg:flex-row gap-8 mb-44 shrink-0">
         <div className="flex-1 bg-white/[0.015] border border-white/[0.06] rounded-[2.5rem] p-8 shadow-2xl flex flex-col backdrop-blur-lg min-h-[500px]">
-          <h3 className="text-sm font-black text-slate-300 uppercase tracking-[0.3em] flex items-center gap-3 mb-10">
-            <History className="w-6 h-6 text-emerald-400" /> Live Treasury Feed
-          </h3>
+          <div className="flex justify-between items-center mb-10 relative z-10">
+            <h3 className="text-sm font-black text-slate-300 uppercase tracking-[0.3em] flex items-center gap-3">
+              <History className="w-6 h-6 text-emerald-400" /> Live Treasury Feed
+            </h3>
+            <div className="flex gap-4">
+              <button 
+                onClick={handleAuditAll} 
+                className={`p-2.5 rounded-xl border transition-all active:scale-95 flex items-center gap-2 px-4 ${expenses.some(e => !e.riskInfo) ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20' : 'bg-white/5 border-white/10 text-slate-500 cursor-default'}`} 
+                title="Audit All Transactions"
+              >
+                <Shield className="w-4.5 h-4.5" />
+                <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Run Audit</span>
+              </button>
+              <button onClick={handleRefresh} className="p-2.5 rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all active:scale-95" title="Refresh Feed">
+                <RefreshCw className="w-4.5 h-4.5" />
+              </button>
+              <button onClick={handleResetExpenses} className="p-2.5 rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-rose-400 hover:border-rose-500/30 transition-all active:scale-95" title="Reset Audit (Delete All)">
+                <Trash2 className="w-4.5 h-4.5" />
+              </button>
+            </div>
+
+          </div>
+
           <div className="flex-1 overflow-y-auto pr-3 space-y-4 custom-scrollbar max-h-[650px]">
              <AnimatePresence initial={false}>
-                {expenses.map((exp) => {
+                {expenses.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-12 opacity-30">
+                    <History className="w-16 h-16 text-slate-600 mb-4" />
+                    <p className="text-sm font-black text-slate-600 uppercase tracking-widest">Awaiting First Trace...</p>
+                  </div>
+                ) : expenses.map((exp) => {
                   const isInc = exp.type === 'receive';
                   const cfg = isInc ? INCOME_CATS[exp.category as keyof typeof INCOME_CATS] : CATEGORIES[exp.category as keyof typeof CATEGORIES];
                   const Icon = isInc ? Wallet : (cfg?.icon || Package);
@@ -297,9 +508,51 @@ export default function ExpenseTracker() {
                     <motion.div key={exp.id} layout initial={{ opacity: 0, y: -20, filter: 'blur(10px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 0.9 }} className="flex items-center gap-6 p-6 rounded-[2rem] bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.03] transition-all group shadow-inner">
                       <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border border-white/10 shadow-2xl" style={{ backgroundColor: `${clr}10`, color: clr }}><Icon className="w-6 h-6" /></div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-white font-black truncate text-[16px] capitalize tracking-tight">{exp.description}</h4>
-                        <p className="text-[10px] text-slate-600 font-bold tracking-[0.2em] uppercase mt-2">{exp.category} • {exp.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</p>
+                        <div className="flex items-center gap-3">
+                            <h4 className="text-white font-black truncate text-[16px] capitalize tracking-tight">{exp.description}</h4>
+                            {exp.riskInfo && (
+                                <motion.div 
+                                    initial={{ scale: 0 }} animate={{ scale: 1 }}
+                                    className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${
+                                        exp.riskInfo.risk === 'HIGH_RISK' ? 'bg-rose-500/20 border-rose-500/30 text-rose-400' :
+                                        exp.riskInfo.risk === 'SUSPICIOUS' ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' :
+                                        'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+                                    }`}
+                                >
+                                    {exp.riskInfo.risk.replace('_', ' ')}
+                                </motion.div>
+                            )}
+                        </div>
+                        <div className="flex flex-col mt-2">
+                            <div className="flex items-center gap-4">
+                                <p className="text-[10px] text-slate-600 font-bold tracking-[0.2em] uppercase">{exp.category} • {exp.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</p>
+                                {exp.riskInfo && (
+                                    <span className="text-[10px] text-slate-500 font-medium truncate max-w-[200px] border-l border-white/10 pl-4 italic">"{exp.riskInfo.reasoning}"</span>
+                                )}
+                            </div>
+                            
+                            {exp.riskInfo && exp.riskInfo.risk !== 'SAFE' && (
+                                <motion.div 
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    className="mt-4 p-4 bg-white/[0.03] border border-white/5 rounded-2xl space-y-3"
+                                >
+                                    <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                        <Shield className="w-3.5 h-3.5 text-cyan-400" /> Security Protocol
+                                    </div>
+                                    <ul className="space-y-2">
+                                        {exp.riskInfo.advice.map((adv, idx) => (
+                                            <li key={idx} className="text-[11px] text-slate-300 flex items-start gap-2">
+                                                <span className="text-cyan-400 font-bold">•</span> {adv}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </motion.div>
+                            )}
+                        </div>
                       </div>
+
+
                       <div className="text-right flex items-center gap-8">
                         <span className={`font-black font-display text-xl ${isInc ? 'text-emerald-400' : 'text-slate-100'}`}>{isInc ? '+' : '-'}₹{exp.amount.toLocaleString()}</span>
                         <button onClick={() => handleDeleteExpense(exp.id)} className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-700 hover:text-rose-400 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-all active:scale-90"><Trash2 className="w-5.5 h-5.5" /></button>
@@ -310,42 +563,19 @@ export default function ExpenseTracker() {
              </AnimatePresence>
           </div>
         </div>
-
-        {/* AI Analysis Sidebar */}
-        <div className="w-full lg:w-[400px] shrink-0">
-          <motion.div className="bg-white/[0.02] border border-white/[0.06] rounded-[3rem] p-10 h-full flex flex-col relative overflow-hidden backdrop-blur-3xl shadow-2xl">
-            <h3 className="text-xs font-black text-cyan-400 uppercase tracking-[0.3em] mb-12 flex items-center gap-4 relative z-10"><Sparkles className="w-5 h-5" /> Audited Intelligence</h3>
-            <div className="flex-1 flex flex-col gap-12 relative z-10">
-                <AnimatePresence mode="wait">
-                    {isInsightLoading ? ( <div className="space-y-4">{[1,2,3,4,5].map(i => <div key={i} className="h-4 bg-white/5 rounded-full animate-pulse" />)}</div> ) 
-                    : ( <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="p-8 bg-cyan-500/[0.05] border border-cyan-500/10 rounded-[2.5rem] shadow-[inset_0_0_30px_rgba(34,211,238,0.05)] relative overflow-hidden group">
-                        <div className="absolute top-0 left-0 w-2 h-full bg-cyan-400/50" />
-                        <p className="text-[15px] leading-relaxed text-cyan-50/90 font-medium italic">"{aiInsight}"</p>
-                      </motion.div> )}
-                </AnimatePresence>
-                <div className="p-8 bg-white/[0.02] border border-white/[0.05] rounded-[2.5rem] shadow-xl">
-                   <div className="flex justify-between items-center mb-6">
-                      <p className="text-[11px] font-black text-slate-600 uppercase tracking-[0.2em]">Capture Efficiency</p>
-                      <div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${metrics.net > 0 ? 'bg-emerald-400 shadow-[0_0_10px_#10b981]' : 'bg-rose-400 shadow-[0_0_10px_#f43f5e]'}`} /><p className="text-xs font-black text-white">{metrics.net > 0 ? 'NOMINAL' : 'ALERT'}</p></div>
-                   </div>
-                   <div className="w-full h-3.5 bg-white/5 rounded-full overflow-hidden mb-6 p-[3px] border border-white/5">
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(100, Math.max(0, (metrics.net/metrics.inflow) * 100))}%` }} className="h-full bg-gradient-to-r from-cyan-600 via-cyan-400 to-emerald-400 rounded-full shadow-[0_0_20px_rgba(34,211,238,0.4)]" />
-                   </div>
-                   <p className="text-[12px] text-slate-400 font-black tracking-[0.1em] text-center italic">{( (metrics.net/metrics.inflow) * 100).toFixed(0)}% Treasury Retainment</p>
-                </div>
-            </div>
-            <div className="absolute -top-20 -left-20 w-60 h-60 bg-cyan-600/10 blur-[120px] rounded-full pointer-events-none" />
-          </motion.div>
-        </div>
       </div>
 
       {/* FLOATING SMART INPUT INTERFACE */}
       <div className="fixed bottom-12 left-1/2 -translate-x-1/2 w-full max-w-4xl px-8 z-40">
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-4 whitespace-nowrap overflow-hidden">
+            <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] animate-pulse">Try: "UPI request for ₹1 to verify account"</span>
+            <div className="w-px h-3 bg-white/10" />
+            <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Try: "₹5000 transfer to unknown at 2 AM"</span>
+        </div>
         <form onSubmit={handleAddExpense} className="relative group">
-           {/* SCANNING OVERLAY HUD (HIGH-FIDELITY) */}
            <AnimatePresence>
              {scanState !== 'idle' && (
-               <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, blur: 10 }} className="absolute -top-32 left-0 right-0 flex justify-center">
+               <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="absolute -top-32 left-0 right-0 flex justify-center">
                  <div className="bg-[#0f172a]/95 backdrop-blur-[60px] border border-emerald-500/30 p-7 rounded-[2rem] flex items-center gap-10 shadow-[0_50px_200px_rgba(0,0,0,1)] border-t-[1px_solid_rgba(255,255,255,0.15)] ring-1 ring-white/10">
                    <div className="relative">
                       <div className="w-16 h-16 rounded-full border-2 border-emerald-500/30 flex items-center justify-center bg-emerald-500/5 shadow-inner">
@@ -391,7 +621,6 @@ export default function ExpenseTracker() {
                   whileTap={{ scale: 0.9 }}
                   onClick={() => fileInputRef.current?.click()}
                   className={`flex items-center justify-center w-14 h-14 rounded-[2rem] border-2 transition-all shadow-[0_15px_40px_rgba(0,0,0,0.5)] ${inputType === 'spend' ? 'bg-rose-500 text-white border-rose-400/50' : 'bg-emerald-500 text-white border-emerald-400/50'}`}
-                  title="Auditing High-Mixed CSV"
                 >
                   {scanState !== 'idle' ? <Loader2 className="w-7 h-7 animate-spin" /> : <Plus className="w-8 h-8" />}
                 </motion.button>
@@ -415,7 +644,6 @@ export default function ExpenseTracker() {
            </div>
         </form>
       </div>
-
     </div>
   );
 }

@@ -10,6 +10,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import json
+import sqlite3
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Float, DateTime, select, insert, delete
+from databases import Database
+
+# ── Database Config ────────────────────────────────────────────────────────────
+DATABASE_URL = "sqlite:///./finance.db"
+database = Database(DATABASE_URL)
+metadata = MetaData()
+
+expenses_table = Table(
+    "expenses",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("amount", Float),
+    Column("category", String),
+    Column("description", String),
+    Column("date", String), # Storing as ISO string for simplicity
+    Column("type", String),
+)
+
+engine = create_engine(DATABASE_URL)
+metadata.create_all(engine)
 
 # Load .env from PROJECT ROOT (one level up from backend/)
 _env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
@@ -119,7 +141,8 @@ app.include_router(chats_router, prefix="/chats", tags=["chats"])
 
 @app.on_event("startup")
 async def startup_event():
-    """Ensure ML models are trained at startup."""
+    """Start the database and ML models."""
+    await database.connect()
     try:
         from app.shield_ml import check_or_train
         check_or_train()
@@ -127,9 +150,13 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Failed to initialize Scam Shield ML: {e}")
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    await database.disconnect()
+
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "ArthMitra API"}
+    return {"status": "healthy", "service": "ArthMitra API + SQLite Active"}
 
 
 @app.post("/chat/stream")
@@ -552,9 +579,12 @@ async def scam_decision(request: DecisionAnalyzeRequest):
 # ── Expense Insights Endpoint ───────────────────────────────────────────────────────
 
 class ExpenseItem(BaseModel):
+    id: Optional[str] = None
     category: str
     amount: float
     description: str
+    date: Optional[str] = None
+    type: Optional[str] = 'spend'
 
 class ExpenseInsightsRequest(BaseModel):
     expenses: List[ExpenseItem]
@@ -562,40 +592,177 @@ class ExpenseInsightsRequest(BaseModel):
 @app.post("/expense/insights")
 async def get_expense_insights(request: ExpenseInsightsRequest):
     """
-    Generate financial insights using Ollama.
+    Generate deep financial strategy insights using Ollama (Llama 3.2).
+    Acts as an 'ArthMitra Wealth Strategist'.
     """
     try:
         if not request.expenses:
-            return {"insight": "Start adding expenses to see personalized financial insights."}
+            return {"insight": "Awaiting resource audit. Load transactions to begin your wealth strategy analysis."}
 
-        # Summarize expenses for the prompt
+        # Analyze flow logic
+        inflow = sum(e.amount for e in request.expenses if e.amount > 0)
+        outflow = sum(abs(e.amount) for e in request.expenses if e.amount < 0)
+        
         summary = {}
-        total = 0
         for exp in request.expenses:
-            summary[exp.category] = summary.get(exp.category, 0) + exp.amount
-            total += exp.amount
+            summary[exp.category] = summary.get(exp.category, 0) + abs(exp.amount)
 
         summary_text = "\n".join([f"- {cat}: ₹{amt}" for cat, amt in summary.items()])
         
         prompt = (
-            f"You are a professional financial advisor. Analyze the following monthly spending:\n"
-            f"Total Spending: ₹{total}\n"
-            f"Breakdown:\n{summary_text}\n\n"
-            f"Provide 2-3 extremely concise, actionable financial insights or alerts for the user. "
-            f"Keep the total response under 40 words. Focus on high spending or patterns."
+            f"AUDIT COMMAND: You are the ArthMitra Wealth Strategist (Precision Analytics v4.5).\n"
+            f"DATA INPUT: {summary_text}\n"
+            f"SESSION TOTALS: Inflow: ₹{inflow}, Outflow: ₹{outflow}\n\n"
+            f"TASK: Provide a high-precision financial audit.\n"
+            f"1. LIQUIDITY GRADE: (A+ to F) based on Inflow vs Outflow.\n"
+            f"2. WASTE DETECTION: Identify heaviest category and give 1 data-driven tactic to cut it.\n"
+            f"3. STRATEGIC RECALCULATION: 1 actionable tip based on current net flow of {inflow - outflow}.\n"
+            f"TONE: Efficient, Expert, Professional Auditor. No fluff. MAX 50 words."
         )
 
-        llm = ChatOllama(model="llama-3.2:3b", temperature=0.5)
+        groq_key = os.getenv("GROQ_API_KEY")
+        if not groq_key:
+            return {"insight": "Audit Engine offline. Verify Cloud API Key to restore Strategic Intelligence."}
+
+        llm = ChatGroq(api_key=groq_key, model="llama-3.1-8b-instant", temperature=0.6)
         response = await llm.ainvoke([
-            SystemMessage(content="You are a helpful financial assistant. Be very brief."),
+            SystemMessage(content="You are ArthMitra Wealth Strategist. Provide audit-grade financial advice based on data."),
             HumanMessage(content=prompt)
         ])
 
         return {"insight": response.content.strip()}
     except Exception as e:
         logger.error(f"Expense insights error: {e}")
-        return {"insight": "Checking your spending patterns... Add more details for better insights."}
+        return {"insight": "Auditing liquidity patterns... Maintain current flow until the next trace sync."}
 
+
+
+# ── Fraud-Aware Expense Analyzer ───────────────────────────────────────────────────
+
+SCAM_EXPENSE_SYSTEM_PROMPT = """You are "Fraud-Aware Expense Analyzer", an advanced AI system that combines personal finance tracking with fraud detection.
+
+Your job is to analyze a user expense and determine:
+1. Financial category
+2. Risk level (SAFE / SUSPICIOUS / HIGH_RISK)
+3. Confidence score
+4. Behavioral and scam signals
+5. Helpful user advice
+
+---
+STEP 1: EXTRACT CONTEXT
+Identify:
+- amount (₹ value)
+- category (food, rent, fuel, shopping, transfer, etc.)
+- payment type (UPI / cash / unknown)
+
+---
+STEP 2: APPLY FRAUD DETECTION LOGIC
+A. AMOUNT ANALYSIS:
+- ₹1–₹10 -> VERY HIGH scam signal (verification scams)
+- ₹11–₹999 -> LOW anomaly
+- ₹1000–₹10000 -> NORMAL
+- ₹10000+ -> context dependent
+
+B. TIME ANALYSIS:
+- 12 AM – 6 AM -> suspicious timing
+- otherwise normal
+
+C. FREQUENCY:
+- 1–3 -> weak
+- 4–10 -> moderate
+- 10+ -> strong anomaly
+
+D. CONTEXTUAL SIGNALS:
+- mentions of UPI / request / verify -> suspicious
+- unknown receiver -> suspicious
+- food / normal purchase -> safe
+
+---
+STEP 3: RISK DECISION
+HIGH_RISK:
+- ₹1–₹10 + UPI context OR late night OR repetition
+- strong anomaly patterns
+
+SUSPICIOUS:
+- any anomaly present (time OR repetition OR unclear receiver)
+- medium risk patterns
+
+SAFE:
+- normal expense (food, fuel, rent)
+- no suspicious signals
+
+IMPORTANT:
+- If ANY anomaly exists -> prefer SUSPICIOUS over SAFE
+- Do NOT overuse HIGH_RISK
+
+---
+STEP 4: CONFIDENCE CALIBRATION (Clamp 10-92)
+SAFE: 10-40
+SUSPICIOUS: 40-70
+HIGH_RISK: 75-92
+
+Start at 50:
++20 -> strong scam pattern
++10 -> odd timing
++10 -> repetition
+-15 -> normal expense category
+-10 -> normal time
+
+---
+STEP 5: OUTPUT FORMAT (STRICT JSON)
+{
+  "category": "food | rent | fuel | shopping | transfer | other",
+  "risk": "SAFE | SUSPICIOUS | HIGH_RISK",
+  "confidence": 0-100,
+  "risk_score": 0-100,
+  "signals_detected": {
+    "amount_pattern": "very_low | low | medium | high",
+    "odd_timing": boolean,
+    "repetition_pattern": "none | weak | moderate | strong",
+    "suspicious_context": boolean
+  },
+  "reasoning": {
+    "summary": "short explanation",
+    "details": ["reason 1", "reason 2"]
+  },
+  "advice": ["clear actionable advice"]
+}"""
+
+class ExpenseAnalyzeRequest(BaseModel):
+    expense_text: str
+    amount: Optional[float] = None
+    time_of_transaction: Optional[str] = None
+    frequency: Optional[int] = 1
+
+@app.post("/expense/analyze")
+async def analyze_expense_risk(request: ExpenseAnalyzeRequest):
+    """
+    Fraud-Aware Expense Analyzer — analyzes a single transaction for financial risk.
+    """
+    try:
+        user_msg = f"expense_text: {request.expense_text}"
+        if request.amount: user_msg += f"\namount: ₹{request.amount}"
+        if request.time_of_transaction: user_msg += f"\ntime_of_transaction: {request.time_of_transaction}"
+        if request.frequency: user_msg += f"\nfrequency: {request.frequency}"
+
+        groq_key = os.getenv("GROQ_API_KEY")
+        if not groq_key:
+            raise HTTPException(status_code=500, detail="GROQ_API_KEY missing")
+
+        llm = ChatGroq(api_key=groq_key, model="llama-3.1-8b-instant", temperature=0.1)
+        response = await llm.ainvoke([
+            SystemMessage(content=SCAM_EXPENSE_SYSTEM_PROMPT),
+            HumanMessage(content=user_msg)
+        ])
+
+        raw = response.content.strip()
+        if "```json" in raw: raw = raw.split("```json")[1].split("```")[0].strip()
+        elif "```" in raw: raw = raw.split("```")[1].split("```")[0].strip()
+
+        return json.loads(raw)
+    except Exception as e:
+        logger.error(f"Expense analysis error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ── Expense File Extraction Endpoint ───────────────────────────────────────────────────────
 
@@ -676,13 +843,20 @@ async def extract_expenses_from_file(file: UploadFile = File(...)):
                 else:
                     is_inflow = any(k in raw_desc for k in ["salary", "internship", "job", "payout", "income", "work", "credited", "refund", "got", "receive", "inflow"])
                 
-                extracted.append({
+                exp_id = str(abs(hash(f"{desc}{dt_str}{amount}")))
+                exp_data = {
+                    "id": exp_id,
                     "amount": round(amount, 2),
                     "description": desc,
                     "category": ("Earnings" if is_inflow else cat),
                     "date": dt_str,
                     "type": "receive" if is_inflow else "spend"
-                })
+                }
+                extracted.append(exp_data)
+                
+                # PERSIST TO DB
+                query = insert(expenses_table).values(**exp_data)
+                await database.execute(query)
             
             return {"expenses": extracted}
 
@@ -701,11 +875,58 @@ async def extract_expenses_from_file(file: UploadFile = File(...)):
         elif "```" in raw: raw = raw.split("```")[1].split("```")[0].strip()
 
         extracted = json.loads(raw)
+        # Store in DB
+        for e in extracted:
+            e["id"] = e.get("id") or str(abs(hash(f"{e['description']}{e['date']}")))
+            query = insert(expenses_table).values(
+                id=e["id"],
+                amount=e['amount'],
+                category=e['category'],
+                description=e['description'],
+                date=e['date'],
+                type=e['type']
+            )
+            await database.execute(query)
         return {"expenses": extracted}
 
     except Exception as e:
         logger.error(f"Expense extraction error: {e}")
         raise HTTPException(status_code=500, detail="Document format unreadable or corrupt.")
+
+# ── Persistence Endpoints ─────────────────────────────────────────────────────
+
+@app.get("/expenses")
+async def get_all_expenses():
+    query = select(expenses_table)
+    rows = await database.fetch_all(query)
+    return [dict(row) for row in rows]
+
+@app.post("/expenses")
+async def add_single_expense(e: ExpenseItem):
+    exp_id = e.id or str(abs(hash(f"{e.description}{e.date}{e.amount}")))
+    exp_data = {
+        "id": exp_id,
+        "amount": e.amount,
+        "category": e.category,
+        "description": e.description,
+        "date": e.date or datetime.now().isoformat(),
+        "type": e.type
+    }
+    query = insert(expenses_table).values(**exp_data)
+    await database.execute(query)
+    return exp_data
+
+@app.delete("/expenses/{item_id}")
+async def delete_expense(item_id: str):
+    query = delete(expenses_table).where(expenses_table.c.id == item_id)
+    await database.execute(query)
+    return {"status": "deleted"}
+
+@app.delete("/expenses")
+async def clear_all_expenses():
+    query = delete(expenses_table)
+    await database.execute(query)
+    return {"status": "all_deleted"}
 
 class BehaviorAnalyzeRequest(BaseModel):
     amount: str
