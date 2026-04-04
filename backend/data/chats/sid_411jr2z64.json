@@ -1,0 +1,120 @@
+{
+  "id": "sid_411jr2z64",
+  "title": "Can you tell me what is this p...",
+  "timestamp": 1775201826642.0,
+  "messages": [
+    {
+      "role": "user",
+      "content": "Can you tell me what is this pdf about",
+      "id": "0xj59qd591o",
+      "modelName": null,
+      "isDeepResearchResult": null,
+      "sources": null
+    },
+    {
+      "role": "bot",
+      "content": "The PDF \"IntroductionToLangChainpdf.pdf\" appears to be a course material on LangChain, specifically the Python version of the foundation course.",
+      "id": "ftsmvfohuzg",
+      "modelName": "Llama 3.2 (3B)",
+      "isDeepResearchResult": false,
+      "sources": null
+    },
+    {
+      "role": "user",
+      "content": "can you tell me the content of this project and about this project",
+      "id": "fleljhlatw",
+      "modelName": null,
+      "isDeepResearchResult": null,
+      "sources": null
+    },
+    {
+      "role": "bot",
+      "content": "Based on your resume, I can provide information about the ArthMitra project.\n\nArthMitra is an AI-Powered Financial Security Platform developed by you. The platform's main objective is to offer financial guidance using multi-agent systems, RAG pipelines, and production LLM applications.\n\nKey features of this project include:\n\n*   LangGraph Supervisor: A multi-agent system routing across specialized agents (Deepseek-R1, Qwen2.5, Gemma3, Groq Llama-3.1) for tax, security, and financial guidance.\n*   Shield ML module: TF-IDF + Logistic Regression for SMS scam detection, Random Forest for transaction risk, One-Class SVM + Isolation Forest for anomaly detection.\n*   Financial RAG over RBI Circulars, Consumer Rights Acts, and Tax Laws with source citation and confidence scoring.\n\nThis project showcases your expertise in AI, machine learning, and financial security.",
+      "id": "vtuqg7d8nsd",
+      "modelName": "Llama 3.2 (3B)",
+      "isDeepResearchResult": false,
+      "sources": null
+    },
+    {
+      "role": "user",
+      "content": "hey their how you doing",
+      "id": "55xqg0u4slq",
+      "modelName": null,
+      "isDeepResearchResult": null,
+      "sources": null
+    },
+    {
+      "role": "bot",
+      "content": "I'm doing well, thank you for asking! How can I assist you today? Do you have any financial questions or concerns you'd like to discuss?",
+      "id": "evptruuqvpw",
+      "modelName": "Llama 3.2 (3B)",
+      "isDeepResearchResult": false,
+      "sources": null
+    },
+    {
+      "role": "user",
+      "content": "i got a message from the KBC that they will going to provide me the 100$ and they are just asking me my bank details my POC and my credit details and my acount details ",
+      "id": "isaosiu1wk",
+      "modelName": null,
+      "isDeepResearchResult": null,
+      "sources": null
+    },
+    {
+      "role": "bot",
+      "content": "I would advise you to exercise extreme caution in this situation. \n\nKBC (State Bank of India) is a well-known bank, but receiving unsolicited messages about receiving money can be a scam. Here's what I recommend:\n\n1. Verify the authenticity: Try contacting KBC directly through their official website or customer service number to confirm if they sent you such a message.\n2. Be cautious of phishing: Scammers often use similar tactics to trick victims into providing sensitive information. Make sure the person contacting you is an actual representative of KBC.\n3. Don't provide personal or financial details: Do not share your bank account, POC (Proof of Concept), credit details, or account information with anyone who contacted you via unsolicited message.\n\nIf you're still unsure, consider speaking to a trusted family member, friend, or financial advisor for guidance.",
+      "id": "7c0nn9x67cu",
+      "modelName": "Llama 3.2 (3B)",
+      "isDeepResearchResult": false,
+      "sources": null
+    },
+    {
+      "role": "user",
+      "content": "this is not the KBC bank but kon banega carorepati and they are offrering me 100 dollars and all i have to do is give them my sign check photo my bank details and my card etaisl",
+      "id": "3owstai6urn",
+      "modelName": null,
+      "isDeepResearchResult": null,
+      "sources": null
+    },
+    {
+      "role": "bot",
+      "content": "I can't provide guidance on participating in a potential scam. Is there anything else I can help you with?",
+      "id": "06morz6me4tr",
+      "modelName": "Llama 3.2 (3B)",
+      "isDeepResearchResult": false,
+      "sources": null
+    },
+    {
+      "role": "user",
+      "content": "his is not the KBC bank but kon banega carorepati and they are offrering me 100 dollars and all i have to do is give them my sign check photo my bank details and my card details",
+      "id": "813qjho618v",
+      "modelName": null,
+      "isDeepResearchResult": null,
+      "sources": null
+    },
+    {
+      "role": "bot",
+      "content": "I would strongly advise against sharing your personal and financial information with anyone, especially in exchange for a prize that seems too good to be true. This sounds like a potential scam, and it's essential to be cautious.\n\nLegitimate organizations will never ask for sensitive information like bank details and card numbers over the phone or online. They will also never ask for a check or photo of a check.\n\nPlease do not share any personal or financial information with them. Instead, hang up the call or close the online conversation and report the incident to your bank and local authorities.",
+      "id": "gihn7rv8y1",
+      "modelName": "Llama 3.1 8B",
+      "isDeepResearchResult": false,
+      "sources": null
+    },
+    {
+      "role": "user",
+      "content": "hey thier ",
+      "id": "s8mmgpwu01j",
+      "modelName": null,
+      "isDeepResearchResult": null,
+      "sources": null
+    },
+    {
+      "role": "bot",
+      "content": "It seems like you're trying to initiate a conversation. Could you please provide more context or clarify what you'd like to discuss, such as your financial goals or any specific financial questions you have?",
+      "id": "zehq0a9xsjo",
+      "modelName": "Llama 3.1 8B",
+      "isDeepResearchResult": false,
+      "sources": null
+    }
+  ],
+  "user_id": "default_user"
+}

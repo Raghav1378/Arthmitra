@@ -1,0 +1,24 @@
+{
+  "id": "sid_2s1ryvww7",
+  "title": "send to me and can you get a i...",
+  "timestamp": 1774878108556.0,
+  "messages": [
+    {
+      "role": "user",
+      "content": "send to me and can you get a input ",
+      "id": "gywcrxvzss",
+      "modelName": null,
+      "isDeepResearchResult": null,
+      "sources": null
+    },
+    {
+      "role": "bot",
+      "content": "I'd be happy to help with getting an input from you.\n\nTo start, I'll need to know what kind of input you're looking for. Do you want to:\n\n1. Ask me a financial question?\n2. Provide some context about your finances or situation?\n3. Discuss a specific investment or financial product?\n\nPlease let me know how I can assist you!",
+      "id": "indfsulqw9",
+      "modelName": "Llama 3.2 (3B)",
+      "isDeepResearchResult": false,
+      "sources": null
+    }
+  ],
+  "user_id": "default_user"
+}

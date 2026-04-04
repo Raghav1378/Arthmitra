@@ -1,0 +1,26 @@
+[
+  {
+    "type": "UPI_ID",
+    "content": "fraudster@upi",
+    "threat": "High",
+    "description": "Reported for phishing scams in many user reports"
+  },
+  {
+    "type": "UPI_ID",
+    "content": "scammer123@paytm",
+    "threat": "High",
+    "description": "Known fraudster account on many forums"
+  },
+  {
+    "type": "URL",
+    "content": "http://phish-bank-login.xyz",
+    "threat": "Critical",
+    "description": "Phishing site imitating a real bank portal"
+  },
+  {
+    "type": "URL",
+    "content": "http://free-iphone-scam.co",
+    "threat": "High",
+    "description": "Malicious site promising free gifts to steal user data"
+  }
+]
