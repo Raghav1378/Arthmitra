@@ -158,17 +158,17 @@ export default function DocumentUploader() {
   };
 
   const getTypeIcon = (type: string) => {
-    if (type === "pdf") return <FileText className="w-4 h-4 text-rose-400" />;
+    if (type === "pdf") return <FileText className="w-4 h-4 text-red-600" />;
     if (type === "image") return <ImageIcon className="w-4 h-4 text-blue-400" />;
-    if (type === "tabular") return <Database className="w-4 h-4 text-emerald-400" />;
-    return <FileText className="w-4 h-4 text-slate-400" />;
+    if (type === "tabular") return <Database className="w-4 h-4 text-emerald-700" />;
+    return <FileText className="w-4 h-4 text-parchment-faint" />;
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900/40 border border-white/5 rounded-[2.5rem] overflow-hidden backdrop-blur-2xl shadow-xl p-6 space-y-6">
+    <div className="flex flex-col h-full bg-white/70 border border-ink-900/10 rounded-[2.5rem] overflow-hidden backdrop-blur-2xl shadow-xl p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="font-extrabold text-white text-lg tracking-tight">Your Documents</h3>
-        <span className="text-xs text-slate-500 font-mono bg-slate-800 px-2 py-1 rounded-md">
+        <h3 className="font-extrabold text-ink-950 text-lg tracking-tight">Your Documents</h3>
+        <span className="text-xs text-parchment-faint font-mono bg-ink-900/[0.06] px-2 py-1 rounded-md">
           {sessionId.substring(0, 8)}...
         </span>
       </div>
@@ -178,14 +178,14 @@ export default function DocumentUploader() {
         onDragOver={handleDragOver}
         onClick={() => !isUploading && fileInputRef.current?.click()}
         className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-300
-          ${isUploading ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-700 bg-slate-900/50 hover:border-emerald-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]'}
+          ${isUploading ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-ink-900/15 bg-ink-900/[0.03] hover:border-emerald-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]'}
         `}
       >
-        <Upload className={`w-10 h-10 mb-3 ${isUploading ? 'text-emerald-400 animate-bounce' : 'text-slate-500'}`} />
-        <p className="text-sm font-medium text-slate-300 text-center">
+        <Upload className={`w-10 h-10 mb-3 ${isUploading ? 'text-emerald-700 animate-bounce' : 'text-parchment-faint'}`} />
+        <p className="text-sm font-medium text-parchment-dim text-center">
           {isUploading ? "Uploading..." : "Drop PDF, Image, CSV, Excel or Text file here"}
         </p>
-        <p className="text-xs text-slate-500 mt-2 text-center">Max size: 10MB</p>
+        <p className="text-xs text-parchment-faint mt-2 text-center">Max size: 10MB</p>
         <input 
           type="file" 
           className="hidden" 
@@ -196,7 +196,7 @@ export default function DocumentUploader() {
         />
 
         {isUploading && (
-          <div className="w-full h-1.5 bg-slate-800 rounded-full mt-4 overflow-hidden">
+          <div className="w-full h-1.5 bg-ink-900/10 rounded-full mt-4 overflow-hidden">
             <motion.div 
               className="h-full bg-emerald-500"
               initial={{ width: 0 }}
@@ -210,14 +210,14 @@ export default function DocumentUploader() {
       <div className="flex gap-3">
         <button 
           onClick={() => setIsPasteModalOpen(true)}
-          className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-semibold transition-colors border border-white/5"
+          className="flex-1 py-2.5 bg-ink-900/[0.06] hover:bg-ink-900/[0.12] text-parchment-dim rounded-xl text-sm font-semibold transition-colors border border-ink-900/5"
         >
           Paste Text Instead
         </button>
         {docs.length > 0 && (
           <button 
             onClick={handleClearAll}
-            className="px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl text-sm font-semibold transition-colors border border-rose-500/20"
+            className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 rounded-xl text-sm font-semibold transition-colors border border-red-500/20"
           >
             Clear All
           </button>
@@ -231,7 +231,7 @@ export default function DocumentUploader() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             className={`p-3 rounded-xl flex items-center gap-2 text-sm font-medium ${
-              message.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border border-rose-500/20 text-rose-400'
+              message.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-700' : 'bg-red-500/10 border border-red-500/20 text-red-600'
             }`}
           >
             {message.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
@@ -242,7 +242,7 @@ export default function DocumentUploader() {
 
       <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
         {docs.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-slate-600 text-sm italic">
+          <div className="h-full flex items-center justify-center text-stone-600 text-sm italic">
             No personal documents uploaded yet.
           </div>
         ) : (
@@ -253,20 +253,20 @@ export default function DocumentUploader() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="flex items-center justify-between p-3 bg-slate-800/40 rounded-xl border border-white/5 group"
+                className="flex items-center justify-between p-3 bg-ink-900/[0.04] rounded-xl border border-ink-900/5 group"
               >
                 <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="p-2 bg-slate-900 rounded-lg">
+                  <div className="p-2 bg-ink-900/[0.06] rounded-lg">
                     {getTypeIcon(doc.type)}
                   </div>
                   <div className="flex flex-col truncate">
-                    <span className="text-sm font-medium text-slate-200 truncate">{doc.filename}</span>
-                    <span className="text-[10px] text-emerald-400/80 uppercase tracking-widest">{doc.chunks} chunks</span>
+                    <span className="text-sm font-medium text-parchment truncate">{doc.filename}</span>
+                    <span className="text-[10px] text-emerald-700/80 uppercase tracking-widest">{doc.chunks} chunks</span>
                   </div>
                 </div>
                 <button 
                   onClick={() => handleRemove(doc.filename)}
-                  className="opacity-0 group-hover:opacity-100 p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
+                  className="opacity-0 group-hover:opacity-100 p-2 text-parchment-faint hover:text-red-600 hover:bg-red-500/10 rounded-lg transition-all"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -280,26 +280,26 @@ export default function DocumentUploader() {
         {isPasteModalOpen && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col z-50 p-6"
+            className="absolute inset-0 bg-ink-950/80 backdrop-blur-sm flex flex-col z-50 p-6"
           >
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-white font-bold">Paste Custom Text</h4>
-              <button onClick={() => setIsPasteModalOpen(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5"/></button>
+              <button onClick={() => setIsPasteModalOpen(false)} className="text-parchment-faint hover:text-ink-950"><X className="w-5 h-5"/></button>
             </div>
             <input 
               value={pasteLabel} onChange={(e) => setPasteLabel(e.target.value)} 
               placeholder="Label (e.g., 'Meeting Notes')" 
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 mb-4 text-white text-sm focus:border-emerald-500 outline-none"
+              className="w-full bg-white border border-ink-900/15 rounded-xl px-4 py-3 mb-4 text-ink-950 text-sm focus:border-emerald-500 outline-none"
             />
             <textarea 
               value={pasteText} onChange={(e) => setPasteText(e.target.value)}
               placeholder="Paste your text content here..."
-              className="w-full flex-1 bg-slate-900 border border-slate-700 rounded-xl p-4 text-white text-sm focus:border-emerald-500 outline-none resize-none"
+              className="w-full flex-1 bg-white border border-ink-900/15 rounded-xl p-4 text-ink-950 text-sm focus:border-emerald-500 outline-none resize-none"
             />
             <button 
               onClick={handlePasteSubmit}
               disabled={!pasteText.trim()}
-              className="w-full mt-4 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl font-bold transition-all"
+              className="w-full mt-4 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:bg-ink-900/10 disabled:text-parchment-faint text-white rounded-xl font-bold transition-all"
             >
               Ingest Text
             </button>

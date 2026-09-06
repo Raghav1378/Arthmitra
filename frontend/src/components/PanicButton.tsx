@@ -38,7 +38,7 @@ export default function PanicButton() {
             >
               <AlertTriangle className="w-24 h-24 text-red-500 mx-auto mb-6" />
               <h2 className="text-5xl font-black text-white mb-4 tracking-tighter">LOCKDOWN ACTIVE</h2>
-              <p className="text-red-400 text-xl font-medium mb-8">All financial gateways and UPI inputs have been synchronized to SAFE-HOLD.</p>
+              <p className="text-red-600 text-xl font-medium mb-8">All financial gateways and UPI inputs have been synchronized to SAFE-HOLD.</p>
               <div className="flex justify-center gap-4">
                 <div className="px-8 py-3 bg-red-600 text-white font-bold rounded-xl flex items-center gap-2">
                   <Lock className="w-5 h-5" />

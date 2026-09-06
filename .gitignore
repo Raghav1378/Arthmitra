@@ -69,3 +69,14 @@ frontend/.next/
 backend/app/brain/rag/data/
 backend/app/shield_ml/models/*.pkl
 *.pkl
+
+# Runtime data — never commit
+backend/finance.db
+backend/data/
+backend/scripts/data/
+backend/ml_engine/models/
+backend/*.log
+.graphify_python/
+frontend/.graphify_python/
+graphify-out/
+frontend/tsconfig.tsbuildinfo

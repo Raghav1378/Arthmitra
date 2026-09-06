@@ -42,11 +42,11 @@ export default function ApiStatusIndicator() {
   const getStatusColor = () => {
     switch (status) {
       case 'connected':
-        return 'text-emerald-400 bg-emerald-500/20';
+        return 'text-emerald-700 bg-emerald-500/20';
       case 'disconnected':
         return 'text-red-500 bg-red-500/20';
       case 'connecting':
-        return 'text-amber-400 bg-amber-500/20 animate-pulse';
+        return 'text-amber-700 bg-amber-500/20 animate-pulse';
     }
   };
 

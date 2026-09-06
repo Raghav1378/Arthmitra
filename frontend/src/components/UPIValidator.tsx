@@ -53,11 +53,11 @@ export default function UPIValidator() {
       case 'high':
         return 'text-red-500 bg-red-500/10 border-red-500/30';
       case 'medium':
-        return 'text-amber-400 bg-amber-500/10 border-amber-500/30';
+        return 'text-amber-700 bg-amber-500/10 border-amber-500/30';
       case 'low':
-        return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
+        return 'text-emerald-700 bg-emerald-500/10 border-emerald-500/30';
       default:
-        return 'text-slate-400 bg-slate-500/10 border-slate-500/30';
+        return 'text-parchment-faint bg-ink-900/[0.04] border-ink-900/15';
     }
   };
 
@@ -77,18 +77,18 @@ export default function UPIValidator() {
   return (
     <div className="card p-6">
       <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 rounded-lg bg-purple-500/20">
-          <Shield className="w-6 h-6 text-purple-400" />
+        <div className="p-2 rounded-lg bg-amber-500/20">
+          <Shield className="w-6 h-6 text-amber-700" />
         </div>
         <div>
-          <h3 className="text-lg font-bold text-slate-100">UPI Risk Validator</h3>
-          <p className="text-xs text-slate-400">Check UPI IDs before making payments</p>
+          <h3 className="text-lg font-bold text-stone-100">UPI Risk Validator</h3>
+          <p className="text-xs text-parchment-faint">Check UPI IDs before making payments</p>
         </div>
       </div>
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-parchment-dim mb-2">
             UPI ID
           </label>
           <input
@@ -103,7 +103,7 @@ export default function UPIValidator() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-parchment-dim mb-2">
             Display Name (Optional)
           </label>
           <input
@@ -140,7 +140,7 @@ export default function UPIValidator() {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm"
+              className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-600 text-sm"
             >
               {error}
             </motion.div>

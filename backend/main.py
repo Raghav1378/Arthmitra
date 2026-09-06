@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import json
+from uuid import uuid4
 import sqlite3
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Float, DateTime, select, insert, delete
 from databases import Database
@@ -48,6 +49,28 @@ from routes.chats import chats_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+# ── LLM Provider Config ────────────────────────────────────────────────────────
+# Default: local Ollama (free, no key). Set LLM_PROVIDER=groq + GROQ_API_KEY to switch.
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").lower()
+OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "llama3.2:3b")
+OLLAMA_SMALL_MODEL = os.getenv("OLLAMA_SMALL_MODEL", "llama3.2:3b")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+_groq_available = bool(os.getenv("GROQ_API_KEY"))
+
+
+def get_llm(provider: str = "ollama", temperature: float = 0.4, small: bool = False, streaming: bool = False):
+    """Single factory for every LLM call in the app."""
+    if provider == "groq" and _groq_available:
+        return ChatGroq(
+            api_key=os.getenv("GROQ_API_KEY"),
+            model=GROQ_MODEL,
+            temperature=temperature,
+            streaming=streaming,
+        )
+    model = OLLAMA_SMALL_MODEL if small else OLLAMA_CHAT_MODEL
+    return ChatOllama(model=model, temperature=temperature)
 
 
 # ── Routing ────────────────────────────────────────────────────────────────────
@@ -124,7 +147,9 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None          # for RAG context
     is_local_only: Optional[bool] = False
     deep_research: Optional[bool] = False
+    live_search: Optional[bool] = False
     agent: Optional[str] = None
+    provider: Optional[str] = "ollama"
 
 app = FastAPI(title="ArthMitra API v3 — Dual-Mode RAG")
 
@@ -144,7 +169,12 @@ app.include_router(chats_router, prefix="/chats", tags=["chats"])
 @app.on_event("startup")
 async def startup_event():
     """Start the database and ML models."""
-    await database.connect()
+    try:
+        await database.connect()
+    except Exception as e:
+        # A locked/missing finance.db must not kill the whole app —
+        # expense endpoints fail individually with clear errors instead.
+        logger.error(f"Database connect failed: {e}")
     try:
         from app.shield_ml import check_or_train
         check_or_train()
@@ -161,33 +191,40 @@ async def health_check():
     return {"status": "healthy", "service": "ArthMitra API + SQLite Active"}
 
 
+@app.get("/config")
+async def app_config():
+    """Expose provider capabilities without exposing secret values."""
+    return {
+        "groq_available": _groq_available,
+        "tavily_available": bool(os.getenv("TAVILY_API_KEY")),
+        "default_provider": "groq" if _groq_available and LLM_PROVIDER == "groq" else "ollama",
+        "local_model": OLLAMA_CHAT_MODEL,
+        "groq_model": GROQ_MODEL,
+    }
+
+
 @app.post("/chat/stream")
 async def streaming_chat(request: ChatRequest):
     message       = request.message
     is_local_only = request.is_local_only
-    deep_research = request.deep_research
+    deep_research = request.deep_research or request.live_search
     session_id    = request.session_id
     agent_name    = route(message, request.agent)
+    provider      = request.provider if request.provider in ["ollama", "groq"] else "ollama"
+    if provider == "groq" and not _groq_available:
+        provider = "ollama"
 
     logger.info(
         f"► MODE={'OFFLINE' if is_local_only else 'ONLINE'} | DEEP={deep_research} "
-        f"| AGENT={agent_name} | SESSION={session_id} | MSG={message[:60]}"
+        f"| PROVIDER={provider} | AGENT={agent_name} | SESSION={session_id} | MSG={message[:60]}"
     )
 
-    # Pick LLM
-    if is_local_only:
-        model_display = "Qwen 3 (4B)" if agent_name in ["auditor", "shield"] else "Llama 3.2 (3B)"
-        llm_model_id  = "qwen3:4b"    if agent_name in ["auditor", "shield"] else "llama3.2:3b"
-        llm = ChatOllama(model=llm_model_id, temperature=0.4)
+    # Pick LLM — Ollama by default, Groq only if configured
+    if provider == "groq":
+        model_display = f"Groq {GROQ_MODEL}"
     else:
-        model_display = "Llama 3.1 8B"
-        groq_key = os.getenv("GROQ_API_KEY")
-        if not groq_key:
-            async def key_err():
-                yield f"data: {json.dumps({'token': 'ERROR: GROQ_API_KEY missing from .env'})}\n\n"
-                yield "data: [DONE]\n\n"
-            return StreamingResponse(key_err(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
-        llm = ChatGroq(api_key=groq_key, model="llama-3.1-8b-instant", temperature=0.4, streaming=True)
+        model_display = OLLAMA_CHAT_MODEL
+    llm = get_llm(provider=provider, temperature=0.4, streaming=True)
 
     async def generate():
         try:
@@ -206,7 +243,7 @@ async def streaming_chat(request: ChatRequest):
                         yield f"data: {json.dumps({'rag_sources': rag_sources})}\n\n"
 
             # ── Step 2: Tavily Deep Search (Online + Deep only) ───────────────
-            if deep_research:
+            if deep_research and os.getenv("TAVILY_API_KEY"):
                 logger.info(f"► Tavily deep search: {message[:60]}")
                 tavily_result = run_tavily_deep_search(message)
                 if tavily_result["context"]:
@@ -258,325 +295,31 @@ class ScamAnalyzeRequest(BaseModel):
     time_of_message: Optional[str] = None
     message_frequency: Optional[str] = None
 
-SCAM_SHIELD_SYSTEM_PROMPT = """You are "Scam Shield Antigravity v2", an advanced fraud detection AI designed for REAL-WORLD financial scam detection.
-
-Your goal is HIGH RECALL with TARGETED PRECISION:
-- Do not miss scams
-- But do NOT classify everything as HIGH_RISK or SCAM
-- Use balanced judgment with proper confidence
-- Understand Hinglish + Indian context (SBI, HDFC, RBI, Paytm, PhonePe, BHIM)
-
----
-STEP 1: SIGNAL DETECTION
-Detect the following signals strictly. Do NOT over-interpret neutral text:
-
-STRONG SIGNALS:
-- Threat: ONLY classify if explicit negative consequence mentioned ("account will be blocked", "legal action will be taken", "account suspended"). Do NOT mark "verify account" or "confirm request" as threats.
-- Payment request: UPI, OTP, fee, collect request
-- Suspicious link: fake domains, shortened URLs
-- Sensitive info request: OTP, password, CVV
-
-MEDIUM SIGNALS:
-- Urgency: "urgent", "act now", "limited time"
-- Authority impersonation: SBI, RBI, Paytm, Govt, etc.
-- Prize / job / reward claims
-
-WEAK SIGNALS:
-- Simple reminders
-- Mild urgency without threat
-- Generic system notifications
-
----
-STEP 2: RISK SCORING (IMPORTANT)
-Assign internal score:
-- Each STRONG signal = +40
-- Each MEDIUM signal = +20
-- Each WEAK signal = +5
-
-Add behavioral modifiers:
-- Odd timing = +10 (ONLY TRUE if between 12:00 AM - 6:00 AM, OR late-night spam pattern after 11 PM with repetition. DO NOT mark morning/afternoon/early evening as odd timing.)
-- Repeated messages = +10
-
----
-STEP 3: DECISION RULE & VERDICT MAPPING
-Rule of thumb:
-- Payment request alone -> SUSPICIOUS
-- Urgency alone -> SAFE or SUSPICIOUS
-- Link + payment -> HIGH_RISK
-- Threat + urgency -> HIGH_RISK
-
-Map risk score to final verdict strictly:
-- 0-29 -> SAFE (no real scam signals exist)
-- 30-69 -> SUSPICIOUS (borderline cases, partial signals)
-- 70-100 -> HIGH_RISK (multiple strong signals)
-
----
-STEP 4: CONFIDENCE CALIBRATION (CRITICAL)
-Confidence must vary and reflect true signal strength. Do NOT default to 75 or 90.
-- 85-95 -> multiple strong signals (clear scam)
-- 65-85 -> strong + medium signals
-- 45-65 -> only medium signals
-- 25-45 -> weak signals only
-- 10-25 -> no meaningful signals
-
----
-STEP 5: SCAM TYPE DETECTION
-Choose one:
-- kyc
-- upi
-- phishing
-- job
-- lottery
-- delivery
-- impersonation
-- unknown
-
----
-STEP 6: OUTPUT (STRICT JSON)
-{
-  "final_decision": {
-    "risk": "SAFE | SUSPICIOUS | HIGH_RISK",
-    "confidence": 0-100,
-    "risk_score": 0-100,
-    "scam_type": "type"
-  },
-  "signals_detected": {
-    "strong": ["list of detected strong signals"],
-    "medium": ["list of detected medium signals"],
-    "weak": ["list of detected weak signals"],
-    "behavioral": ["list of detected behavioral modifiers"]
-  },
-  "reasoning": {
-    "summary": "short explanation",
-    "detailed_reasons": [
-      "reason 1",
-      "reason 2"
-    ]
-  },
-  "user_advice": [
-    "clear actionable advice"
-  ]
-}
-
----
-RULES:
-- Be precise, not paranoid. Do NOT classify everything as scam.
-- Use SUSPICIOUS properly for borderline cases.
-- SAFE must be used when no real scam signals exist.
-- Return ONLY the JSON object, no other text."""
-
 @app.post("/scam/analyze")
 async def scam_analyze(request: ScamAnalyzeRequest):
     """
-    Scam Shield — AI-powered fraud analysis.
-    Uses Groq LLM with ML pre-screening for structured scam detection.
+    Scam Shield — deterministic rule-based fraud analysis.
+    Same input always produces the same score. No LLM in the decision path.
     """
-    try:
-        # ── 1. ML Pre-screen with existing Shield ML ──────────────────────────
-        ml_context = ""
-        try:
-            from app.shield_ml import predict_text_scam
-            from app.shield_ml.anomaly import get_text_anomaly_score
-            ml_result = predict_text_scam(request.message_text)
-            anomaly = get_text_anomaly_score(request.message_text)
-            ml_is_scam = ml_result.get("is_scam", False)
-            ml_confidence = ml_result.get("confidence", 0.0)
-            ml_keywords = ml_result.get("top_keywords", [])
-            ml_context = (
-                f"\n\nML Pre-screen signals: is_scam={ml_is_scam}, confidence={ml_confidence:.2f}, "
-                f"top_keywords={ml_keywords}, is_anomaly={anomaly.get('is_anomaly', False)}"
-            )
-        except Exception as ml_err:
-            logger.warning(f"ML pre-screen failed (non-fatal): {ml_err}")
-            ml_context = ""
-
-        # ── 2. Build user message ─────────────────────────────────────────────
-        user_msg = f"message_text: {request.message_text}"
-        if request.time_of_message:
-            user_msg += f"\ntime_of_message: {request.time_of_message}"
-        if request.message_frequency:
-            user_msg += f"\nmessage_frequency: {request.message_frequency}"
-        user_msg += ml_context
-
-        # ── 3. Groq LLM analysis ──────────────────────────────────────────────
-        llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.1)
-        response = await llm.ainvoke([
-            SystemMessage(content=SCAM_SHIELD_SYSTEM_PROMPT),
-            HumanMessage(content=user_msg),
-        ])
-
-        raw = response.content.strip()
-
-        # Extract JSON from response (handle if model wraps in markdown)
-        if "```json" in raw:
-            raw = raw.split("```json")[1].split("```")[0].strip()
-        elif "```" in raw:
-            raw = raw.split("```")[1].split("```")[0].strip()
-
-        result = json.loads(raw)
-        return result
-
-    except json.JSONDecodeError as e:
-        logger.error(f"Scam Shield JSON parse error: {e}\nRaw: {raw}")
-        raise HTTPException(status_code=500, detail="Analysis returned malformed output")
-    except Exception as e:
-        logger.error(f"Scam Shield error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    from app.scam_engine import analyze_message
+    return analyze_message(
+        request.message_text,
+        time_of_message=request.time_of_message,
+        message_frequency=request.message_frequency,
+    )
 
 # ── Decision Shield Endpoint ───────────────────────────────────────────────────────
 
 class DecisionAnalyzeRequest(BaseModel):
     input_value: str
 
-SCAM_DECISION_SYSTEM_PROMPT = """You are Mitra AI — a financial decision assistant that helps users decide whether to send money.
-
-Your job is to:
-- analyze the situation
-- detect scam patterns
-- give a clear decision (PAY / VERIFY_FIRST / DO_NOT_PAY)
-- respond like a real fintech safety system
-
---------------------------------------
-
-CRITICAL RULES:
-- Return ONLY valid JSON
-- No markdown, no explanation, no extra text
-- Output MUST start with { and end with }
-- All fields are mandatory
-- confidence must be integer
-
---------------------------------------
-
-INPUT:
-{input_value}
-
---------------------------------------
-
-STEP 1: CONTEXT UNDERSTANDING
-
-Extract:
-
-- payment_intent → user is planning to send money
-- urgency → "urgent", "immediately", "now"
-- threat → "account blocked", "legal action"
-- kyc_scam → OTP / KYC / verification request
-- reward_trap → lottery / prize / refund bait
-- unknown_receiver → unclear or unknown person
-
---------------------------------------
-
-STEP 2: RISK EVALUATION
-
-Initialize risk_score = 0
-
-- urgency → +25  
-- threat → +30  
-- kyc_scam → +40  
-- reward_trap → +30  
-- unknown_receiver → +20  
-
---------------------------------------
-
-STEP 3: RISK LEVEL
-
-- risk_score <= 20 → SAFE  
-- 21–50 → LOW  
-- 51–75 → SUSPICIOUS  
-- >75 → HIGH  
-
---------------------------------------
-
-STEP 4: DECISION LOGIC
-
-SAFE → PAY  
-LOW → VERIFY_FIRST  
-SUSPICIOUS → DO_NOT_PAY  
-HIGH → DO_NOT_PAY  
-
---------------------------------------
-
-STEP 5: CONFIDENCE
-
-SAFE → 85–95  
-LOW → 65–85  
-SUSPICIOUS → 50–70  
-HIGH → 75–95  
-
---------------------------------------
-
-STEP 6: FRONTEND-READY OUTPUT
-
-Return EXACTLY:
-
-{
-  "type": "payment_decision",
-  "decision": "PAY | VERIFY_FIRST | DO_NOT_PAY",
-  "risk": "SAFE | LOW | SUSPICIOUS | HIGH",
-  "confidence": integer,
-  "risk_score": integer,
-
-  "ui": {
-    "verdict_label": "SAFE | VERIFY | DO NOT PAY",
-    "color": "green | yellow | orange | red",
-    "icon": "shield-check | alert | warning | danger",
-    "primary_message": "Clear final decision for user",
-    "secondary_message": "Short reason explaining why"
-  },
-
-  "signals_detected": {
-    "urgency": boolean,
-    "threat": boolean,
-    "kyc_scam": boolean,
-    "reward_trap": boolean,
-    "unknown_receiver": boolean
-  },
-
-  "reasoning": {
-    "summary": "One-line explanation",
-    "details": [
-      "Key factor 1",
-      "Key factor 2"
-    ]
-  },
-
-  "advice": [
-    "Call the person directly",
-    "Verify via official app",
-    "Do not send money under pressure"
-  ]
-}
-"""
-
 @app.post("/scam/decision")
 async def scam_decision(request: DecisionAnalyzeRequest):
     """
-    Mitra AI — Payment Decision Engine.
+    Mitra AI — Payment Decision Engine (deterministic rules).
     """
-    try:
-        user_msg = f"input_value: {request.input_value}"
-
-        llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.1)
-        response = await llm.ainvoke([
-            SystemMessage(content=SCAM_DECISION_SYSTEM_PROMPT),
-            HumanMessage(content=user_msg),
-        ])
-
-        raw = response.content.strip()
-
-        if "```json" in raw:
-            raw = raw.split("```json")[1].split("```")[0].strip()
-        elif "```" in raw:
-            raw = raw.split("```")[1].split("```")[0].strip()
-
-        result = json.loads(raw)
-        return result
-
-    except json.JSONDecodeError as e:
-        logger.error(f"Scam Decision JSON parse error: {e}\nRaw: {raw}")
-        raise HTTPException(status_code=500, detail="Analysis returned malformed output")
-    except Exception as e:
-        logger.error(f"Scam Decision error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    from app.scam_engine import analyze_decision
+    return analyze_decision(request.input_value)
 
 # ── Expense Insights Endpoint ───────────────────────────────────────────────────────
 
@@ -622,11 +365,7 @@ async def get_expense_insights(request: ExpenseInsightsRequest):
             f"TONE: Efficient, Expert, Professional Auditor. No fluff. MAX 50 words."
         )
 
-        groq_key = os.getenv("GROQ_API_KEY")
-        if not groq_key:
-            return {"insight": "Audit Engine offline. Verify Cloud API Key to restore Strategic Intelligence."}
-
-        llm = ChatGroq(api_key=groq_key, model="llama-3.1-8b-instant", temperature=0.6)
+        llm = get_llm(temperature=0.6)
         response = await llm.ainvoke([
             SystemMessage(content="You are ArthMitra Wealth Strategist. Provide audit-grade financial advice based on data."),
             HumanMessage(content=prompt)
@@ -747,21 +486,27 @@ async def analyze_expense_risk(request: ExpenseAnalyzeRequest):
         if request.time_of_transaction: user_msg += f"\ntime_of_transaction: {request.time_of_transaction}"
         if request.frequency: user_msg += f"\nfrequency: {request.frequency}"
 
-        groq_key = os.getenv("GROQ_API_KEY")
-        if not groq_key:
-            raise HTTPException(status_code=500, detail="GROQ_API_KEY missing")
-
-        llm = ChatGroq(api_key=groq_key, model="llama-3.1-8b-instant", temperature=0.1)
-        response = await llm.ainvoke([
-            SystemMessage(content=SCAM_EXPENSE_SYSTEM_PROMPT),
-            HumanMessage(content=user_msg)
-        ])
-
-        raw = response.content.strip()
-        if "```json" in raw: raw = raw.split("```json")[1].split("```")[0].strip()
-        elif "```" in raw: raw = raw.split("```")[1].split("```")[0].strip()
-
-        return json.loads(raw)
+        # Deterministic: text signals + transaction pattern, take the worse score
+        from app.scam_engine import analyze_message, analyze_behavior
+        result = analyze_message(
+            request.expense_text,
+            time_of_message=request.time_of_transaction,
+            message_frequency=str(request.frequency) if request.frequency else None,
+        )
+        if request.amount is not None:
+            behavior = analyze_behavior(
+                str(request.amount),
+                time_of_transaction=request.time_of_transaction,
+                frequency=str(request.frequency) if request.frequency else None,
+            )
+            if behavior["risk_score"] > result["final_decision"]["risk_score"]:
+                result["final_decision"]["risk"] = behavior["risk"]
+                result["final_decision"]["risk_score"] = behavior["risk_score"]
+                result["final_decision"]["confidence"] = behavior["confidence"]
+                result["signals_detected"]["behavioral"].extend(
+                    f"{k}: {v}" for k, v in behavior["signals_detected"].items() if v and v != "none"
+                )
+        return result
     except Exception as e:
         logger.error(f"Expense analysis error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -794,19 +539,8 @@ async def extract_expenses_from_file(file: UploadFile = File(...)):
             # Standardize columns (ignore case)
             cols = {c.lower(): c for c in df.columns}
             
-            # Smart Date Normalization: If dates are old, shift them to the current week
-            # to make the charts look realistically populated in real-time.
             now = datetime.now()
             dt_key = next((k for k in ["date", "time", "timestamp"] if k in cols), None)
-            
-            # Heuristic: Find the max date in the CSV and shift it to 'Today'
-            date_shift = None
-            if dt_key:
-                try:
-                    df_dates = pd.to_datetime(df[cols[dt_key]])
-                    max_csv_date = df_dates.max()
-                    date_shift = now - max_csv_date
-                except: pass
 
             for _, row in df.iterrows():
                 # Extract Amount
@@ -822,12 +556,11 @@ async def extract_expenses_from_file(file: UploadFile = File(...)):
                 # Extract Category
                 cat = next((str(row[cols[k]]) for k in ["category", "type", "tag"] if k in cols), "Misc")
                 
-                # Extract/Shift Date
+                # Extract Date (use the real date — fraud timing analysis depends on it)
                 dt_obj = now
                 if dt_key:
-                    try: 
+                    try:
                         dt_obj = pd.to_datetime(row[cols[dt_key]])
-                        if date_shift: dt_obj = dt_obj + date_shift
                     except: pass
                 dt_str = dt_obj.isoformat()
 
@@ -845,7 +578,7 @@ async def extract_expenses_from_file(file: UploadFile = File(...)):
                 else:
                     is_inflow = any(k in raw_desc for k in ["salary", "internship", "job", "payout", "income", "work", "credited", "refund", "got", "receive", "inflow"])
                 
-                exp_id = str(abs(hash(f"{desc}{dt_str}{amount}")))
+                exp_id = uuid4().hex
                 exp_data = {
                     "id": exp_id,
                     "amount": round(amount, 2),
@@ -866,7 +599,7 @@ async def extract_expenses_from_file(file: UploadFile = File(...)):
         text_content = content.decode("utf-8", errors="ignore")
         if not text_content.strip(): return {"expenses": []}
 
-        llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.1)
+        llm = get_llm(temperature=0.1, small=True)
         response = await llm.ainvoke([
             SystemMessage(content=EXPENSE_EXTRACTION_SYSTEM_PROMPT),
             HumanMessage(content=f"Extract transactions from this text:\n\n{text_content}")
@@ -879,7 +612,7 @@ async def extract_expenses_from_file(file: UploadFile = File(...)):
         extracted = json.loads(raw)
         # Store in DB
         for e in extracted:
-            e["id"] = e.get("id") or str(abs(hash(f"{e['description']}{e['date']}")))
+            e["id"] = e.get("id") or uuid4().hex
             query = insert(expenses_table).values(
                 id=e["id"],
                 amount=e['amount'],
@@ -905,7 +638,7 @@ async def get_all_expenses():
 
 @app.post("/expenses")
 async def add_single_expense(e: ExpenseItem):
-    exp_id = e.id or str(abs(hash(f"{e.description}{e.date}{e.amount}")))
+    exp_id = e.id or uuid4().hex
     exp_data = {
         "id": exp_id,
         "amount": e.amount,
@@ -935,370 +668,29 @@ class BehaviorAnalyzeRequest(BaseModel):
     time_of_transaction: Optional[str] = None
     frequency: Optional[str] = None
 
-SCAM_BEHAVIOR_SYSTEM_PROMPT = """You are "Scam Shield Behavior Analyst", an advanced AI that mimics real-world fraud detection systems used by banks and UPI platforms.
-
-Your goal is to analyze transaction behavior and classify risk realistically using:
-- amount
-- time_of_transaction
-- frequency
-
-You must behave like a fraud analyst:
-- Detect patterns
-- Avoid overreaction
-- Avoid underreaction
-- Maintain logical consistency
-
----
-
-INPUT:
-- amount (₹ value)
-- time_of_transaction (e.g., 02:30 PM)
-- frequency (e.g., "3 requests in 1 hour")
-
----
-
-STEP 1: AMOUNT CLASSIFICATION (PRIMARY SIGNAL)
-
-- ₹1-₹10 -> VERY LOW (strong scam pattern)
-- ₹11-₹999 -> LOW
-- ₹1000-₹10000 -> MEDIUM
-- ₹10000+ -> HIGH
-
-IMPORTANT:
-- ₹1-₹10 is a known verification scam pattern -> strong signal
-- ₹11+ must NEVER be labeled "very_low"
-
----
-
-STEP 2: TIME ANALYSIS
-
-- 12:00 AM - 6:00 AM -> ODD TIMING (suspicious)
-- Otherwise -> NORMAL
-
-IMPORTANT:
-- Time alone must NEVER produce HIGH_RISK
-- Late-night always adds mild suspicion
-
----
-
-STEP 3: FREQUENCY ANALYSIS
-
-- 1-3 requests/hour -> WEAK signal (normal behavior)
-- 4-10 -> MODERATE signal
-- 10+ -> STRONG signal (attack pattern)
-
----
-
-STEP 4: SIGNAL PRIORITY
-
-1. Amount (primary)
-2. Combined signals
-3. Time (secondary)
-4. Repetition (modifier)
-
----
-
-STEP 5: DECISION LOGIC
-
-HIGH_RISK only if:
-- ₹1-₹10 + (odd timing OR repetition)
-OR
-- STRONG repetition (10+) + odd timing
-
----
-
-SUSPICIOUS if:
-- Any anomaly exists:
-  - LOW amount (₹11-₹999)
-  - ODD timing
-  - MODERATE/WEAK repetition
-  - HIGH amount at odd timing
-  - Medium combinations
-
----
-
-SAFE only if ALL are true:
-- MEDIUM or HIGH amount (₹1000+)
-- NORMAL time
-- NO repetition (1 request only)
-
-IMPORTANT:
-- If ANY anomaly exists -> DO NOT classify SAFE
-- Use SUSPICIOUS for gray cases
-
----
-
-STEP 6: CONFIDENCE CALIBRATION (CRITICAL)
-
-Confidence must reflect certainty realistically.
-
-STRICT RULES:
-
-SAFE:
-- 10-40 only
-
-SUSPICIOUS:
-- 40-70 only
-
-HIGH_RISK:
-- 75-92 only
-
----
-
-CONFIDENCE LOGIC:
-
-Start baseline: 50
-
-Adjust:
-+20 -> very low amount (₹1-₹10)
-+15 -> strong repetition
-+10 -> odd timing
-
--15 -> normal amount (₹1000+)
--10 -> normal time
--10 -> single request
-
-Clamp:
-- Minimum: 10
-- Maximum: 92
-
-IMPORTANT:
-- NEVER output >92
-- NEVER assign SAFE if confidence >40
-- NEVER assign HIGH_RISK if confidence <75
-
----
-
-STEP 7: CONSISTENCY RULES
-
-- SAFE must NOT contain any anomaly
-- If confidence >40 -> NOT SAFE
-- If weak anomaly exists -> SUSPICIOUS
-- Do NOT ignore signals
-- Do NOT generate fake "normal" reasoning
-
----
-
-STEP 8: OUTPUT FORMAT (STRICT JSON)
-
-{
-  "risk": "SAFE | SUSPICIOUS | HIGH_RISK",
-  "confidence": 0-100,
-  "risk_score": 0-100,
-
-  "signals_detected": {
-    "amount_pattern": "very_low | low | medium | high",
-    "odd_timing": true,
-    "repetition_pattern": "none | weak | moderate | strong"
-  },
-
-  "reasoning": {
-    "summary": "short explanation",
-    "details": [
-      "reason 1",
-      "reason 2"
-    ]
-  },
-
-  "advice": [
-    "clear actionable advice"
-  ]
-}
-
----
-
-FINAL RULE:
-
-You must behave like a real fraud detection system:
-- Balanced
-- Logical
-- Consistent
-- Not paranoid
-- Not careless
-
-Every decision must match:
-signals -> logic -> confidence -> classification"""
-
 @app.post("/scam/behavior")
 async def scam_behavior(request: BehaviorAnalyzeRequest):
     """
-    Scam Shield Behavior Engine — purely transaction-based analysis.
+    Scam Shield Behavior Engine — deterministic transaction-pattern analysis.
     """
-    try:
-        user_msg = f"amount: {request.amount}"
-        if request.time_of_transaction:
-            user_msg += f"\ntime_of_transaction: {request.time_of_transaction}"
-        if request.frequency:
-            user_msg += f"\nfrequency: {request.frequency}"
-
-        llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.1)
-        response = await llm.ainvoke([
-            SystemMessage(content=SCAM_BEHAVIOR_SYSTEM_PROMPT),
-            HumanMessage(content=user_msg),
-        ])
-        
-        raw = response.content.strip()
-
-        # Extract JSON from response (handle if model wraps in markdown)
-        if "```json" in raw:
-            raw = raw.split("```json")[1].split("```")[0].strip()
-        elif "```" in raw:
-            raw = raw.split("```")[1].split("```")[0].strip()
-
-        result = json.loads(raw)
-        return result
-
-    except json.JSONDecodeError as e:
-        logger.error(f"Scam Behavior JSON parse error: {e}\nRaw: {raw}")
-        raise HTTPException(status_code=500, detail="Analysis returned malformed output")
-    except Exception as e:
-        logger.error(f"Scam Behavior error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    from app.scam_engine import analyze_behavior
+    return analyze_behavior(
+        request.amount,
+        time_of_transaction=request.time_of_transaction,
+        frequency=request.frequency,
+    )
 
 
 class LinkAnalyzeRequest(BaseModel):
     input_value: str
 
-SCAM_LINK_UPI_SYSTEM_PROMPT = """You are a cybersecurity analysis engine for detecting scam links and UPI IDs.
-
-CRITICAL OUTPUT RULES:
-- You MUST return ONLY valid JSON.
-- Do NOT include explanations, markdown, headings, or text before/after JSON.
-- Output MUST start with { and end with }.
-- If you fail, the system will crash.
-
---------------------------------------
-
-INPUT:
-{input_value}
-
---------------------------------------
-
-STEP 1: IDENTIFY TYPE
-- If contains "http", "https", "www" → type = "url"
-- If contains "@" → type = "upi"
-- Else → type = "unknown"
-
---------------------------------------
-
-STEP 2: URL ANALYSIS (if type = url)
-Check:
-- fake_domain (typos like paytm-secure, g00gle)
-- brand_impersonation (sbi, paytm, phonepe, gpay misuse)
-- suspicious_tld (.xyz, .top, .click, .ru)
-- shortened_link (bit.ly, tinyurl)
-
---------------------------------------
-
-STEP 3: UPI ANALYSIS (if type = upi)
-
-IMPORTANT:
-- Numbers in UPI IDs are COMMON in India → NOT a strong risk signal
-- Do NOT mark UPI as suspicious just because it contains numbers
-
-Check:
-
-HIGH RISK:
-- impersonation words → "support", "help", "bank", "refund", "kyc", "official"
-- examples: sbi-support@upi, helpdesk@okaxis
-
-MEDIUM RISK:
-- suspicious words → "urgent", "claim", "lottery", "prize", "win"
-
-LOW RISK (NORMAL):
-- name + numbers → rahul123@okaxis
-- firstname.lastname@bank
-
---------------------------------------
-
-STEP 4: RISK SCORING
-
-Initialize risk_score = 0
-
-URL:
-- fake_domain → +40
-- impersonation → +30
-- suspicious_tld → +20
-- shortened → +10
-
-UPI:
-- impersonation → +50
-- suspicious words → +30
-- random numbers ONLY → +5 (very weak signal)
-
---------------------------------------
-
-STEP 5: FINAL LABEL
-
-risk_score <= 20 → SAFE  
-21–50 → LOW  
-51–75 → SUSPICIOUS  
->75 → HIGH  
-
---------------------------------------
-
-STEP 6: CONFIDENCE
-
-SAFE → 80–95  
-LOW → 60–80  
-SUSPICIOUS → 40–70  
-HIGH → 70–95  
-
---------------------------------------
-
-STEP 7: OUTPUT FORMAT
-
-Return ONLY this JSON:
-
-{
-  "type": "url | upi | unknown",
-  "risk": "SAFE | LOW | SUSPICIOUS | HIGH",
-  "confidence": number,
-  "risk_score": number,
-  "signals_detected": {
-    "fake_domain": boolean,
-    "brand_impersonation": boolean,
-    "suspicious_tld": boolean,
-    "shortened_link": boolean,
-    "random_upi": boolean
-  },
-  "reasoning": {
-    "summary": "short explanation",
-    "details": ["point 1", "point 2"]
-  },
-  "advice": ["action 1", "action 2"]
-}
-"""
-
 @app.post("/scam/link_upi")
 async def scam_link_upi(request: LinkAnalyzeRequest):
     """
-    Scam Shield Link & UPI Analyst — detects phishing links and suspicious payment handles.
+    Scam Shield Link & UPI Analyst — deterministic URL/UPI heuristics.
     """
-    try:
-        llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.1)
-        response = await llm.ainvoke([
-            SystemMessage(content=SCAM_LINK_UPI_SYSTEM_PROMPT),
-            HumanMessage(content=f"input_value: {request.input_value}"),
-        ])
-        
-        raw = response.content.strip()
-
-        # Extract JSON from response (handle if model wraps in markdown)
-        if "```json" in raw:
-            raw = raw.split("```json")[1].split("```")[0].strip()
-        elif "```" in raw:
-            raw = raw.split("```")[1].split("```")[0].strip()
-
-        result = json.loads(raw)
-        return result
-
-    except json.JSONDecodeError as e:
-        logger.error(f"Scam Link/UPI JSON parse error: {e}\nRaw: {raw}")
-        raise HTTPException(status_code=500, detail="Analysis returned malformed output")
-    except Exception as e:
-        logger.error(f"Scam Link/UPI error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    from app.scam_engine import analyze_link_upi
+    return analyze_link_upi(request.input_value)
 
 
 if __name__ == "__main__":

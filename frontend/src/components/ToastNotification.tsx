@@ -38,13 +38,13 @@ export default function ToastNotification({
   const getIcon = () => {
     switch (type) {
       case 'success':
-        return <CheckCircle className="w-5 h-5 text-emerald-400" />;
+        return <CheckCircle className="w-5 h-5 text-emerald-700" />;
       case 'error':
         return <XCircle className="w-5 h-5 text-red-500" />;
       case 'warning':
-        return <AlertCircle className="w-5 h-5 text-amber-400" />;
+        return <AlertCircle className="w-5 h-5 text-amber-700" />;
       case 'info':
-        return <AlertCircle className="w-5 h-5 text-cyan-400" />;
+        return <AlertCircle className="w-5 h-5 text-emerald-700" />;
     }
   };
 
@@ -57,7 +57,7 @@ export default function ToastNotification({
       case 'warning':
         return 'border-amber-500/30 bg-amber-500/10';
       case 'info':
-        return 'border-cyan-500/30 bg-cyan-500/10';
+        return 'border-emerald-500/30 bg-emerald-500/10';
     }
   };
 
@@ -72,12 +72,12 @@ export default function ToastNotification({
           className={`fixed top-4 left-1/2 z-[200] flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-md shadow-lg ${getColors()}`}
         >
           {getIcon()}
-          <span className="text-sm font-medium text-slate-100">{message}</span>
+          <span className="text-sm font-medium text-stone-100">{message}</span>
           <button
             onClick={handleClose}
-            className="ml-2 p-1 hover:bg-white/10 rounded-lg transition-colors"
+            className="ml-2 p-1 hover:bg-ink-900/10 rounded-lg transition-colors"
           >
-            <X className="w-4 h-4 text-slate-400" />
+            <X className="w-4 h-4 text-parchment-faint" />
           </button>
         </motion.div>
       )}

@@ -10,8 +10,8 @@ interface RiskMeterProps {
 
 export default function RiskMeter({ score, label }: RiskMeterProps) {
   const getColor = (val: number) => {
-    if (val < 30) return 'text-emerald-400';
-    if (val < 70) return 'text-amber-400';
+    if (val < 30) return 'text-emerald-700';
+    if (val < 70) return 'text-amber-700';
     return 'text-red-500';
   };
 
@@ -22,7 +22,7 @@ export default function RiskMeter({ score, label }: RiskMeterProps) {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-6 bg-slate-900/50 border border-slate-800 rounded-2xl relative overflow-hidden group">
+    <div className="flex flex-col items-center justify-center p-6 bg-white/80 border border-ink-900/10 rounded-2xl shadow-[0_20px_50px_rgba(16,48,110,0.08)] relative overflow-hidden group">
       <div className="relative w-32 h-32">
         <svg className="w-full h-full transform -rotate-90">
           <circle
@@ -32,7 +32,7 @@ export default function RiskMeter({ score, label }: RiskMeterProps) {
             stroke="currentColor"
             strokeWidth="8"
             fill="transparent"
-            className="text-slate-800"
+            className="text-stone-800"
           />
           <motion.circle
             cx="64"
@@ -52,7 +52,7 @@ export default function RiskMeter({ score, label }: RiskMeterProps) {
           <span className={`text-2xl font-bold ${getColor(score)}`}>{score}%</span>
         </div>
       </div>
-      <h4 className="mt-4 font-semibold text-slate-200">{label}</h4>
+      <h4 className="mt-4 font-semibold text-parchment">{label}</h4>
       <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-100 transition-opacity">
         <div className={`w-2 h-2 rounded-full animate-ping ${getColor(score).replace('text', 'bg')}`} />
       </div>

@@ -2,19 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════
+   ARTHMITRA — SAPPHIRE COURT
+   Porcelain white · sapphire blue · royal gold guilloche
+   ═══════════════════════════════════════════════════════════════ */
+
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 2, 6, 23;
-  --background-end-rgb: 0, 0, 0;
+  --ink-950: #0a1f4d;
+  --ink-900: #10306e;
+  --ink-800: #1a4291;
+  --gold-500: #c9992b;
+  --gold-300: #eccb7d;
+  --parchment: #14213d;
+  --parchment-dim: #44536f;
+  --parchment-faint: #6d7b95;
+  --ledger-green: #1f9d63;
+  --ledger-red: #d92637;
+  --ledger-amber: #d98a17;
 
-  --color-emerald-400: 34 197 94;
-  --color-cyan-400: 34 211 238;
-  --color-purple-400: 168 85 247;
-  --color-amber-400: 251 191 36;
-  --color-red-500: 239 68 68;
-
-  --glass-bg: rgba(10, 18, 38, 0.72);
-  --glass-border: rgba(148, 163, 184, 0.18);
+  --hairline: rgba(16, 48, 110, 0.12);
+  --gold-hairline: rgba(201, 153, 43, 0.35);
+  --panel-bg: rgba(255, 255, 255, 0.78);
 }
 
 * {
@@ -28,19 +36,100 @@ html {
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background-color: #0a0e1a;
+  color: var(--parchment);
+  background-color: #f8fafd;
   min-height: 100vh;
-  font-family: var(--font-jakarta), system-ui, sans-serif;
+  font-family: var(--font-body), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-smoothing: grayscale;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* Display serif — Fraunces for headings, brand, verdicts */
 .font-display {
-  font-family: var(--font-space), system-ui, sans-serif;
+  font-family: var(--font-display), Georgia, serif;
+  font-variation-settings: "opsz" 96, "SOFT" 50, "WONK" 1;
+  letter-spacing: -0.01em;
 }
 
-/* Custom Scrollbar */
+/* Tabular numerals everywhere money appears */
+.tnum,
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Guilloche banknote texture + paper grain ─────────────────── */
+@layer utilities {
+  .bg-vault {
+    background-color: #f8fafd;
+    background-image:
+      /* engraved concentric rings, top-left — sapphire */
+      repeating-radial-gradient(
+        circle at 12% 8%,
+        transparent 0px,
+        transparent 38px,
+        rgba(36, 86, 180, 0.05) 38px,
+        rgba(36, 86, 180, 0.05) 39px,
+        transparent 40px
+      ),
+      /* ring set, bottom-right — gold */
+      repeating-radial-gradient(
+        circle at 88% 92%,
+        transparent 0px,
+        transparent 52px,
+        rgba(201, 153, 43, 0.05) 52px,
+        rgba(201, 153, 43, 0.05) 53px,
+        transparent 54px
+      ),
+      /* fine diagonal engraving lines */
+      repeating-linear-gradient(
+        115deg,
+        transparent 0px,
+        transparent 7px,
+        rgba(16, 48, 110, 0.025) 7px,
+        rgba(16, 48, 110, 0.025) 8px
+      ),
+      radial-gradient(1400px 900px at 50% -20%, rgba(82, 137, 232, 0.1), transparent 65%);
+  }
+
+  /* Paper grain overlay — apply on a fixed full-bleed div */
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.5;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Ledger rule — the ruled double-line from accounting books */
+  .ledger-rule {
+    border-top: 1px solid var(--hairline);
+    box-shadow: 0 3px 0 -2px rgba(201, 153, 43, 0.15);
+  }
+
+  /* Porcelain panel with sapphire hairline + gold inner light */
+  .engraved {
+    background: linear-gradient(160deg, #ffffff, #f6f9ff);
+    border: 1px solid var(--hairline);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      0 24px 60px rgba(16, 48, 110, 0.1);
+  }
+
+  /* Vermillion stamp — rotated bordered seal for verdicts */
+  .stamp {
+    font-family: var(--font-display), Georgia, serif;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    border: 2px solid currentColor;
+    border-radius: 4px;
+    padding: 0.35em 0.9em;
+    transform: rotate(-2deg);
+    box-shadow: inset 0 0 12px rgba(217, 38, 55, 0.08);
+  }
+}
+
+/* Custom Scrollbar — gold on porcelain */
 @layer utilities {
   .custom-scrollbar::-webkit-scrollbar {
     width: 8px;
@@ -48,18 +137,18 @@ body {
   }
 
   .custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(15, 23, 42, 0.5);
+    background: rgba(16, 48, 110, 0.05);
     border-radius: 4px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(34, 211, 238, 0.3);
+    background: rgba(36, 86, 180, 0.3);
     border-radius: 4px;
     transition: background 0.2s ease;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(34, 211, 238, 0.5);
+    background: rgba(36, 86, 180, 0.55);
   }
 
   .custom-scrollbar-thin::-webkit-scrollbar {
@@ -67,40 +156,42 @@ body {
   }
 
   .custom-scrollbar-thin::-webkit-scrollbar-thumb {
-    background: rgba(34, 211, 238, 0.2);
+    background: rgba(36, 86, 180, 0.25);
   }
 }
 
-/* Glass Morphism Effect */
+/* Glass classes — kept for compatibility, now porcelain panels */
 @layer utilities {
   .glass {
-    background: linear-gradient(135deg, rgba(12, 20, 40, 0.78), rgba(2, 6, 23, 0.92));
+    background: var(--panel-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border);
-    box-shadow: 0 24px 60px rgba(2, 6, 23, 0.55);
+    border: 1px solid var(--hairline);
+    box-shadow: 0 24px 60px rgba(16, 48, 110, 0.1);
   }
 
   .glass-strong {
-    background: linear-gradient(140deg, rgba(15, 23, 42, 0.88), rgba(2, 6, 23, 0.96));
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.96), rgba(246, 249, 255, 0.98));
     backdrop-filter: blur(22px);
     -webkit-backdrop-filter: blur(22px);
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    box-shadow: 0 28px 70px rgba(2, 6, 23, 0.65);
+    border: 1px solid rgba(16, 48, 110, 0.14);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      0 28px 70px rgba(16, 48, 110, 0.14);
   }
 }
 
-/* Gradient Text */
+/* Gradient Text — royal gold on white */
 @layer utilities {
   .gradient-text {
-    background: linear-gradient(135deg, rgb(var(--color-emerald-400)), rgb(var(--color-cyan-400)));
+    background: linear-gradient(135deg, #a67a1c, var(--gold-500) 55%, var(--gold-300));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .gradient-text-purple {
-    background: linear-gradient(135deg, rgb(var(--color-purple-400)), rgb(var(--color-cyan-400)));
+    background: linear-gradient(135deg, var(--ink-900), var(--ink-600));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -110,19 +201,19 @@ body {
 /* Glow Effects */
 @layer utilities {
   .glow-emerald {
-    box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+    box-shadow: 0 0 20px rgba(31, 157, 99, 0.25);
   }
 
   .glow-cyan {
-    box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+    box-shadow: 0 0 20px rgba(36, 86, 180, 0.25);
   }
 
   .glow-purple {
-    box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+    box-shadow: 0 0 20px rgba(201, 153, 43, 0.3);
   }
 
   .glow-red {
-    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+    box-shadow: 0 0 20px rgba(217, 38, 55, 0.3);
   }
 }
 
@@ -183,55 +274,55 @@ body {
   }
 }
 
-/* Button Styles */
+/* Buttons — gold leaf on porcelain */
 @layer components {
   .btn-primary {
-    @apply px-8 py-3.5 text-white font-semibold rounded-xl
-           transition-all duration-200 active:scale-95 shadow-lg 
-           bg-gradient-to-r from-cyan-600 to-emerald-600
-           hover:from-cyan-500 hover:to-emerald-500
-           shadow-cyan-500/20 hover:shadow-cyan-500/30;
+    @apply px-8 py-3.5 text-ink-950 font-semibold rounded-xl
+           transition-all duration-200 active:scale-95 shadow-lg
+           bg-gradient-to-r from-gold-400 to-gold-500
+           hover:from-gold-300 hover:to-gold-400
+           shadow-gold-500/25 hover:shadow-gold-500/40;
   }
 
   .btn-secondary {
-    @apply px-6 py-3 bg-white/10 hover:bg-white/15 text-slate-100 font-semibold rounded-xl
-           transition-all duration-200 active:scale-95 border border-white/20 hover:border-white/40;
+    @apply px-6 py-3 bg-ink-900/[0.06] hover:bg-ink-900/[0.1] text-ink-900 font-semibold rounded-xl
+           transition-all duration-200 active:scale-95 border border-ink-900/20 hover:border-ink-900/40;
   }
 
   .btn-danger {
-    @apply px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl
+    @apply px-6 py-3 bg-ledger-red hover:bg-red-400 text-white font-semibold rounded-xl
            transition-all duration-200 active:scale-95 shadow-lg shadow-red-500/20;
   }
 
   .btn-ghost {
-    @apply px-6 py-3 text-slate-100 bg-white/5 border border-white/20 rounded-xl
-           hover:bg-white/10 hover:border-white/40 transition-all duration-200;
+    @apply px-6 py-3 text-parchment-dim bg-ink-900/[0.03] border border-ink-900/10 rounded-xl
+           hover:bg-ink-900/[0.06] hover:border-gold-500/50 transition-all duration-200;
   }
 }
 
-/* Input Styles */
+/* Input Styles — porcelain field with sapphire focus */
 @layer components {
   .input-field {
-    @apply w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3
-           text-sm text-slate-100 placeholder-slate-500
-           focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-transparent
+    @apply w-full bg-white border border-ink-900/15 rounded-xl px-4 py-3
+           text-sm text-parchment placeholder-parchment-ghost shadow-sm
+           focus:outline-none focus:ring-2 focus:ring-ink-600/40 focus:border-ink-600/50
            transition-all duration-200;
   }
 
   .input-field:focus {
-    @apply shadow-lg shadow-cyan-500/10 border-white/30;
+    @apply shadow-lg shadow-ink-600/10 border-ink-600/60;
   }
 }
 
 /* Card Styles */
 @layer components {
   .card {
-    @apply bg-slate-900/50 border border-white/10 rounded-2xl backdrop-blur-xl 
-           shadow-[0_20px_50px_rgba(2,6,23,0.5)];
+    @apply bg-white/80 border border-ink-900/10 rounded-2xl backdrop-blur-xl
+           shadow-[0_20px_50px_rgba(16,48,110,0.08)];
   }
 
   .card-hover {
-    @apply card hover:border-cyan-500/40 hover:shadow-[0_26px_70px_rgba(14,116,144,0.3)] 
+    @apply card hover:border-gold-500/50 hover:shadow-[0_26px_70px_rgba(201,153,43,0.15)]
            transition-all duration-300;
   }
 }
@@ -303,30 +394,30 @@ body {
 
   .bg-aurora {
     background-image:
-      radial-gradient(1200px circle at 10% 10%, rgba(34, 211, 238, 0.18), transparent 55%),
-      radial-gradient(900px circle at 90% 15%, rgba(168, 85, 247, 0.16), transparent 50%),
-      radial-gradient(800px circle at 20% 85%, rgba(16, 185, 129, 0.18), transparent 55%),
-      linear-gradient(180deg, rgba(2, 6, 23, 0.9), rgba(2, 6, 23, 1));
+      radial-gradient(1200px circle at 10% 10%, rgba(36, 86, 180, 0.08), transparent 55%),
+      radial-gradient(900px circle at 90% 15%, rgba(201, 153, 43, 0.08), transparent 50%),
+      radial-gradient(800px circle at 20% 85%, rgba(82, 137, 232, 0.1), transparent 55%),
+      linear-gradient(180deg, #f8fafd, #f1f5fc);
   }
 
   .bg-hero {
     background-image:
-      radial-gradient(520px circle at 15% 20%, rgba(56, 189, 248, 0.25), transparent 60%),
-      radial-gradient(480px circle at 85% 15%, rgba(168, 85, 247, 0.22), transparent 55%),
-      radial-gradient(420px circle at 30% 85%, rgba(16, 185, 129, 0.25), transparent 60%);
+      radial-gradient(520px circle at 15% 20%, rgba(201, 153, 43, 0.12), transparent 60%),
+      radial-gradient(480px circle at 85% 15%, rgba(36, 86, 180, 0.12), transparent 55%),
+      radial-gradient(420px circle at 30% 85%, rgba(82, 137, 232, 0.1), transparent 60%);
   }
 
   .bg-grid {
     background-image:
-      linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+      linear-gradient(rgba(16, 48, 110, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(16, 48, 110, 0.05) 1px, transparent 1px);
     background-size: 32px 32px;
     mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.6), transparent 75%);
   }
 
   .gradient-border {
     position: relative;
-    background: var(--glass-bg);
+    background: var(--panel-bg);
   }
 
   .gradient-border::before {
@@ -335,7 +426,7 @@ body {
     inset: 0;
     padding: 1px;
     border-radius: inherit;
-    background: linear-gradient(135deg, rgb(var(--color-emerald-400)), rgb(var(--color-cyan-400)), rgb(var(--color-purple-400)));
+    background: linear-gradient(135deg, var(--gold-300), var(--gold-500), var(--ink-600));
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
@@ -344,7 +435,7 @@ body {
   }
 
   .gradient-animated {
-    background: linear-gradient(270deg, rgb(var(--color-emerald-400)), rgb(var(--color-cyan-400)), rgb(var(--color-purple-400)));
+    background: linear-gradient(270deg, var(--gold-300), var(--gold-500), var(--ink-600));
     background-size: 600% 600%;
     animation: gradient-shift 8s ease infinite;
   }

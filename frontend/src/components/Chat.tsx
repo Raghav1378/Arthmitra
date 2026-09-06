@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Send, User, Bot, Sparkles, Globe, ChevronDown, ChevronUp, ExternalLink, Cpu, Paperclip, Plus, X, History, Mic, MicOff, Download, FileText, Image as ImageIcon, Database, LineChart as ChartIcon } from "lucide-react";
+import { Send, User, Bot, Sparkles, Copy, Check, Globe, ChevronDown, ChevronUp, ExternalLink, Cpu, Paperclip, Plus, X, History, Mic, MicOff, Download, FileText, Image as ImageIcon, Database, LineChart as ChartIcon } from "lucide-react";
 import { getSessionId } from "@/lib/session";
 import ChartRenderer from "./ChartRenderer";
+import Markdown from "./Markdown";
 import { jsPDF } from "jspdf";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -31,7 +32,7 @@ function BlinkingCursor() {
       initial={{ opacity: 0 }}
       animate={{ opacity: [1, 0, 1] }}
       transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
-      className="inline-block w-[2px] h-[1.1em] bg-cyan-400 ml-1 align-middle shadow-[0_0_8px_rgba(34,211,238,0.8)]"
+      className="inline-block w-[2px] h-[1.1em] bg-emerald-400 ml-1 align-middle shadow-[0_0_8px_rgba(34,211,238,0.8)]"
       aria-hidden="true"
     />
   );
@@ -40,16 +41,16 @@ function BlinkingCursor() {
 function TypingDots() {
   return (
     <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex justify-start items-center gap-3 py-2">
-      <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700">
-        <Bot className="w-4 h-4 text-cyan-400 animate-pulse" />
+      <div className="w-8 h-8 rounded-full bg-ink-900/[0.06] flex items-center justify-center border border-ink-900/10">
+        <Bot className="w-4 h-4 text-emerald-700 animate-pulse" />
       </div>
-      <div className="flex items-center gap-1.5 bg-slate-800/50 backdrop-blur-sm px-5 py-3.5 rounded-2xl rounded-tl-none border border-slate-700/50 shadow-xl">
+      <div className="flex items-center gap-1.5 bg-ink-900/[0.04] backdrop-blur-sm px-5 py-3.5 rounded-2xl rounded-tl-none border border-ink-900/10 shadow-xl">
         {[0, 1, 2].map((i) => (
           <motion.span
             key={i}
             animate={{ y: [0, -5, 0], scale: [1, 1.2, 1] }}
             transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }}
-            className="w-1.5 h-1.5 bg-cyan-500 rounded-full"
+            className="w-1.5 h-1.5 bg-emerald-500 rounded-full"
           />
         ))}
       </div>
@@ -60,11 +61,15 @@ function TypingDots() {
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(true);
+  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
   const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
+  const [provider, setProvider] = useState<"ollama" | "groq">("ollama");
+  const [groqAvailable, setGroqAvailable] = useState(false);
+  const [tavilyAvailable, setTavilyAvailable] = useState(false);
   const [activeDocs, setActiveDocs] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -83,6 +88,18 @@ export default function Chat() {
 
   // Keep the ref in sync with state
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/config`)
+      .then((response) => response.json())
+      .then((config) => {
+        setGroqAvailable(Boolean(config.groq_available));
+        setTavilyAvailable(Boolean(config.tavily_available));
+        setIsWebSearchEnabled(Boolean(config.tavily_available));
+        if (config.default_provider === "groq" && config.groq_available) setProvider("groq");
+      })
+      .catch(() => {});
+  }, []);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -314,7 +331,7 @@ export default function Chat() {
     setInput("");
     setIsLoading(true);
 
-    const currentIsDeep = isDeepSearchEnabled && isWebSearchEnabled;
+    const currentIsDeep = isDeepSearchEnabled && isWebSearchEnabled && tavilyAvailable;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -325,8 +342,10 @@ export default function Chat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
-          is_local_only: !isWebSearchEnabled,
+          is_local_only: false,
           deep_research: currentIsDeep,
+          live_search: isWebSearchEnabled && tavilyAvailable,
+          provider,
           session_id: currentSessionId
         }),
         signal: controller.signal,
@@ -403,7 +422,7 @@ export default function Chat() {
       setIsLoading(false);
       setIsStreaming(false);
     }
-  }, [isLoading, isStreaming, isWebSearchEnabled, isDeepSearchEnabled, currentSessionId]);
+  }, [isLoading, isStreaming, isWebSearchEnabled, isDeepSearchEnabled, provider, currentSessionId]);
 
   const handleFileUpload = useCallback(async (file: File) => {
     if (file.size > 10 * 1024 * 1024) return;
@@ -446,15 +465,16 @@ export default function Chat() {
 
     return (
       <div className="space-y-4 relative pb-2 overflow-hidden">
-        <div className="whitespace-pre-wrap leading-relaxed">
+        <div className="leading-relaxed">
           {(() => {
             const content = msg.content;
+            if (!content.includes("[CHART:")) return <Markdown text={content} />;
             const parts = [];
             let lastIdx = 0;
 
             let startIdx = content.indexOf("[CHART:");
             while (startIdx !== -1) {
-              parts.push(<span key={`text-${lastIdx}`}>{content.slice(lastIdx, startIdx)}</span>);
+              if (startIdx > lastIdx) parts.push(<Markdown key={`text-${lastIdx}`} text={content.slice(lastIdx, startIdx)} />);
 
               let jsonStartIdx = content.indexOf("{", startIdx);
               if (jsonStartIdx !== -1) {
@@ -479,14 +499,14 @@ export default function Chat() {
                       const chartData = JSON.parse(rawJson);
                       parts.push(<ChartRenderer key={`chart-${startIdx}`} type={chartData.type} data={chartData.data} title={chartData.title} />);
                     } catch (e) {
-                      parts.push(<div key={`err-${startIdx}`} className="my-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400">Malformed Data Block</div>);
+                      parts.push(<div key={`err-${startIdx}`} className="my-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-600">Malformed Data Block</div>);
                     }
                     lastIdx = blockEndIdx + 1;
                   } else {
                     lastIdx = jsonEndIdx + 1;
                   }
                 } else {
-                  parts.push(<span key={`partial-${startIdx}`} className="text-cyan-500 animate-pulse text-[10px] px-2 italic uppercase tracking-widest font-black">Synthesizing...</span>);
+                  parts.push(<span key={`partial-${startIdx}`} className="text-emerald-500 animate-pulse text-[10px] px-2 italic uppercase tracking-widest font-black">Synthesizing...</span>);
                   lastIdx = jsonStartIdx + 1;
                 }
               } else {
@@ -494,17 +514,17 @@ export default function Chat() {
               }
               startIdx = content.indexOf("[CHART:", lastIdx);
             }
-            parts.push(<span key="text-end">{content.slice(lastIdx)}</span>);
-            return parts.length > 1 ? parts : msg.content;
+            if (content.length > lastIdx) parts.push(<Markdown key="text-end" text={content.slice(lastIdx)} />);
+            return parts;
           })()}
           {isStreaming && msg.id === messages[messages.length - 1].id && msg.role === "bot" && <BlinkingCursor />}
         </div>
 
         {shouldShowSources && (
-          <div className="mt-4 pt-3 border-t border-slate-700/50">
+          <div className="mt-4 pt-3 border-t border-ink-900/10">
             <button
               onClick={() => setExpandedSources(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))}
-              className="flex items-center gap-2 text-[10px] font-bold text-cyan-400 bg-cyan-400/10 px-3 py-1.5 rounded-lg hover:bg-cyan-400/20 transition-all uppercase tracking-wider"
+              className="flex items-center gap-2 text-[10px] font-bold text-emerald-700 bg-emerald-400/10 px-3 py-1.5 rounded-lg hover:bg-emerald-400/20 transition-all uppercase tracking-wider"
             >
               {expandedSources[msg.id] ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               Evidence ({msg.sources!.length})
@@ -514,8 +534,8 @@ export default function Chat() {
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mt-3 space-y-2">
                   {msg.sources!.map((s, idx) => (
                     <motion.div key={idx} initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: idx * 0.05 }}>
-                      <a href={s.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-slate-900/60 border border-slate-700/30 rounded-xl text-[11px] text-slate-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all group">
-                        <Globe className="w-3.5 h-3.5 text-cyan-500" />
+                      <a href={s.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 bg-ink-900/[0.03] border border-ink-900/10 rounded-xl text-[11px] text-parchment-faint hover:text-emerald-700 hover:border-emerald-500/30 transition-all group">
+                        <Globe className="w-3.5 h-3.5 text-emerald-500" />
                         <span className="truncate flex-1 font-medium">{s.title || s.url}</span>
                         <ExternalLink className="w-3 h-3 opacity-40 group-hover:opacity-100 transition-opacity" />
                       </a>
@@ -528,8 +548,15 @@ export default function Chat() {
         )}
 
         {msg.role === "bot" && (
-          <div className={`mt-2 flex justify-end transition-opacity duration-1000 ${isStreaming && msg.id === messages[messages.length - 1].id ? "opacity-30" : "opacity-100"}`}>
-            <span className="flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/5 rounded-full text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-cyan-400 transition-colors">
+          <div className={`mt-2 flex justify-end items-center gap-2 transition-opacity duration-1000 ${isStreaming && msg.id === messages[messages.length - 1].id ? "opacity-30" : "opacity-100"}`}>
+            <button
+              onClick={() => { navigator.clipboard?.writeText(msg.content); setCopiedId(msg.id); setTimeout(() => setCopiedId(null), 1500); }}
+              className="flex items-center gap-1.5 px-3 py-1 bg-ink-900/5 border border-ink-900/5 rounded-full text-[9px] font-black uppercase tracking-widest text-parchment-faint hover:text-ink-950 hover:border-ink-900/20 transition-colors"
+            >
+              {copiedId === msg.id ? <Check className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
+              {copiedId === msg.id ? "Copied" : "Copy"}
+            </button>
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-ink-900/5 border border-ink-900/5 rounded-full text-[9px] font-black uppercase tracking-widest text-parchment-faint hover:text-emerald-700 transition-colors">
               <Cpu className="w-3 h-3" />
               {msg.modelName || "Llama 3"}
             </span>
@@ -540,46 +567,57 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-full rounded-3xl border border-white/[0.06] bg-white/[0.015] backdrop-blur-2xl overflow-hidden">
+    <div className="flex flex-col h-full rounded-3xl border border-ink-900/[0.06] bg-ink-900/[0.015] backdrop-blur-2xl overflow-hidden">
 
       {/* ─── Minimal Chat Header ─── */}
-      <div className="px-5 py-3.5 border-b border-white/[0.06] flex justify-between items-center bg-white/[0.01]">
+      <div className="px-5 py-3.5 border-b border-ink-900/[0.06] flex justify-between items-center bg-ink-900/[0.01]">
         <div className="flex items-center gap-3">
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.08] transition-all">
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="w-8 h-8 rounded-lg bg-ink-900/[0.04] border border-ink-900/[0.06] flex items-center justify-center text-parchment-faint hover:text-ink-950 hover:bg-ink-900/[0.08] transition-all">
             <History className="w-4 h-4" />
           </button>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-gold-500 to-emerald-500 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-ink-950" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white leading-none">Mitra AI</h3>
+              <h3 className="text-sm font-bold text-ink-950 leading-none">Mitra AI</h3>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]" />
-                <span className="text-[10px] text-slate-500 font-semibold">Online</span>
+                <span className="text-[10px] text-parchment-faint font-semibold">Online</span>
               </div>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={() => { setIsWebSearchEnabled(!isWebSearchEnabled); if (isWebSearchEnabled) setIsDeepSearchEnabled(false); }} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${isWebSearchEnabled ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-white/[0.03] border-white/[0.06] text-slate-500"}`}>
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-ink-900/[0.03] border border-ink-900/[0.06]" title={groqAvailable ? "Choose the AI provider" : "Add GROQ_API_KEY to backend/.env to enable Groq"}>
+            <button onClick={() => setProvider("ollama")} title="Local Ollama: private, offline, and free" className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${provider === "ollama" ? "bg-ink-900/[0.09] text-ink-950" : "text-parchment-faint"}`}>
+              Local
+            </button>
+            <button disabled={!groqAvailable} onClick={() => setProvider("groq")} title="Groq cloud: faster responses and stronger reasoning" className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all disabled:opacity-40 ${provider === "groq" ? "bg-gold-500/15 text-gold-700" : "text-parchment-faint"}`}>
+              Groq
+            </button>
+          </div>
+          <span className="hidden lg:inline text-[9px] font-semibold text-parchment-faint whitespace-nowrap">
+            {provider === "ollama" ? "Private / offline" : "Fast cloud"}
+          </span>
+          <button onClick={() => { setIsWebSearchEnabled(!isWebSearchEnabled); if (isWebSearchEnabled) setIsDeepSearchEnabled(false); }} title={tavilyAvailable ? "Enable Tavily live web search" : "Add TAVILY_API_KEY to backend/.env to enable Live Search"} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${isWebSearchEnabled ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700" : "bg-ink-900/[0.03] border-ink-900/[0.06] text-parchment-faint"}`}>
             <Globe className="w-3 h-3" />
-            {isWebSearchEnabled ? "Web" : "Local"}
+            {isWebSearchEnabled ? "Live" : "No Live Search"}
           </button>
           <AnimatePresence>
-            {isWebSearchEnabled && (
-              <motion.button initial={{ opacity: 0, scale: 0.9, width: 0 }} animate={{ opacity: 1, scale: 1, width: "auto" }} exit={{ opacity: 0, scale: 0.9, width: 0 }} onClick={() => setIsDeepSearchEnabled(!isDeepSearchEnabled)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border overflow-hidden ${isDeepSearchEnabled ? "bg-violet-500/10 border-violet-500/20 text-violet-400" : "bg-white/[0.03] border-white/[0.06] text-slate-500"}`}>
+            {isWebSearchEnabled && tavilyAvailable && (
+              <motion.button initial={{ opacity: 0, scale: 0.9, width: 0 }} animate={{ opacity: 1, scale: 1, width: "auto" }} exit={{ opacity: 0, scale: 0.9, width: 0 }} onClick={() => setIsDeepSearchEnabled(!isDeepSearchEnabled)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border overflow-hidden ${isDeepSearchEnabled ? "bg-gold-500/10 border-gold-500/20 text-gold-600" : "bg-ink-900/[0.03] border-ink-900/[0.06] text-parchment-faint"}`}>
                 <Sparkles className="w-3 h-3" />
                 Deep
               </motion.button>
             )}
           </AnimatePresence>
-          <button onClick={handleNewSession} className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all" title="New Chat">
+          <button onClick={handleNewSession} className="w-8 h-8 rounded-lg bg-ink-900/[0.04] border border-ink-900/[0.06] flex items-center justify-center text-parchment-faint hover:text-emerald-700 hover:bg-emerald-500/10 transition-all" title="New Chat">
             <Plus className="w-4 h-4" />
           </button>
           {messages.length > 0 && (
-            <button onClick={handleDownloadReport} className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all" title="Export PDF">
+            <button onClick={handleDownloadReport} className="w-8 h-8 rounded-lg bg-ink-900/[0.04] border border-ink-900/[0.06] flex items-center justify-center text-parchment-faint hover:text-emerald-700 hover:bg-emerald-500/10 transition-all" title="Export PDF">
               <Download className="w-4 h-4" />
             </button>
           )}
@@ -594,7 +632,7 @@ export default function Chat() {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="border-b border-white/[0.06] bg-white/[0.02] overflow-hidden"
+            className="border-b border-ink-900/[0.06] bg-ink-900/[0.02] overflow-hidden"
           >
             <div className="p-4 max-h-48 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -602,14 +640,14 @@ export default function Chat() {
                   <button
                     key={item.id}
                     onClick={() => { switchSession(item.id); setIsSidebarOpen(false); }}
-                    className={`p-3 rounded-xl border text-left transition-all ${item.id === currentSessionId ? 'bg-violet-500/10 border-violet-500/20' : 'bg-white/[0.02] border-white/[0.04] hover:bg-white/[0.05]'}`}
+                    className={`p-3 rounded-xl border text-left transition-all ${item.id === currentSessionId ? 'bg-gold-500/10 border-gold-500/20' : 'bg-ink-900/[0.02] border-ink-900/[0.04] hover:bg-ink-900/[0.05]'}`}
                   >
-                    <span className="text-[11px] font-bold text-slate-300 leading-tight line-clamp-1 block">{item.title}</span>
-                    <span className="text-[9px] text-slate-600 mt-1 block">{new Date(item.timestamp).toLocaleDateString()}</span>
+                    <span className="text-[11px] font-bold text-parchment-dim leading-tight line-clamp-1 block">{item.title}</span>
+                    <span className="text-[9px] text-stone-600 mt-1 block">{new Date(item.timestamp).toLocaleDateString()}</span>
                   </button>
                 ))}
                 {historyList.length === 0 && (
-                  <p className="col-span-3 text-xs text-slate-600 text-center py-4">No chat history yet</p>
+                  <p className="col-span-3 text-xs text-stone-600 text-center py-4">No chat history yet</p>
                 )}
               </div>
             </div>
@@ -623,14 +661,14 @@ export default function Chat() {
           <div className="h-full flex flex-col items-center justify-center gap-6">
             {/* Iridescent Orb */}
             <div className="relative w-20 h-20">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-400 via-fuchsia-300 to-cyan-400 opacity-40 blur-2xl animate-pulse" style={{ animationDuration: '4s' }} />
-              <div className="relative w-full h-full rounded-full bg-gradient-to-br from-violet-500/80 via-fuchsia-400/80 to-cyan-400/80 shadow-xl flex items-center justify-center">
-                <Sparkles className="w-8 h-8 text-white/70" />
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-gold-400 via-gold-300 to-emerald-400 opacity-40 blur-2xl animate-pulse" style={{ animationDuration: '4s' }} />
+              <div className="relative w-full h-full rounded-full bg-gradient-to-br from-gold-500/80 via-gold-400/80 to-emerald-400/80 shadow-xl flex items-center justify-center">
+                <Sparkles className="w-8 h-8 text-ink-900/70" />
               </div>
             </div>
             <div className="text-center space-y-2">
-              <p className="text-base font-bold text-white/60">How can I help you today?</p>
-              <p className="text-xs text-slate-500 max-w-xs">Example: "Explain SIP investment in simple terms" or "Check if this UPI link is safe"</p>
+              <p className="text-base font-bold text-ink-900/60">How can I help you today?</p>
+              <p className="text-xs text-parchment-faint max-w-xs">Example: "Explain SIP investment in simple terms" or "Check if this UPI link is safe"</p>
             </div>
           </div>
         )}
@@ -638,10 +676,10 @@ export default function Chat() {
           {messages.map((msg) => (
             <motion.div key={msg.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               <div className={`flex gap-3 max-w-[85%] ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 ${msg.role === "user" ? "bg-violet-500/10" : "bg-cyan-500/10"}`}>
-                  {msg.role === "user" ? <User className="w-4 h-4 text-violet-400" /> : <Bot className="w-4 h-4 text-cyan-400" />}
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 ${msg.role === "user" ? "bg-gold-500/10" : "bg-emerald-500/10"}`}>
+                  {msg.role === "user" ? <User className="w-4 h-4 text-gold-600" /> : <Bot className="w-4 h-4 text-emerald-700" />}
                 </div>
-                <div className={`px-4 py-3 rounded-2xl text-[13.5px] leading-relaxed ${msg.role === "user" ? "bg-gradient-to-br from-violet-600 to-indigo-700 text-white rounded-tr-sm" : "bg-white/[0.04] text-slate-200 rounded-tl-sm border border-white/[0.06]"}`}>
+                <div className={`px-4 py-3 rounded-2xl text-[13.5px] leading-relaxed ${msg.role === "user" ? "bg-gradient-to-br from-gold-600 to-indigo-700 text-white rounded-tr-sm" : "bg-ink-900/[0.04] text-parchment rounded-tl-sm border border-ink-900/[0.06]"}`}>
                   {renderMessageContent(msg)}
                 </div>
               </div>
@@ -665,10 +703,10 @@ export default function Chat() {
                 return <FileText className="w-3 h-3" />;
               };
               return (
-                <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} key={i} className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.04] border border-white/[0.06] rounded-xl text-[10px] text-slate-300 font-semibold whitespace-nowrap group">
-                  <div className="text-cyan-400">{getIcon()}</div>
+                <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} key={i} className="flex items-center gap-2 px-3 py-1.5 bg-ink-900/[0.04] border border-ink-900/[0.06] rounded-xl text-[10px] text-parchment-dim font-semibold whitespace-nowrap group">
+                  <div className="text-emerald-700">{getIcon()}</div>
                   {doc.filename}
-                  <button onClick={() => handleRemoveDocument(doc.filename)} className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"><X className="w-3 h-3" /></button>
+                  <button onClick={() => handleRemoveDocument(doc.filename)} className="opacity-0 group-hover:opacity-100 hover:text-red-600 transition-all"><X className="w-3 h-3" /></button>
                 </motion.div>
               );
             })}
@@ -676,8 +714,8 @@ export default function Chat() {
         )}
 
         {/* Main Input Bar */}
-        <div className="relative flex items-center gap-2 bg-white/[0.03] border border-white/[0.08] rounded-2xl px-4 py-1 shadow-lg shadow-black/10 focus-within:border-violet-500/30 focus-within:shadow-violet-500/5 transition-all">
-          <span className="text-slate-600 text-lg select-none">+</span>
+        <div className="relative flex items-center gap-2 bg-ink-900/[0.03] border border-ink-900/[0.08] rounded-2xl px-4 py-1 shadow-lg shadow-black/10 focus-within:border-gold-500/30 focus-within:shadow-gold-500/5 transition-all">
+          <span className="text-stone-600 text-lg select-none">+</span>
           <input
             id="chat-input"
             value={input}
@@ -685,21 +723,23 @@ export default function Chat() {
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
             placeholder={isUploading ? "Uploading file..." : 'Example: "Explain quantum computing in simple terms"'}
             disabled={isLoading || isStreaming}
-            className="flex-1 bg-transparent py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none"
+            className="flex-1 bg-transparent py-3 text-sm text-ink-950 placeholder:text-stone-600 focus:outline-none"
           />
-          <button onClick={toggleRecording} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isRecording ? 'bg-red-500/20 text-red-400' : 'text-slate-500 hover:text-white hover:bg-white/[0.06]'}`}>
+          <button onClick={toggleRecording} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isRecording ? 'bg-red-500/20 text-red-600' : 'text-parchment-faint hover:text-ink-950 hover:bg-ink-900/[0.06]'}`}>
             {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
-          <button onClick={handleSend} disabled={!input.trim() || isLoading} className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-30">
-            <Send className="w-4 h-4 text-white" />
+          <button onClick={handleSend} disabled={!input.trim() || isLoading} className="w-9 h-9 rounded-xl bg-gradient-to-r from-gold-400 to-gold-500 hover:from-gold-300 hover:to-gold-400 flex items-center justify-center transition-all disabled:opacity-30">
+            <Send className="w-4 h-4 text-ink-950" />
           </button>
         </div>
 
         {/* Contextual Action Chips (NanoAI style) */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
+            disabled={!tavilyAvailable}
+            title={tavilyAvailable ? "Use Tavily for deep web research" : "Add TAVILY_API_KEY to backend/.env to enable Deep Research"}
             onClick={() => { setIsDeepSearchEnabled(!isDeepSearchEnabled); if (!isWebSearchEnabled) setIsWebSearchEnabled(true); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${isDeepSearchEnabled ? 'bg-violet-500/10 border-violet-500/20 text-violet-400' : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border disabled:opacity-40 ${isDeepSearchEnabled ? 'bg-gold-500/10 border-gold-500/20 text-gold-600' : 'bg-ink-900/[0.02] border-ink-900/[0.05] text-parchment-faint hover:text-parchment-dim hover:bg-ink-900/[0.04]'}`}
           >
             <Sparkles className="w-3 h-3" /> Deep Research
           </button>
@@ -708,20 +748,20 @@ export default function Chat() {
               setInput("[CHART:{\"type\":\"bar\",\"title\":\"My Data\",\"data\":[{\"name\":\"A\",\"value\":10},{\"name\":\"B\",\"value\":20}]}]");
               setTimeout(() => { document.getElementById("chat-input")?.focus(); }, 100);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold bg-white/[0.02] border border-white/[0.05] text-slate-500 hover:text-slate-300 hover:bg-white/[0.04] transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold bg-ink-900/[0.02] border border-ink-900/[0.05] text-parchment-faint hover:text-parchment-dim hover:bg-ink-900/[0.04] transition-all"
           >
             <ChartIcon className="w-3 h-3" /> Chart
           </button>
           <button
             onClick={() => { setIsWebSearchEnabled(!isWebSearchEnabled); if (isWebSearchEnabled) setIsDeepSearchEnabled(false); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${isWebSearchEnabled ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${isWebSearchEnabled ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700' : 'bg-ink-900/[0.02] border-ink-900/[0.05] text-parchment-faint hover:text-parchment-dim hover:bg-ink-900/[0.04]'}`}
           >
-            <Globe className="w-3 h-3" /> Search
+            <Globe className="w-3 h-3" /> Live Search
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading || isLoading}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${activeDocs.length > 0 ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${activeDocs.length > 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700' : 'bg-ink-900/[0.02] border-ink-900/[0.05] text-parchment-faint hover:text-parchment-dim hover:bg-ink-900/[0.04]'}`}
           >
             <Paperclip className={`w-3 h-3 ${isUploading ? 'animate-bounce' : ''}`} /> Attach
           </button>

@@ -61,7 +61,7 @@ interface AgentSelectorProps {
 export default function AgentSelector({ selectedAgent, onAgentChange }: AgentSelectorProps) {
   return (
     <div className="flex flex-col gap-3">
-      <label className="text-sm font-medium text-slate-400">
+      <label className="text-sm font-medium text-parchment-faint">
         Select Agent (Optional - Auto-routing enabled)
       </label>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -73,13 +73,13 @@ export default function AgentSelector({ selectedAgent, onAgentChange }: AgentSel
             onClick={() => onAgentChange(selectedAgent === agent.id ? null : agent.id)}
             className={`p-3 rounded-xl border transition-all ${
               selectedAgent === agent.id
-                ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400'
-                : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-300'
+                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-700'
+                : 'bg-ink-900/[0.04] border-ink-900/10 text-parchment-faint hover:border-ink-900/25 hover:text-parchment-dim'
             }`}
           >
             <div className="flex flex-col items-center gap-2">
               <div className={`p-2 rounded-lg ${
-                selectedAgent === agent.id ? 'bg-cyan-500/30' : 'bg-slate-800'
+                selectedAgent === agent.id ? 'bg-emerald-500/30' : 'bg-ink-900/20'
               }`}>
                 {agent.icon}
               </div>
@@ -93,15 +93,15 @@ export default function AgentSelector({ selectedAgent, onAgentChange }: AgentSel
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
-          className="p-3 bg-slate-900/50 border border-slate-800 rounded-xl text-xs"
+          className="p-3 bg-ink-900/[0.04] border border-ink-900/10 rounded-xl text-xs"
         >
-          <div className="flex items-center gap-2 text-slate-400">
+          <div className="flex items-center gap-2 text-parchment-faint">
             <span className="font-semibold">Model:</span>
-            <span className="text-slate-300">{AGENTS.find(a => a.id === selectedAgent)?.model}</span>
+            <span className="text-parchment-dim">{AGENTS.find(a => a.id === selectedAgent)?.model}</span>
           </div>
-          <div className="flex items-center gap-2 text-slate-400 mt-1">
+          <div className="flex items-center gap-2 text-parchment-faint mt-1">
             <span className="font-semibold">Best for:</span>
-            <span className="text-slate-300">{AGENTS.find(a => a.id === selectedAgent)?.best_for}</span>
+            <span className="text-parchment-dim">{AGENTS.find(a => a.id === selectedAgent)?.best_for}</span>
           </div>
         </motion.div>
       )}
