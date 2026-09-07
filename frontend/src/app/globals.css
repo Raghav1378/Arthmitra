@@ -3,26 +3,29 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════
-   ARTHMITRA — SAPPHIRE COURT
-   Porcelain white · sapphire blue · royal gold guilloche
+   ARTHMITRA — MIDNIGHT COURT
+   Deep vault navy · royal gold guilloche · mint/rose ledger
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  --ink-950: #0a1f4d;
-  --ink-900: #10306e;
-  --ink-800: #1a4291;
+  --ink-950: #f2f5ff;
+  --ink-900: #dfe7fb;
+  --ink-800: #c6d3f2;
   --gold-500: #c9992b;
   --gold-300: #eccb7d;
-  --parchment: #14213d;
-  --parchment-dim: #44536f;
-  --parchment-faint: #6d7b95;
-  --ledger-green: #1f9d63;
-  --ledger-red: #d92637;
-  --ledger-amber: #d98a17;
+  --parchment: #e7edfa;
+  --parchment-dim: #b3c0dc;
+  --parchment-faint: #7e8db0;
+  --ledger-green: #2fbf7f;
+  --ledger-red: #ff5d70;
+  --ledger-amber: #f0a12e;
+  --vault-950: #060b1a;
+  --vault-900: #0a1230;
+  --vault-800: #0f1c46;
 
-  --hairline: rgba(16, 48, 110, 0.12);
+  --hairline: rgba(231, 237, 250, 0.1);
   --gold-hairline: rgba(201, 153, 43, 0.35);
-  --panel-bg: rgba(255, 255, 255, 0.78);
+  --panel-bg: rgba(15, 28, 70, 0.62);
 }
 
 * {
@@ -37,7 +40,7 @@ html {
 
 body {
   color: var(--parchment);
-  background-color: #f8fafd;
+  background-color: var(--vault-950);
   min-height: 100vh;
   font-family: var(--font-body), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -60,15 +63,15 @@ body {
 /* ── Guilloche banknote texture + paper grain ─────────────────── */
 @layer utilities {
   .bg-vault {
-    background-color: #f8fafd;
+    background-color: var(--vault-950);
     background-image:
       /* engraved concentric rings, top-left — sapphire */
       repeating-radial-gradient(
         circle at 12% 8%,
         transparent 0px,
         transparent 38px,
-        rgba(36, 86, 180, 0.05) 38px,
-        rgba(36, 86, 180, 0.05) 39px,
+        rgba(109, 138, 220, 0.07) 38px,
+        rgba(109, 138, 220, 0.07) 39px,
         transparent 40px
       ),
       /* ring set, bottom-right — gold */
@@ -76,8 +79,8 @@ body {
         circle at 88% 92%,
         transparent 0px,
         transparent 52px,
-        rgba(201, 153, 43, 0.05) 52px,
-        rgba(201, 153, 43, 0.05) 53px,
+        rgba(201, 153, 43, 0.07) 52px,
+        rgba(201, 153, 43, 0.07) 53px,
         transparent 54px
       ),
       /* fine diagonal engraving lines */
@@ -85,10 +88,10 @@ body {
         115deg,
         transparent 0px,
         transparent 7px,
-        rgba(16, 48, 110, 0.025) 7px,
-        rgba(16, 48, 110, 0.025) 8px
+        rgba(179, 192, 220, 0.03) 7px,
+        rgba(179, 192, 220, 0.03) 8px
       ),
-      radial-gradient(1400px 900px at 50% -20%, rgba(82, 137, 232, 0.1), transparent 65%);
+      radial-gradient(1400px 900px at 50% -20%, rgba(26, 47, 110, 0.85), transparent 65%);
   }
 
   /* Paper grain overlay — apply on a fixed full-bleed div */
@@ -109,11 +112,11 @@ body {
 
   /* Porcelain panel with sapphire hairline + gold inner light */
   .engraved {
-    background: linear-gradient(160deg, #ffffff, #f6f9ff);
+    background: linear-gradient(160deg, var(--vault-800), var(--vault-900));
     border: 1px solid var(--hairline);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      0 24px 60px rgba(16, 48, 110, 0.1);
+      inset 0 1px 0 rgba(231, 237, 250, 0.06),
+      0 24px 60px rgba(0, 0, 0, 0.4);
   }
 
   /* Vermillion stamp — rotated bordered seal for verdicts */
@@ -137,18 +140,18 @@ body {
   }
 
   .custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(16, 48, 110, 0.05);
+    background: rgba(6, 11, 26, 0.5);
     border-radius: 4px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(36, 86, 180, 0.3);
+    background: rgba(201, 153, 43, 0.35);
     border-radius: 4px;
     transition: background 0.2s ease;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(36, 86, 180, 0.55);
+    background: rgba(201, 153, 43, 0.6);
   }
 
   .custom-scrollbar-thin::-webkit-scrollbar {
@@ -156,32 +159,32 @@ body {
   }
 
   .custom-scrollbar-thin::-webkit-scrollbar-thumb {
-    background: rgba(36, 86, 180, 0.25);
+    background: rgba(201, 153, 43, 0.25);
   }
 }
 
-/* Glass classes — kept for compatibility, now porcelain panels */
+/* Glass classes — dark vault panels */
 @layer utilities {
   .glass {
     background: var(--panel-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--hairline);
-    box-shadow: 0 24px 60px rgba(16, 48, 110, 0.1);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
   }
 
   .glass-strong {
-    background: linear-gradient(150deg, rgba(255, 255, 255, 0.96), rgba(246, 249, 255, 0.98));
+    background: linear-gradient(150deg, rgba(15, 28, 70, 0.92), rgba(10, 18, 48, 0.96));
     backdrop-filter: blur(22px);
     -webkit-backdrop-filter: blur(22px);
-    border: 1px solid rgba(16, 48, 110, 0.14);
+    border: 1px solid rgba(231, 237, 250, 0.12);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      0 28px 70px rgba(16, 48, 110, 0.14);
+      inset 0 1px 0 rgba(231, 237, 250, 0.07),
+      0 28px 70px rgba(0, 0, 0, 0.5);
   }
 }
 
-/* Gradient Text — royal gold on white */
+/* Gradient Text — royal gold on midnight */
 @layer utilities {
   .gradient-text {
     background: linear-gradient(135deg, #a67a1c, var(--gold-500) 55%, var(--gold-300));
@@ -303,10 +306,11 @@ body {
 /* Input Styles — porcelain field with sapphire focus */
 @layer components {
   .input-field {
-    @apply w-full bg-white border border-ink-900/15 rounded-xl px-4 py-3
+    @apply w-full border border-ink-900/20 rounded-xl px-4 py-3
            text-sm text-parchment placeholder-parchment-ghost shadow-sm
            focus:outline-none focus:ring-2 focus:ring-ink-600/40 focus:border-ink-600/50
            transition-all duration-200;
+    background-color: var(--vault-800);
   }
 
   .input-field:focus {
@@ -317,8 +321,9 @@ body {
 /* Card Styles */
 @layer components {
   .card {
-    @apply bg-white/80 border border-ink-900/10 rounded-2xl backdrop-blur-xl
-           shadow-[0_20px_50px_rgba(16,48,110,0.08)];
+    @apply border border-ink-900/10 rounded-2xl backdrop-blur-xl
+           shadow-[0_20px_50px_rgba(0,0,0,0.35)];
+    background-color: rgba(15, 28, 70, 0.6);
   }
 
   .card-hover {
@@ -394,23 +399,23 @@ body {
 
   .bg-aurora {
     background-image:
-      radial-gradient(1200px circle at 10% 10%, rgba(36, 86, 180, 0.08), transparent 55%),
-      radial-gradient(900px circle at 90% 15%, rgba(201, 153, 43, 0.08), transparent 50%),
-      radial-gradient(800px circle at 20% 85%, rgba(82, 137, 232, 0.1), transparent 55%),
-      linear-gradient(180deg, #f8fafd, #f1f5fc);
+      radial-gradient(1200px circle at 10% 10%, rgba(109, 138, 220, 0.12), transparent 55%),
+      radial-gradient(900px circle at 90% 15%, rgba(201, 153, 43, 0.1), transparent 50%),
+      radial-gradient(800px circle at 20% 85%, rgba(109, 138, 220, 0.14), transparent 55%),
+      linear-gradient(180deg, var(--vault-950), var(--vault-900));
   }
 
   .bg-hero {
     background-image:
-      radial-gradient(520px circle at 15% 20%, rgba(201, 153, 43, 0.12), transparent 60%),
-      radial-gradient(480px circle at 85% 15%, rgba(36, 86, 180, 0.12), transparent 55%),
-      radial-gradient(420px circle at 30% 85%, rgba(82, 137, 232, 0.1), transparent 60%);
+      radial-gradient(520px circle at 15% 20%, rgba(201, 153, 43, 0.14), transparent 60%),
+      radial-gradient(480px circle at 85% 15%, rgba(109, 138, 220, 0.14), transparent 55%),
+      radial-gradient(420px circle at 30% 85%, rgba(109, 138, 220, 0.12), transparent 60%);
   }
 
   .bg-grid {
     background-image:
-      linear-gradient(rgba(16, 48, 110, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(16, 48, 110, 0.05) 1px, transparent 1px);
+      linear-gradient(rgba(179, 192, 220, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(179, 192, 220, 0.05) 1px, transparent 1px);
     background-size: 32px 32px;
     mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.6), transparent 75%);
   }

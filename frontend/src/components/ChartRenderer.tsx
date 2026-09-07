@@ -34,7 +34,7 @@ const COLORS = ['#2456b4', '#c9992b', '#5289e8', '#f59e0b', '#ef4444', '#ec4899'
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white/90 backdrop-blur-xl border border-ink-900/10 p-3 rounded-xl shadow-[0_10px_40px_rgba(16,48,110,0.12)]">
+      <div className="bg-vault-800/95 backdrop-blur-xl border border-ink-900/10 p-3 rounded-xl shadow-[0_10px_40px_rgba(16,48,110,0.12)]">
         <p className="text-[10px] font-black uppercase tracking-widest text-parchment-faint mb-1">{label}</p>
         <p className="text-sm font-bold text-emerald-700">
           {payload[0].value.toLocaleString()} 
@@ -50,7 +50,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ type, data, title }) => {
   if (!data || data.length === 0) return null;
 
   return (
-    <div className="w-full h-72 mt-6 p-6 bg-white/60 border border-ink-900/10 rounded-[2rem] shadow-2xl backdrop-blur-md relative overflow-hidden group">
+    <div className="w-full h-72 mt-6 p-6 bg-vault-800/50 border border-ink-900/10 rounded-[2rem] shadow-2xl backdrop-blur-md relative overflow-hidden group">
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
       
       {title && (
@@ -91,7 +91,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ type, data, title }) => {
               dataKey="value" 
               stroke="#2456b4" 
               strokeWidth={3} 
-              dot={{ r: 4, fill: '#ffffff', stroke: '#2456b4', strokeWidth: 2 }} 
+              dot={{ r: 4, fill: '#0f1c46', stroke: '#c9992b', strokeWidth: 2 }} 
               activeDot={{ r: 7, fill: '#2456b4', strokeWidth: 0 }}
               animationDuration={2000}
             />

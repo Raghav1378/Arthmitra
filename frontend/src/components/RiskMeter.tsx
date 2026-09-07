@@ -22,7 +22,7 @@ export default function RiskMeter({ score, label }: RiskMeterProps) {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-6 bg-white/80 border border-ink-900/10 rounded-2xl shadow-[0_20px_50px_rgba(16,48,110,0.08)] relative overflow-hidden group">
+    <div className="flex flex-col items-center justify-center p-6 bg-vault-800/60 border border-ink-900/10 rounded-2xl shadow-[0_20px_50px_rgba(16,48,110,0.08)] relative overflow-hidden group">
       <div className="relative w-32 h-32">
         <svg className="w-full h-full transform -rotate-90">
           <circle

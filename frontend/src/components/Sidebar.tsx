@@ -138,7 +138,7 @@ export default function Sidebar({ activeView, onViewChange, isOpen, expenses = [
         x: isOpen ? 0 : -20
       }}
       transition={isResizing ? { duration: 0 } : { duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-      className="h-screen flex flex-col bg-ink-900/95 backdrop-blur-[60px] border-r border-gold-500/[0.14] relative z-30 shrink-0 select-none group/sidebar overflow-hidden shadow-2xl"
+      className="h-screen flex flex-col bg-vault-950/95 backdrop-blur-[60px] border-r border-gold-500/[0.14] relative z-30 shrink-0 select-none group/sidebar overflow-hidden shadow-2xl"
     >
       {/* ─── Resizer Handle ─── */}
       <div
@@ -191,7 +191,7 @@ export default function Sidebar({ activeView, onViewChange, isOpen, expenses = [
                   <div className="relative">
                     <item.icon className={`w-[18px] h-[18px] shrink-0 transition-colors ${activeView === item.id ? item.color : 'text-blue-200/50 group-hover:text-blue-100/80'}`} />
                     {item.id === 'expenses' && securityMetrics.highRisk > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-ledger-red rounded-full border-2 border-ink-900/95 animate-pulse" />
+                        <span className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-ledger-red rounded-full border-2 border-vault-950/95 animate-pulse" />
                     )}
                   </div>
                   <div className="flex-1 flex items-center justify-between overflow-hidden">
@@ -226,7 +226,7 @@ export default function Sidebar({ activeView, onViewChange, isOpen, expenses = [
         </nav>
 
         {/* ─── Footer ─── */}
-        <div className="p-5 border-t border-gold-500/[0.14] bg-ink-950/30">
+        <div className="p-5 border-t border-gold-500/[0.14] bg-vault-900/55">
           {(monthlySpend > 0 || monthlyEarn > 0) && (
             <div className="mb-3 px-4 py-3 rounded-xl bg-white/[0.05] border border-white/10 space-y-1.5">
               <p className="font-mono text-[8px] text-blue-100/60 uppercase tracking-[0.3em]">This Month</p>

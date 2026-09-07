@@ -3,9 +3,10 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Send, User, Bot, Sparkles, Copy, Check, Globe, ChevronDown, ChevronUp, ExternalLink, Cpu, Paperclip, Plus, X, History, Mic, MicOff, Download, FileText, Image as ImageIcon, Database, LineChart as ChartIcon } from "lucide-react";
 import { getSessionId } from "@/lib/session";
-import ChartRenderer from "./ChartRenderer";
+import dynamicImport from "next/dynamic";
+// recharts is heavy and only needed when a chart actually renders
+const ChartRenderer = dynamicImport(() => import("./ChartRenderer"), { ssr: false });
 import Markdown from "./Markdown";
-import { jsPDF } from "jspdf";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -179,7 +180,9 @@ export default function Chat() {
     }
   }, [input, isRecording]);
 
-  const handleDownloadReport = useCallback(() => {
+  const handleDownloadReport = useCallback(async () => {
+    // jspdf is ~400KB — only pay for it when a report is actually exported
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);

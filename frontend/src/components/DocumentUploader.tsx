@@ -165,7 +165,7 @@ export default function DocumentUploader() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white/70 border border-ink-900/10 rounded-[2.5rem] overflow-hidden backdrop-blur-2xl shadow-xl p-6 space-y-6">
+    <div className="flex flex-col h-full bg-vault-800/50 border border-ink-900/10 rounded-[2.5rem] overflow-hidden backdrop-blur-2xl shadow-xl p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="font-extrabold text-ink-950 text-lg tracking-tight">Your Documents</h3>
         <span className="text-xs text-parchment-faint font-mono bg-ink-900/[0.06] px-2 py-1 rounded-md">
@@ -289,12 +289,12 @@ export default function DocumentUploader() {
             <input 
               value={pasteLabel} onChange={(e) => setPasteLabel(e.target.value)} 
               placeholder="Label (e.g., 'Meeting Notes')" 
-              className="w-full bg-white border border-ink-900/15 rounded-xl px-4 py-3 mb-4 text-ink-950 text-sm focus:border-emerald-500 outline-none"
+              className="w-full bg-vault-900 border border-ink-900/20 rounded-xl px-4 py-3 mb-4 text-ink-950 text-sm focus:border-emerald-500 outline-none"
             />
             <textarea 
               value={pasteText} onChange={(e) => setPasteText(e.target.value)}
               placeholder="Paste your text content here..."
-              className="w-full flex-1 bg-white border border-ink-900/15 rounded-xl p-4 text-ink-950 text-sm focus:border-emerald-500 outline-none resize-none"
+              className="w-full flex-1 bg-vault-900 border border-ink-900/20 rounded-xl p-4 text-ink-950 text-sm focus:border-emerald-500 outline-none resize-none"
             />
             <button 
               onClick={handlePasteSubmit}

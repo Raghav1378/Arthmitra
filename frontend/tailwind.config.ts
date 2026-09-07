@@ -19,14 +19,22 @@ const config: Config = {
         mono: ["var(--font-mono)", "monospace"],
       },
       colors: {
-        // Sapphire Court palette — porcelain white, sapphire blue, royal gold
+        // Midnight Court — dark vault ground, gold guilloche, mint/rose ledger.
+        // ink/parchment are TEXT scales (light on dark); vault is the dark ground.
         ink: {
-          950: "#0a1f4d",
-          900: "#10306e",
-          800: "#1a4291",
-          700: "#2456b4",
-          600: "#346fd8",
-          500: "#5289e8",
+          950: "#f2f5ff",
+          900: "#dfe7fb",
+          800: "#c6d3f2",
+          700: "#a8bcf0",
+          600: "#8ba6e8",
+          500: "#6d8adc",
+        },
+        vault: {
+          950: "#060b1a",
+          900: "#0a1230",
+          800: "#0f1c46",
+          700: "#14265c",
+          600: "#1a2f6e",
         },
         gold: {
           200: "#f5e3b3",
@@ -37,15 +45,15 @@ const config: Config = {
           700: "#7f5c12",
         },
         parchment: {
-          DEFAULT: "#14213d",
-          dim: "#44536f",
-          faint: "#6d7b95",
-          ghost: "#9aa6bb",
+          DEFAULT: "#e7edfa",
+          dim: "#b3c0dc",
+          faint: "#7e8db0",
+          ghost: "#57668a",
         },
         ledger: {
-          green: "#1f9d63",
-          red: "#d92637",
-          amber: "#d98a17",
+          green: "#2fbf7f",
+          red: "#ff5d70",
+          amber: "#f0a12e",
         },
       },
     },

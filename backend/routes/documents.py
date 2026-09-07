@@ -16,10 +16,10 @@ from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from langchain_chroma import Chroma
 
+# Heavy deps deferred to call time: these drag in sentence-transformers+torch
+# (~4.5s import) — only document upload/list endpoints need them.
 from rag.embedder import get_embedder
-from rag.ingest import ingest_pdf, ingest_image, ingest_csv_excel, ingest_text
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,7 @@ async def upload_document(
     logger.info(f"[Upload] {filename} ({len(file_bytes)} bytes) for session {session_id}")
 
     try:
+        from rag.ingest import ingest_pdf, ingest_image, ingest_csv_excel, ingest_text
         if ext == ".pdf":
             chunks = await ingest_pdf(file_bytes, filename, session_id)
         elif ext in [".png", ".jpg", ".jpeg", ".webp", ".tiff"]:
@@ -118,6 +119,7 @@ async def list_documents(session_id: str) -> dict[str, Any]:
     collection_name = _user_collection_name(session_id)
 
     try:
+        from langchain_chroma import Chroma
         db = Chroma(
             collection_name=collection_name,
             persist_directory=str(CHROMA_DIR),
@@ -180,6 +182,7 @@ async def remove_document(filename: str, session_id: str) -> dict[str, Any]:
     collection_name = _user_collection_name(session_id)
 
     try:
+        from langchain_chroma import Chroma
         db = Chroma(
             collection_name=collection_name,
             persist_directory=str(CHROMA_DIR),

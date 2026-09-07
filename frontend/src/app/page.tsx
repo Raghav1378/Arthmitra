@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { 
   Shield, Sparkles, PieChart, Activity, 
   Settings, HelpCircle, Info, Globe, 
@@ -8,8 +9,10 @@ import {
   X, AlertTriangle, Fingerprint, AlertCircle, RefreshCw, CheckCircle2
 } from 'lucide-react';
 import Chat from '../components/Chat';
-import ScamShield from '../components/ScamShield';
-import ExpenseTracker from '../components/ExpenseTracker';
+// Heavy views code-split: only one is rendered at a time, and each drags in
+// recharts/jspdf — load them on demand instead of in the first bundle.
+const ScamShield = dynamic(() => import('../components/ScamShield'), { ssr: false, loading: () => <div className="h-full flex items-center justify-center font-mono text-xs uppercase tracking-widest text-parchment-faint">Loading Shield…</div> });
+const ExpenseTracker = dynamic(() => import('../components/ExpenseTracker'), { ssr: false, loading: () => <div className="h-full flex items-center justify-center font-mono text-xs uppercase tracking-widest text-parchment-faint">Opening Ledger…</div> });
 import Sidebar from '../components/Sidebar';
 import ApiStatusIndicator from '../components/ApiStatusIndicator';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -63,7 +66,7 @@ export default function Home() {
       {/* ─── Main Viewport Area ───────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 relative z-10 transition-all duration-500 ease-[0.4, 0, 0.2, 1]">
         
-        <header className="h-16 flex items-center justify-between px-8 border-b border-ink-900/10 bg-white/70 backdrop-blur-xl shrink-0 z-20">
+        <header className="h-16 flex items-center justify-between px-8 border-b border-ink-900/10 bg-vault-900/70 backdrop-blur-xl shrink-0 z-20">
           <div className="flex items-center gap-6">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -160,7 +163,7 @@ export default function Home() {
                 initial={{ scale: 0.9, opacity: 0, y: 20 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                className="relative w-full max-w-4xl max-h-[85vh] bg-white border border-gold-500/40 rounded-[2rem] shadow-[0_50px_200px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col"
+                className="relative w-full max-w-4xl max-h-[85vh] bg-vault-800 border border-gold-500/40 rounded-[2rem] shadow-[0_50px_200px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col"
               >
                 <div className="p-8 border-b border-gold-500/[0.14] flex justify-between items-center bg-gradient-to-r from-ledger-red/[0.08] to-transparent">
                   <div>

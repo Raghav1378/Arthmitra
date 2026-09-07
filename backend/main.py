@@ -1,5 +1,6 @@
 import os
 import logging
+import asyncio
 import io
 import pandas as pd
 from typing import Optional, List, Dict, Any
@@ -40,9 +41,9 @@ _env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
 if os.path.exists(_env_path):
     load_dotenv(dotenv_path=_env_path, override=True)
 
-from langchain_groq import ChatGroq
-from langchain_ollama import ChatOllama
-from langchain_core.messages import HumanMessage, SystemMessage
+# Heavy LLM imports deferred to first use: langchain_groq drags in
+# transformers+torch (~30s import on this machine) — don't pay at startup.
+# ponytail: move to module-level if groq import latency ever matters elsewhere
 
 from routes.documents import documents_router
 from routes.chats import chats_router
@@ -62,6 +63,8 @@ _groq_available = bool(os.getenv("GROQ_API_KEY"))
 
 def get_llm(provider: str = "ollama", temperature: float = 0.4, small: bool = False, streaming: bool = False):
     """Single factory for every LLM call in the app."""
+    from langchain_groq import ChatGroq
+    from langchain_ollama import ChatOllama
     if provider == "groq" and _groq_available:
         return ChatGroq(
             api_key=os.getenv("GROQ_API_KEY"),
@@ -149,7 +152,7 @@ class ChatRequest(BaseModel):
     deep_research: Optional[bool] = False
     live_search: Optional[bool] = False
     agent: Optional[str] = None
-    provider: Optional[str] = "ollama"
+    provider: Optional[str] = None  # None = follow LLM_PROVIDER env default
 
 app = FastAPI(title="ArthMitra API v3 — Dual-Mode RAG")
 
@@ -168,19 +171,23 @@ app.include_router(chats_router, prefix="/chats", tags=["chats"])
 
 @app.on_event("startup")
 async def startup_event():
-    """Start the database and ML models."""
+    """Connect DB; train shield ML in background so /health answers immediately."""
     try:
         await database.connect()
     except Exception as e:
         # A locked/missing finance.db must not kill the whole app —
         # expense endpoints fail individually with clear errors instead.
         logger.error(f"Database connect failed: {e}")
-    try:
-        from app.shield_ml import check_or_train
-        check_or_train()
-        logger.info("Scam Shield ML models verified/trained.")
-    except Exception as e:
-        logger.error(f"Failed to initialize Scam Shield ML: {e}")
+
+    async def _init_ml():
+        try:
+            from app.shield_ml import check_or_train
+            check_or_train()
+            logger.info("Scam Shield ML models verified/trained.")
+        except Exception as e:
+            logger.error(f"Failed to initialize Scam Shield ML: {e}")
+
+    asyncio.get_event_loop().create_task(_init_ml())
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -210,7 +217,7 @@ async def streaming_chat(request: ChatRequest):
     deep_research = request.deep_research or request.live_search
     session_id    = request.session_id
     agent_name    = route(message, request.agent)
-    provider      = request.provider if request.provider in ["ollama", "groq"] else "ollama"
+    provider      = request.provider if request.provider in ["ollama", "groq"] else LLM_PROVIDER
     if provider == "groq" and not _groq_available:
         provider = "ollama"
 
@@ -257,6 +264,7 @@ async def streaming_chat(request: ChatRequest):
             if extra_context:
                 system_content += extra_context
 
+            from langchain_core.messages import HumanMessage, SystemMessage
             messages = [SystemMessage(content=system_content), HumanMessage(content=message)]
 
             async for chunk in llm.astream(messages):
@@ -365,6 +373,7 @@ async def get_expense_insights(request: ExpenseInsightsRequest):
             f"TONE: Efficient, Expert, Professional Auditor. No fluff. MAX 50 words."
         )
 
+        from langchain_core.messages import HumanMessage, SystemMessage
         llm = get_llm(temperature=0.6)
         response = await llm.ainvoke([
             SystemMessage(content="You are ArthMitra Wealth Strategist. Provide audit-grade financial advice based on data."),
@@ -506,7 +515,27 @@ async def analyze_expense_risk(request: ExpenseAnalyzeRequest):
                 result["signals_detected"]["behavioral"].extend(
                     f"{k}: {v}" for k, v in behavior["signals_detected"].items() if v and v != "none"
                 )
-        return result
+        # Flatten to the shape ExpenseTracker.tsx expects (risk/risk_score/
+        # reasoning/advice at top level), not the nested final_decision shape.
+        fd = result["final_decision"]
+        behavioral = result["signals_detected"].get("behavioral", [])
+        signals = {
+            "amount_pattern": next((s.split(": ")[1] for s in behavioral if s.startswith("amount_pattern: ")), None),
+            "odd_timing": "odd timing" in " ".join(behavioral) or "odd_timing: True" in behavioral,
+            "repetition_pattern": next((s.split(": ")[1] for s in behavioral if s.startswith("repetition_pattern: ")), None),
+            "suspicious_context": bool(result["signals_detected"].get("strong")),
+        }
+        return {
+            "risk": fd["risk"],
+            "risk_score": fd["risk_score"],
+            "confidence": fd["confidence"],
+            "scam_type": fd["scam_type"],
+            "signals_detected": result["signals_detected"],
+            "signals": signals,
+            "reasoning": result["reasoning"],
+            "advice": result["user_advice"],
+            "rbi_guideline": result.get("rbi_guideline"),
+        }
     except Exception as e:
         logger.error(f"Expense analysis error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -599,6 +628,7 @@ async def extract_expenses_from_file(file: UploadFile = File(...)):
         text_content = content.decode("utf-8", errors="ignore")
         if not text_content.strip(): return {"expenses": []}
 
+        from langchain_core.messages import HumanMessage, SystemMessage
         llm = get_llm(temperature=0.1, small=True)
         response = await llm.ainvoke([
             SystemMessage(content=EXPENSE_EXTRACTION_SYSTEM_PROMPT),

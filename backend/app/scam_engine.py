@@ -649,7 +649,7 @@ DECISION_MEDIUM = [
     ("urgency", r"\b(urgent(ly)?|immediately|right now|act now|before .* (expires?|closes?))\b"),
     ("reward_trap", r"\b(won|winner|lottery|prize|cashback|refund.*fee|claim)\b"),
     ("unknown_receiver", r"\b(stranger|unknown|this person|person claiming|someone i (don'?t|do not) know|never (met|transacted)|new (person|seller|buyer))\b"),
-    ("impersonation", r"claiming (to be )?(they |he |she )?(are |is |from|with)|says? (he|she) (is|works) (from|for|at)|on behalf of|representing (sbi|hdfc|amazon|flipkart|fedex|courier|bank)"),
+    ("impersonation", r"claiming (to be )?(they |he |she )?(are |is |from|with)|says? (he|she) (is|works) (from|for|at)|on behalf of|representing (sbi|hdfc|amazon|flipkart|fedex|courier|bank)|\b(fedex|bluedart|courier|delivery|customs|parcel)\b.*\b(agent|official|officer|executive)\b|\bagent\b.*\b(fedex|courier|delivery|parcel)\b"),
 ]
 
 
@@ -668,7 +668,7 @@ def analyze_decision(input_value: str) -> Dict:
     score += 40 * signals["kyc_scam"]
     score += 25 * signals["urgency"]
     score += 30 * signals["reward_trap"]
-    score += 20 * signals["unknown_receiver"]
+    score += 25 * signals["unknown_receiver"]  # ponytail: 25 so unknown receiver alone lands in VERIFY_FIRST (>=21), never PAY
     score += 30 * signals["impersonation"]
     score = min(100, score)
 
