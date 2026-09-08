@@ -406,7 +406,10 @@ def analyze_behavior(amount: str, time_of_transaction: str = None, frequency: st
 
     details = []
     if amount_pattern == "very_low":
-        details.append(f"₹{amt:.0f} is a known verification-scam pattern — fraudsters test stolen UPI credentials with tiny amounts")
+        # ponytail: ₹1 is also a legit card-verification debit — amount alone can't
+        # distinguish; this module reports pattern risk only, not a scam verdict.
+        # Add merchant/payee context if it ever becomes available.
+        details.append(f"₹{amt:.0f} matches both verification-scam AND legitimate card-test patterns — this alone is inconclusive")
     if odd_timing:
         details.append("Transaction time falls in the 12 AM - 6 AM window, commonly used in fraud attempts")
     if repetition in ("moderate", "strong"):
@@ -414,7 +417,7 @@ def analyze_behavior(amount: str, time_of_transaction: str = None, frequency: st
 
     advice = []
     if amount_pattern == "very_low":
-        advice.append("A ₹1-₹10 request is a classic credential-testing scam — decline it")
+        advice.append("Tiny amounts are a known scam test pattern, but also a common legitimate verification debit — check the message/payee context before deciding")
     if repetition != "none":
         advice.append("Do not approve repeated collect requests under pressure")
     if odd_timing:
@@ -440,8 +443,10 @@ def analyze_behavior(amount: str, time_of_transaction: str = None, frequency: st
 
 
 def _behavior_summary(risk, amount_pattern, odd_timing, repetition, amt) -> str:
+    # ponytail: behavior module sees only amount/time/frequency — frame output as
+    # pattern risk to combine with message context, never a standalone scam verdict
     if risk == "HIGH_RISK":
-        return f"₹{amt:.0f} transaction shows a strong attack pattern (very low amount with timing/frequency anomalies)."
+        return f"₹{amt:.0f} transaction shows a high-risk PATTERN (very low amount with timing/frequency anomalies). Combine with the message/decision modules before concluding scam."
     if risk == "SUSPICIOUS":
         parts = []
         if amount_pattern == "very_low": parts.append("unusually low amount")
@@ -672,6 +677,13 @@ def analyze_decision(input_value: str) -> Dict:
     score += 30 * signals["impersonation"]
     score = min(100, score)
 
+    # Reuse the link analyzer: a phishing URL in the described situation can
+    # drive the verdict, same as in analyze_message.
+    urls = _extract_urls(input_value)
+    max_link_score = max((analyze_link_upi(u)["risk_score"] for u in urls), default=0)
+    if max_link_score:
+        score = max(score, max_link_score)
+
     if score > 75:
         risk, decision, confidence = "HIGH", "DO_NOT_PAY", 90
     elif score >= 51:
@@ -692,6 +704,8 @@ def analyze_decision(input_value: str) -> Dict:
 
     triggered = [k for k, on in signals.items() if on]
     details = [f"{k.replace('_', ' ').title()} signal detected" for k in triggered] or ["No risk signals detected in the described situation"]
+    if max_link_score >= 51:  # SUSPICIOUS or worse per _risk_from_score
+        details.append(f"Risky link detected (score {max_link_score}/100) — do not open or pay via it")
 
     advice = {
         "SAFE": ["Proceed, and keep your transaction receipt"],
@@ -789,6 +803,13 @@ def _test():
     # Decision: pay rent to landlord
     r = analyze_decision("I need to send Rs 15000 rent to my landlord by tomorrow")
     assert r["decision"] in ("PAY", "VERIFY_FIRST"), r
+
+    # Decision: a phishing URL in the situation must elevate risk (link engine reuse)
+    r_url = analyze_decision("Should I pay via http://sbi-secure-verify.xyz?")
+    r_nourl = analyze_decision("Should I pay via the link they sent me?")
+    assert r_url["risk_score"] > r_nourl["risk_score"], (r_url, r_nourl)
+    assert r_url["risk"] in ("SUSPICIOUS", "HIGH") and r_url["decision"] == "DO_NOT_PAY", r_url
+    assert any("Risky link" in d for d in r_url["reasoning"]["details"]), r_url
 
     # Benchmark regression: defanged malicious URLs
     r = analyze_link_upi("http://state-electricity-billpay[.]info/pay")

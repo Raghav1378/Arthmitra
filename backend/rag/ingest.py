@@ -4,6 +4,7 @@ Supports: PDF, Image (OCR), CSV/Excel, Plain Text
 """
 import io
 import re
+import asyncio
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -11,8 +12,6 @@ from typing import TYPE_CHECKING
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from langchain_chroma import Chroma
-
-from rag.embedder import get_embedder
 
 if TYPE_CHECKING:
     pass
@@ -29,6 +28,9 @@ def _sanitize_filename(name: str) -> str:
 
 def _get_collection(session_id: str) -> Chroma:
     """Returns the user-specific ChromaDB collection."""
+    # Lazy: importing at module level would drag sentence-transformers+torch
+    # into every `from rag.ingest import ...` at boot.
+    from rag.embedder import get_embedder
     collection_name = f"user_docs_{session_id}"
     return Chroma(
         collection_name=collection_name,
@@ -49,7 +51,7 @@ def _add_chunks(texts: list[str], metadatas: list[dict], collection: Chroma) -> 
 
 # ── PDF Ingestion ─────────────────────────────────────────────────────────────
 
-async def ingest_pdf(
+def _ingest_pdf_sync(
     file_bytes: bytes, filename: str, session_id: str
 ) -> int:
     """
@@ -89,9 +91,14 @@ async def ingest_pdf(
         raise RuntimeError(f"PDF ingestion failed: {e}") from e
 
 
+async def ingest_pdf(file_bytes: bytes, filename: str, session_id: str) -> int:
+    """PDF parsing + embedding is CPU-heavy — run off the event loop."""
+    return await asyncio.to_thread(_ingest_pdf_sync, file_bytes, filename, session_id)
+
+
 # ── Image Ingestion (OCR) ─────────────────────────────────────────────────────
 
-async def ingest_image(
+def _ingest_image_sync(
     file_bytes: bytes, filename: str, session_id: str
 ) -> int:
     """
@@ -134,9 +141,14 @@ async def ingest_image(
         raise RuntimeError(f"Image ingestion failed: {e}") from e
 
 
+async def ingest_image(file_bytes: bytes, filename: str, session_id: str) -> int:
+    """Tesseract OCR blocks the event loop — run in a worker thread."""
+    return await asyncio.to_thread(_ingest_image_sync, file_bytes, filename, session_id)
+
+
 # ── CSV / Excel Ingestion ────────────────────────────────────────────────────
 
-async def ingest_csv_excel(
+def _ingest_csv_excel_sync(
     file_bytes: bytes, filename: str, session_id: str
 ) -> int:
     """
@@ -185,6 +197,11 @@ async def ingest_csv_excel(
     except Exception as e:
         logger.error(f"[Ingest CSV/Excel] Failed for {filename}: {e}")
         raise RuntimeError(f"CSV/Excel ingestion failed: {e}") from e
+
+
+async def ingest_csv_excel(file_bytes: bytes, filename: str, session_id: str) -> int:
+    """Pandas parsing + embedding is CPU-heavy — run off the event loop."""
+    return await asyncio.to_thread(_ingest_csv_excel_sync, file_bytes, filename, session_id)
 
 
 # ── Plain Text Ingestion ──────────────────────────────────────────────────────

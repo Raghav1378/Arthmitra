@@ -17,7 +17,7 @@ import Sidebar from '../components/Sidebar';
 import ApiStatusIndicator from '../components/ApiStatusIndicator';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { Expense } from '../components/ExpenseTracker';
+import type { Expense } from '../components/ExpenseTracker';
 
 
 export default function Home() {

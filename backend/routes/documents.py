@@ -17,9 +17,10 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-# Heavy deps deferred to call time: these drag in sentence-transformers+torch
-# (~4.5s import) — only document upload/list endpoints need them.
-from rag.embedder import get_embedder
+# Heavy deps (sentence-transformers+torch, ~4.5s import) are imported lazily
+# inside handlers: get_embedder via rag.embedder, ingesters via rag.ingest.
+# ingest_text is light enough (embedder import is itself lazy in rag.ingest).
+from rag.ingest import ingest_text
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,7 @@ async def list_documents(session_id: str) -> dict[str, Any]:
 
     try:
         from langchain_chroma import Chroma
+        from rag.embedder import get_embedder
         db = Chroma(
             collection_name=collection_name,
             persist_directory=str(CHROMA_DIR),
@@ -183,6 +185,7 @@ async def remove_document(filename: str, session_id: str) -> dict[str, Any]:
 
     try:
         from langchain_chroma import Chroma
+        from rag.embedder import get_embedder
         db = Chroma(
             collection_name=collection_name,
             persist_directory=str(CHROMA_DIR),

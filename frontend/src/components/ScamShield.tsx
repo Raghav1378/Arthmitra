@@ -396,10 +396,6 @@ export default function ScamShield() {
                 <span className="text-[10px] font-black text-gold-600 uppercase tracking-widest">{analysisCount} scanned</span>
               </div>
             )}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-xl font-display">
-              <div className="w-1.5 h-1.5 bg-red-400 rounded-full shadow-[0_0_6px_#f87171] animate-pulse" />
-              <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">High Recall Active</span>
-            </div>
           </div>
         </div>
       </div>
@@ -447,7 +443,7 @@ export default function ScamShield() {
             >
               {activeTab === "message" ? (
                 <>
-                  <label className="text-[10px] font-black text-parchment-faint uppercase tracking-[0.2em] font-display">Text Context</label>
+                  <label className="text-[10px] font-black text-parchment-faint uppercase tracking-[0.2em] font-display">Message</label>
                   <div className="relative">
                     <textarea
                       value={message}

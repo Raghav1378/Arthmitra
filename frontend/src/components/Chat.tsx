@@ -39,6 +39,60 @@ function BlinkingCursor() {
   );
 }
 
+// Memoized markdown/chart renderer: keyed on the content string, so a
+// streaming token only re-parses the message being appended to — all other
+// messages in the list skip Markdown re-parsing entirely.
+const MessageBody = React.memo(function MessageBody({ content }: { content: string }) {
+  if (!content.includes("[CHART:")) return <Markdown text={content} />;
+  const parts = [];
+  let lastIdx = 0;
+
+  let startIdx = content.indexOf("[CHART:");
+  while (startIdx !== -1) {
+    if (startIdx > lastIdx) parts.push(<Markdown key={`text-${lastIdx}`} text={content.slice(lastIdx, startIdx)} />);
+
+    let jsonStartIdx = content.indexOf("{", startIdx);
+    if (jsonStartIdx !== -1) {
+      let bracketCount = 0;
+      let jsonEndIdx = -1;
+
+      for (let i = jsonStartIdx; i < content.length; i++) {
+        if (content[i] === "{") bracketCount++;
+        else if (content[i] === "}") bracketCount--;
+
+        if (bracketCount === 0) {
+          jsonEndIdx = i;
+          break;
+        }
+      }
+
+      if (jsonEndIdx !== -1) {
+        const blockEndIdx = content.indexOf("]", jsonEndIdx);
+        if (blockEndIdx !== -1) {
+          const rawJson = content.slice(jsonStartIdx, jsonEndIdx + 1);
+          try {
+            const chartData = JSON.parse(rawJson);
+            parts.push(<ChartRenderer key={`chart-${startIdx}`} type={chartData.type} data={chartData.data} title={chartData.title} />);
+          } catch (e) {
+            parts.push(<div key={`err-${startIdx}`} className="my-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-600">Malformed Data Block</div>);
+          }
+          lastIdx = blockEndIdx + 1;
+        } else {
+          lastIdx = jsonEndIdx + 1;
+        }
+      } else {
+        parts.push(<span key={`partial-${startIdx}`} className="text-emerald-500 animate-pulse text-[10px] px-2 italic uppercase tracking-widest font-black">Synthesizing...</span>);
+        lastIdx = jsonStartIdx + 1;
+      }
+    } else {
+      lastIdx = startIdx + 7;
+    }
+    startIdx = content.indexOf("[CHART:", lastIdx);
+  }
+  if (content.length > lastIdx) parts.push(<Markdown key="text-end" text={content.slice(lastIdx)} />);
+  return <>{parts}</>;
+});
+
 function TypingDots() {
   return (
     <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex justify-start items-center gap-3 py-2">
@@ -469,57 +523,7 @@ export default function Chat() {
     return (
       <div className="space-y-4 relative pb-2 overflow-hidden">
         <div className="leading-relaxed">
-          {(() => {
-            const content = msg.content;
-            if (!content.includes("[CHART:")) return <Markdown text={content} />;
-            const parts = [];
-            let lastIdx = 0;
-
-            let startIdx = content.indexOf("[CHART:");
-            while (startIdx !== -1) {
-              if (startIdx > lastIdx) parts.push(<Markdown key={`text-${lastIdx}`} text={content.slice(lastIdx, startIdx)} />);
-
-              let jsonStartIdx = content.indexOf("{", startIdx);
-              if (jsonStartIdx !== -1) {
-                let bracketCount = 0;
-                let jsonEndIdx = -1;
-
-                for (let i = jsonStartIdx; i < content.length; i++) {
-                  if (content[i] === "{") bracketCount++;
-                  else if (content[i] === "}") bracketCount--;
-
-                  if (bracketCount === 0) {
-                    jsonEndIdx = i;
-                    break;
-                  }
-                }
-
-                if (jsonEndIdx !== -1) {
-                  const blockEndIdx = content.indexOf("]", jsonEndIdx);
-                  if (blockEndIdx !== -1) {
-                    const rawJson = content.slice(jsonStartIdx, jsonEndIdx + 1);
-                    try {
-                      const chartData = JSON.parse(rawJson);
-                      parts.push(<ChartRenderer key={`chart-${startIdx}`} type={chartData.type} data={chartData.data} title={chartData.title} />);
-                    } catch (e) {
-                      parts.push(<div key={`err-${startIdx}`} className="my-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-600">Malformed Data Block</div>);
-                    }
-                    lastIdx = blockEndIdx + 1;
-                  } else {
-                    lastIdx = jsonEndIdx + 1;
-                  }
-                } else {
-                  parts.push(<span key={`partial-${startIdx}`} className="text-emerald-500 animate-pulse text-[10px] px-2 italic uppercase tracking-widest font-black">Synthesizing...</span>);
-                  lastIdx = jsonStartIdx + 1;
-                }
-              } else {
-                lastIdx = startIdx + 7;
-              }
-              startIdx = content.indexOf("[CHART:", lastIdx);
-            }
-            if (content.length > lastIdx) parts.push(<Markdown key="text-end" text={content.slice(lastIdx)} />);
-            return parts;
-          })()}
+          <MessageBody content={msg.content} />
           {isStreaming && msg.id === messages[messages.length - 1].id && msg.role === "bot" && <BlinkingCursor />}
         </div>
 

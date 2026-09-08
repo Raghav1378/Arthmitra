@@ -47,6 +47,7 @@ if os.path.exists(_env_path):
 
 from routes.documents import documents_router
 from routes.chats import chats_router
+from app.shield_api import shield_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -167,6 +168,7 @@ app.add_middleware(
 # Register the documents and chats routers
 app.include_router(documents_router, prefix="/documents", tags=["documents"])
 app.include_router(chats_router, prefix="/chats", tags=["chats"])
+app.include_router(shield_router)  # prefix /api/shield set in shield_api.py
 
 
 @app.on_event("startup")
@@ -186,6 +188,18 @@ async def startup_event():
             logger.info("Scam Shield ML models verified/trained.")
         except Exception as e:
             logger.error(f"Failed to initialize Scam Shield ML: {e}")
+        # Warm heavy imports (torch/groq, ~30s on cold cache) in a worker
+        # thread so the first real request doesn't pay the import cost.
+        def _warm():
+            try:
+                import langchain_groq  # noqa: F401
+                import langchain_ollama  # noqa: F401
+                from rag.embedder import get_embedder
+                get_embedder()
+                logger.info("LLM + embedder imports warmed.")
+            except Exception as e:
+                logger.warning(f"Warmup skipped: {e}")
+        await asyncio.to_thread(_warm)
 
     asyncio.get_event_loop().create_task(_init_ml())
 
