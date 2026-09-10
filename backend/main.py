@@ -2,13 +2,15 @@ import os
 import logging
 import asyncio
 import io
+import time
+from collections import defaultdict, deque
 import pandas as pd
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi import FastAPI, HTTPException, File, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 import json
 from uuid import uuid4
@@ -121,7 +123,7 @@ PROMPTS = {
 }
 
 # ── Tavily Deep Search ─────────────────────────────────────────────────────────
-def run_tavily_deep_search(query: str) -> Dict[str, Any]:
+def run_tavily_deep_search(query: str, search_depth: str = "advanced") -> Dict[str, Any]:
     tavily_key = os.getenv("TAVILY_API_KEY")
     if not tavily_key:
         logger.warning("TAVILY_API_KEY not found – deep search skipped.")
@@ -129,7 +131,7 @@ def run_tavily_deep_search(query: str) -> Dict[str, Any]:
     try:
         from tavily import TavilyClient
         client = TavilyClient(api_key=tavily_key)
-        response = client.search(query=query, search_depth="advanced", include_answer=True, max_results=5)
+        response = client.search(query=query, search_depth=search_depth, include_answer=True, max_results=5)
         results = response.get("results", [])
         answer  = response.get("answer", "")
         context_lines = []
@@ -149,11 +151,27 @@ class ChatRequest(BaseModel):
     message: str
     user_id: Optional[str] = "default_user"
     session_id: Optional[str] = None          # for RAG context
+    history: Optional[List[Dict[str, str]]] = None  # [{"role": "user"|"bot", "content": "..."}]
     is_local_only: Optional[bool] = False
     deep_research: Optional[bool] = False
     live_search: Optional[bool] = False
     agent: Optional[str] = None
     provider: Optional[str] = None  # None = follow LLM_PROVIDER env default
+
+# ── Context Management ─────────────────────────────────────────────────────────
+HISTORY_TURNS = 10        # last N messages sent back to the LLM
+MSG_CHAR_CAP = 2000       # per-message truncation — old walls of text don't eat the window
+
+def build_history_messages(history: Optional[List[Dict[str, str]]]):
+    """Recent turns, newest last, each capped. role 'bot' maps to AI."""
+    msgs = []
+    for h in (history or [])[-HISTORY_TURNS:]:
+        content = (h.get("content") or "")[:MSG_CHAR_CAP]
+        if not content:
+            continue
+        role = "assistant" if h.get("role") in ("bot", "assistant") else "user"
+        msgs.append({"role": role, "content": content})
+    return msgs
 
 app = FastAPI(title="ArthMitra API v3 — Dual-Mode RAG")
 
@@ -164,6 +182,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Rate Limiting ───────────────────────────────────────────────────────────────
+# In-memory sliding window per client IP. Zero deps.
+# ponytail: per-process dict — add Redis if you ever run multiple workers.
+RATE_LIMITS = {"/chat/stream": (6, 60), "/scam/": (30, 60)}   # (max requests, window secs)
+DEFAULT_LIMIT = (60, 60)
+_rate_hits: Dict[str, deque] = defaultdict(deque)
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    ip = request.client.host if request.client else "unknown"
+    for prefix, (limit, window) in RATE_LIMITS.items():
+        if request.url.path.startswith(prefix):
+            break
+    else:
+        limit, window = DEFAULT_LIMIT
+    now = time.monotonic()
+    hits = _rate_hits[ip]
+    while hits and hits[0] <= now - window:
+        hits.popleft()
+    if len(hits) >= limit:
+        return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded. Slow down."})
+    hits.append(now)
+    return await call_next(request)
 
 # Register the documents and chats routers
 app.include_router(documents_router, prefix="/documents", tags=["documents"])
@@ -228,7 +270,6 @@ async def app_config():
 async def streaming_chat(request: ChatRequest):
     message       = request.message
     is_local_only = request.is_local_only
-    deep_research = request.deep_research or request.live_search
     session_id    = request.session_id
     agent_name    = route(message, request.agent)
     provider      = request.provider if request.provider in ["ollama", "groq"] else LLM_PROVIDER
@@ -236,7 +277,7 @@ async def streaming_chat(request: ChatRequest):
         provider = "ollama"
 
     logger.info(
-        f"► MODE={'OFFLINE' if is_local_only else 'ONLINE'} | DEEP={deep_research} "
+        f"► MODE={'OFFLINE' if is_local_only else 'ONLINE'} | DEEP={request.deep_research} "
         f"| PROVIDER={provider} | AGENT={agent_name} | SESSION={session_id} | MSG={message[:60]}"
     )
 
@@ -253,22 +294,40 @@ async def streaming_chat(request: ChatRequest):
             sources: List[Dict] = []
             rag_sources: List[str] = []
 
-            # ── Step 1: Dual RAG Query ────────────────────────────────────────
-            if session_id:
-                from rag.retriever import query_dual_rag
-                rag_result = await query_dual_rag(query=message, session_id=session_id, top_k=5)
-                if rag_result["has_results"]:
-                    extra_context += f"\n\n--- RELEVANT DOCUMENT CONTEXT ---\n{rag_result['formatted']}\n-----------------------------------\n\nIf the answer to the user's question is in the context above, strictly use it and be concise. Do NOT add unrequested info."
-                    rag_sources = rag_result["sources"]
-                    if rag_sources:
-                        yield f"data: {json.dumps({'rag_sources': rag_sources})}\n\n"
+            # Tavily fires only when: Live Search / Deep Research toggled on,
+            # or the question looks time-sensitive. Provider never forces it.
+            TIME_KW = ("current", "today", "latest", "now", "recent", "news",
+                       "rate", "price", "2024", "2025", "2026")
+            time_sensitive = any(k in message.lower() for k in TIME_KW)
+            tavily_wanted = (not is_local_only) and os.getenv("TAVILY_API_KEY") and (
+                request.deep_research or request.live_search or time_sensitive
+            )
+            search_depth = "advanced" if request.deep_research else "basic"
 
-            # ── Step 2: Tavily Deep Search (Online + Deep only) ───────────────
-            if deep_research and os.getenv("TAVILY_API_KEY"):
-                logger.info(f"► Tavily deep search: {message[:60]}")
-                tavily_result = run_tavily_deep_search(message)
-                if tavily_result["context"]:
-                    extra_context += f"\n\nWEB RESEARCH CONTEXT:\n{tavily_result['context']}"
+            # ── Step 1+2: RAG and Tavily in parallel ─────────────────────────
+            async def run_rag():
+                if not session_id:
+                    return None
+                from rag.retriever import query_dual_rag
+                return await query_dual_rag(query=message, session_id=session_id, top_k=5)
+
+            def run_tavily():
+                if not tavily_wanted:
+                    return None
+                return run_tavily_deep_search(message, search_depth=search_depth)
+
+            rag_result, tavily_result = await asyncio.gather(
+                run_rag(), asyncio.to_thread(run_tavily)
+            )
+
+            if rag_result and rag_result["has_results"]:
+                extra_context += f"\n\n--- RELEVANT DOCUMENT CONTEXT ---\n{rag_result['formatted']}\n-----------------------------------\n\nIf the answer to the user's question is in the context above, strictly use it and be concise. Do NOT add unrequested info."
+                rag_sources = rag_result["sources"]
+                if rag_sources:
+                    yield f"data: {json.dumps({'rag_sources': rag_sources})}\n\n"
+
+            if tavily_result and tavily_result["context"]:
+                extra_context += f"\n\nWEB RESEARCH CONTEXT:\n{tavily_result['context']}"
                 sources = tavily_result["sources"]
                 if sources:
                     yield f"data: {json.dumps({'sources': sources})}\n\n"
@@ -279,7 +338,9 @@ async def streaming_chat(request: ChatRequest):
                 system_content += extra_context
 
             from langchain_core.messages import HumanMessage, SystemMessage
-            messages = [SystemMessage(content=system_content), HumanMessage(content=message)]
+            messages = [SystemMessage(content=system_content)]
+            messages.extend(build_history_messages(request.history))
+            messages.append(HumanMessage(content=message))
 
             async for chunk in llm.astream(messages):
                 token = chunk.content

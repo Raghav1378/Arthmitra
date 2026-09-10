@@ -29,7 +29,22 @@ class ChatSession(BaseModel):
     messages: List[Message]
     user_id: str = "default_user"
 
+import json
+import logging
+import re
+import os
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+# Session ids are our own format (sid_xxx or uuid); anything with path
+# separators or traversal sequences is rejected before it reaches the FS.
+_SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+
 def get_chat_path(session_id: str) -> Path:
+    if not _SESSION_ID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session id.")
     return DATA_DIR / f"{session_id}.json"
 
 @chats_router.post("/save")

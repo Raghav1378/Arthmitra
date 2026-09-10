@@ -399,6 +399,10 @@ export default function Chat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
+          history: messages
+            .filter((m) => m.role === "user" || m.role === "bot")
+            .slice(-10)
+            .map((m) => ({ role: m.role, content: m.content })),
           is_local_only: false,
           deep_research: currentIsDeep,
           live_search: isWebSearchEnabled && tavilyAvailable,
@@ -479,7 +483,7 @@ export default function Chat() {
       setIsLoading(false);
       setIsStreaming(false);
     }
-  }, [isLoading, isStreaming, isWebSearchEnabled, isDeepSearchEnabled, provider, currentSessionId]);
+  }, [isLoading, isStreaming, isWebSearchEnabled, isDeepSearchEnabled, provider, currentSessionId, messages]);
 
   const handleFileUpload = useCallback(async (file: File) => {
     if (file.size > 10 * 1024 * 1024) return;
