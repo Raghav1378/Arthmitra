@@ -1,7 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(git check-ignore *)",
+      "Bash(python -c ' *)",
+      "Read(//c/Users/91800/Desktop/**)",
+      "Bash(python -c \"import sklearn, pandas, joblib, faker; print\\(sklearn.__version__\\)\")",
+      "Bash(python scripts/generate_dataset_v2.py 20000)",
+      "Bash(cp ml_engine/models/hybrid_text_model.joblib ml_engine/models/hybrid_text_model_old.joblib)",
+      "Bash(python -m ml_engine.train)",
+      "Bash(python -)",
+      "Bash(./arthmitra/Scripts/python.exe app/policy_engine.py)",
+      "Bash(./arthmitra/Scripts/python.exe app/scam_engine.py)",
+      "Bash(./arthmitra/Scripts/python.exe scripts/eval_hybrid.py --mode ml)"
     ]
   }
 }
