@@ -74,7 +74,6 @@ backend/app/shield_ml/models/*.pkl
 backend/finance.db
 backend/data/
 backend/scripts/data/
-backend/ml_engine/models/
 backend/*.log
 .graphify_python/
 frontend/.graphify_python/

@@ -11,6 +11,22 @@ import { motion, AnimatePresence } from "framer-motion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface AIAnalysis {
+  semantic_indicators: string[];
+  llm_risk: number;
+  llm_confidence: number;
+  scam_type: string;
+  brief_reason: string;
+}
+
+interface EngineDisagreement {
+  ml_assessment: string;
+  llm_assessment: string;
+  disagreement: boolean;
+  reason: string;
+  policy_resolution: string;
+}
+
 interface ScamResult {
   final_decision: {
     risk: "SAFE" | "SUSPICIOUS" | "HIGH_RISK";
@@ -29,6 +45,9 @@ interface ScamResult {
     detailed_reasons: string[];
   };
   user_advice: string[];
+  llm_stage?: "used" | "skipped";
+  ai_analysis?: AIAnalysis;
+  engine_disagreement?: EngineDisagreement;
 }
 
 interface DecisionResult {
@@ -361,15 +380,13 @@ export default function ScamShield() {
     setShowReasoning(false);
   };
 
-  const hasSignal = (word: string) => {
+  // Exact-name matching against backend rule-signal names ONLY. A chip lights
+  // iff the backend emitted that exact signal — substring bugs (e.g. a phone
+  // number or an LLM indicator lighting "Suspicious Link") are impossible.
+  const hasExact = (name: string) => {
     if (!messageResult) return false;
-    const all = [
-      ...messageResult.signals_detected.strong,
-      ...messageResult.signals_detected.medium,
-      ...messageResult.signals_detected.weak,
-      ...messageResult.signals_detected.behavioral
-    ].join(" ").toLowerCase();
-    return all.includes(word.toLowerCase());
+    const s = messageResult.signals_detected;
+    return [...s.strong, ...s.medium, ...s.weak, ...s.behavioral].includes(name);
   };
 
   return (
@@ -643,14 +660,51 @@ export default function ScamShield() {
                 <div className="space-y-3">
                   <p className="text-[10px] font-black text-parchment-faint uppercase tracking-[0.2em] font-display">Detected Signals</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    <SignalChip label="Urgency" active={hasSignal('urgenc') || hasSignal('act') || hasSignal('time')} icon={<Zap className="w-3.5 h-3.5" />} />
-                    <SignalChip label="Threat" active={hasSignal('threat') || hasSignal('block') || hasSignal('legal')} icon={<AlertTriangle className="w-3.5 h-3.5" />} />
-                    <SignalChip label="Payment Request" active={hasSignal('payment') || hasSignal('fee') || hasSignal('upi')} icon={<CreditCard className="w-3.5 h-3.5" />} />
-                    <SignalChip label="Suspicious Link" active={hasSignal('link') || hasSignal('url') || hasSignal('domain')} icon={<Link className="w-3.5 h-3.5" />} />
-                    <SignalChip label="Odd Timing" active={hasSignal('odd timing') || hasSignal('late night')} icon={<Clock className="w-3.5 h-3.5" />} />
-                    <SignalChip label="Repetition" active={hasSignal('repeat') || hasSignal('repetition') || hasSignal('spam')} icon={<Eye className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Urgency" active={hasExact('urgency')} icon={<Zap className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Threat" active={hasExact('threat')} icon={<AlertTriangle className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Payment Request" active={hasExact('payment request')} icon={<CreditCard className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Suspicious Link" active={hasExact('suspicious link')} icon={<Link className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Sensitive Info Request" active={hasExact('sensitive info request')} icon={<Lock className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Reward Bait" active={hasExact('prize or reward claim')} icon={<Gift className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Impersonation" active={hasExact('authority impersonation')} icon={<Eye className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Odd Timing" active={hasExact('odd timing (12 AM - 6 AM)')} icon={<Clock className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Repetition" active={hasExact('repeated messages')} icon={<Hash className="w-3.5 h-3.5" />} />
                   </div>
                 </div>
+
+                {/* AI semantic analysis — rendered ONLY when the LLM stage actually ran */}
+                {messageResult.ai_analysis && messageResult.llm_stage === "used" && (
+                  <div className="p-5 rounded-2xl bg-gradient-to-br from-violet-500/[0.06] to-indigo-500/[0.06] border border-violet-500/20 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-violet-600" />
+                      <p className="text-[10px] font-black text-violet-700 uppercase tracking-[0.2em] font-display">AI Semantic Analysis</p>
+                    </div>
+                    <p className="text-sm text-parchment-dim leading-relaxed font-sans">{messageResult.ai_analysis.brief_reason}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {messageResult.ai_analysis.semantic_indicators.filter(i => i !== 'none').map(ind => (
+                        <span key={ind} className="px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-[10px] font-bold text-violet-700 uppercase tracking-wider font-display">
+                          {ind.replace(/_/g, ' ')}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-4 text-[10px] font-bold text-parchment-faint font-display uppercase tracking-wider">
+                      <span>Semantic risk: {messageResult.ai_analysis.llm_risk}/100</span>
+                      <span>Semantic confidence: {messageResult.ai_analysis.llm_confidence}%</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Engine disagreement banner — the policy resolution is authoritative */}
+                {messageResult.engine_disagreement?.disagreement && (
+                  <div className="p-4 rounded-2xl bg-amber-500/[0.08] border border-amber-500/25 flex items-start gap-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      <p className="text-xs font-black text-amber-700 uppercase tracking-wider font-display">Engines Disagree — Treat With Caution</p>
+                      <p className="text-xs text-parchment-dim font-sans leading-relaxed">{messageResult.engine_disagreement.reason}</p>
+                      <p className="text-xs text-parchment-faint font-sans">{messageResult.engine_disagreement.policy_resolution}</p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-3">
                   <p className="text-[10px] font-black text-parchment-faint uppercase tracking-[0.2em] font-display">Your Action Plan</p>

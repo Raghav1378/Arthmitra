@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, File, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import json
 from uuid import uuid4
 import sqlite3
@@ -374,18 +374,21 @@ async def root():
 # ── Scam Shield Endpoint ───────────────────────────────────────────────────────
 
 class ScamAnalyzeRequest(BaseModel):
-    message_text: str
+    message_text: str = Field(..., min_length=1, max_length=5000)
     time_of_message: Optional[str] = None
     message_frequency: Optional[str] = None
 
 @app.post("/scam/analyze")
 async def scam_analyze(request: ScamAnalyzeRequest):
     """
-    Scam Shield — deterministic rule-based fraud analysis.
-    Same input always produces the same score. No LLM in the decision path.
+    Scam Shield — three-stage hybrid fraud analysis:
+    Stage 1 deterministic rules + ML + URL/UPI evidence,
+    Stage 2 Groq semantic analysis (gpt-oss-20b, non-fatal),
+    Stage 3 deterministic policy engine (final authority).
+    Groq failure degrades to Stage 1 + Stage 3 with identical response shape.
     """
-    from app.scam_engine import analyze_message
-    return analyze_message(
+    from app.scam_engine import analyze_message_hybrid
+    return await analyze_message_hybrid(
         request.message_text,
         time_of_message=request.time_of_message,
         message_frequency=request.message_frequency,
