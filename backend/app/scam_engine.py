@@ -26,13 +26,19 @@ from urllib.parse import urlsplit
 # =============================================================================
 
 STRONG_SIGNALS = [
-    ("threat", r"\b(block(ed|ing)?|suspend(ed|ing)?|legal action|disable|close your account)\b"),
+    ("threat", r"\b(block(ed|ing)?|suspend(ed|ing)?|suspension|legal action|disable|close your account)\b"),
     ("payment request", r"\b(upi|otp|cvv|pay rs|pay ₹|processing fee|collect request|send money)\b"),
     ("suspicious link", r"https?://|www\.|\.xyz|\.top|\.click|bit\.ly|tinyurl"),
     # intent, not mention: "share/enter/send your OTP/aadhaar" is the attack;
     # "your aadhaar card was dispatched" or "OTP is 123456, don't share" is not.
     # Negation lookbehinds exclude the legit "do not / never share this OTP".
     ("sensitive info request", r"(?<!do not )(?<!dont )(?<!never )\b(share|enter|send|provide|confirm|reveal|batao|bataiye|give)[^.;]{0,30}\b(otp|password|cvv|pin|aadhaar|pan card details)\b|\b(otp|cvv|card) details\b|\b(otp|cvv|pin|password)\b[^.;]{0,15}\b(batao|bataiye)\b"),
+    # family-term + urgency/emergency pretext in one message: classic impersonation
+    # shape ("Papa ka dost, phone gir gaya, turant bhejo") with no link/bank name.
+    ("emergency impersonation", r"(?=.*\b(papa|papa'?s? friend|mummy|behen|bhaiyya|family|relative)\b)(?=.*\b(emergency|urgent(ly)?|turant|abhi|zaroorat|hospital|admitted|accident)\b)"),
+    # bank-flavored credential harvesting: institution + action verb + credential
+    # in one message ("Bank asking to confirm username/password for security").
+    ("credential harvest", r"(?=.*\b(bank|rbi|customer care|support team)\b)(?=.*\b(confirm|verify|share|update|validate)\b)(?=.*\b(password|username|login|credentials?)\b)"),
 ]
 
 MEDIUM_SIGNALS = [
@@ -40,7 +46,26 @@ MEDIUM_SIGNALS = [
     ("authority impersonation", r"\b(sbi|hdfc|icici|rbi|paytm|phonepe|gpay|bhim|income tax department|customs)\b"),
     ("prize or reward claim", r"\b(congratulations|you (have )?won|winner|lucky draw|cashback.*pending|lottery|avail (your|the) (offer|reward|prize)|claim (your|the) (reward|prize|award|offer)|receive the award|gift|free (money|reward|prize|gift)|100% (free|cashback))\b"),
     ("job trap", r"\b(work.from.home|earn ₹?\d+\/day|earn rs\.?\s*\d+\s*(\/|per)\s*day|no experience needed)\b"),
+    # unsolicited loan bait: loan "approved" + no-documents/instant + a click hook
+    ("unsolicited loan offer", r"(?=.*\b(loan|credit limit)\b)(?=.*\b(approved|sanctioned|pre.?approved)\b)(?=.*\b(no documents?|without documents?|instant|click)\b)"),
 ]
+
+# Common scam-SMS misspellings (accunt/expird/verfy...) normalized before pattern
+# matching so typo'd phishing still hits the deterministic rules. URLs are
+# extracted from the ORIGINAL text — never rewritten.
+TYPO_MAP = {
+    "accunt": "account", "expird": "expired", "verfy": "verify",
+    "suspention": "suspension", "pasword": "password",
+    "verificaton": "verification", "updte": "update",
+    "imediately": "immediately",
+}
+
+
+def normalize_text(text: str) -> str:
+    out = text
+    for typo, fix in TYPO_MAP.items():
+        out = re.sub(rf"\b{typo}\b", fix, out, flags=re.IGNORECASE)
+    return out
 
 WEAK_SIGNALS = [
     ("reminder", r"\b(reminder|kindly note|please verify|confirm request)\b"),
@@ -194,11 +219,39 @@ def collect_stage1_evidence(message_text: str, time_of_message: str = None, mess
     rule_score is the PRE-ML deterministic score (signal weights, behavioral,
     combos, worst-link raise) — no blending happens here.
     """
-    strong = _match_signals(message_text, STRONG_SIGNALS)
-    medium = _match_signals(message_text, MEDIUM_SIGNALS)
-    weak = _match_signals(message_text, WEAK_SIGNALS)
+    normalized = normalize_text(message_text)
+    urls = _extract_urls(message_text)  # original text: URLs are never rewritten
+    link_results = [analyze_link_upi(u) for u in urls]
+    max_link_score = max((r["risk_score"] for r in link_results), default=0)
+
+    strong = _match_signals(normalized, STRONG_SIGNALS)
+    medium = _match_signals(normalized, MEDIUM_SIGNALS)
+    weak = _match_signals(normalized, WEAK_SIGNALS)
+
+    # OTP intent classifier: a 4-6 digit OTP code in a notification-style SMS
+    # with no links/VPAs is a legitimate bank/merchant alert, not a scam ask —
+    # UNLESS the message asks the reader to share/send it, which is harvesting.
+    otp_alert = (
+        not urls
+        and not re.search(r"@[a-z]+", normalized)
+        and re.search(r"\b\d{4,6}\b", normalized)
+        and re.search(r"\b(otp|one.?time.?(password|code))\b", normalized, re.IGNORECASE)
+        and "sensitive info request" not in strong
+    )
+
+    # Legit OTP notification guard: "Your HDFC OTP is 123456. Don't share." is
+    # phrased as a notification, so the bare-word 'otp'/'hdfc' alternations that
+    # fire 'payment request' / 'authority impersonation' are false positives —
+    # strip them. Any real ask ("share your OTP") keeps 'sensitive info request'
+    # alive, which disables otp_alert above and this guard with it.
+    if otp_alert and re.search(r"\b(otp|one.?time.?(password|code))\s*(is|:)\s*\d{4,6}", normalized, re.IGNORECASE):
+        if "payment request" in strong:
+            strong.remove("payment request")
+        if "authority impersonation" in medium:
+            medium.remove("authority impersonation")
 
     behavioral = []
+    combos = []
     score = 40 * len(strong) + 20 * len(medium) + 5 * len(weak)
 
     if _is_odd_timing(time_of_message):
@@ -210,9 +263,20 @@ def collect_stage1_evidence(message_text: str, time_of_message: str = None, mess
 
     # Verification-scam combo: tiny payment request + reward bait is the classic Indian pattern
     if ("payment request" in strong or "payment request" in medium) and "prize or reward claim" in medium:
+        combos.append("verification scam (payment + reward bait)")
         score += 15
 
-    urls = _extract_urls(message_text)
+    # Family emergency + a specific amount = the money-request scam shape
+    # ("Papa ki zaroorat, 5000 rupees turant bhejo"), not a family chat.
+    if "emergency impersonation" in strong and re.search(r"(₹|rs\.?)\s*\d+|\d+\s*(rupees|rs)\b", normalized):
+        combos.append("emergency money request")
+        score += 30
+
+    # Unsolicited loan bait + click-through hook ("loan approved, no documents,
+    # click here") — RBI: no genuine lender sanctions without documentation.
+    if "unsolicited loan offer" in medium and re.search(r"\bclick\b|bit\.ly|https?://|www\.", normalized, re.IGNORECASE):
+        combos.append("loan lure click-through")
+        score += 35
 
     # Reward bait + unverified link: "click here to claim your $1000 prize ->
     # random-unknown-domain.com" is the classic phishing lure. Verified
@@ -220,12 +284,9 @@ def collect_stage1_evidence(message_text: str, time_of_message: str = None, mess
     # any non-verified URL is suspicious even when the domain looks clean.
     if "prize or reward claim" in medium:
         if any(not _is_verified_domain(_hostname(u)) for u in urls):
+            combos.append("reward bait + unverified link")
             score += 20
 
-    # Aggregate link risk: any URL in the message is scored by the same link
-    # analyzer used in Link Shield mode, and the worst link can drive the verdict.
-    link_results = [analyze_link_upi(u) for u in urls]
-    max_link_score = max((r["risk_score"] for r in link_results), default=0)
     if max_link_score:
         score = max(score, max_link_score)
     score = min(100, score)
@@ -235,17 +296,6 @@ def collect_stage1_evidence(message_text: str, time_of_message: str = None, mess
         if r["risk_score"] <= 20 and _is_verified_domain(_hostname(u))
     ]
 
-    # OTP intent classifier: a 4-6 digit OTP code in a notification-style SMS
-    # with no links/VPAs is a legitimate bank/merchant alert, not a scam ask —
-    # UNLESS the message asks the reader to share/send it, which is harvesting.
-    otp_alert = (
-        not urls
-        and not re.search(r"@[a-z]+", message_text)
-        and re.search(r"\b\d{4,6}\b", message_text)
-        and re.search(r"\b(otp|one.?time.?(password|code))\b", message_text, re.IGNORECASE)
-        and "sensitive info request" not in strong
-    )
-
     # ML evidence (label + mapped weight; no blending — fusion is Stage 3)
     ml_label = _ml_predict_label(message_text)
     ml_score = ML_SCORE_WEIGHTS.get(ml_label) if ml_label else None
@@ -253,6 +303,7 @@ def collect_stage1_evidence(message_text: str, time_of_message: str = None, mess
     return {
         "rule_score": score,
         "strong": strong, "medium": medium, "weak": weak, "behavioral": behavioral,
+        "combos": combos,
         "ml_label": ml_label, "ml_score": ml_score,
         "urls": urls, "link_results": link_results, "max_link_score": max_link_score,
         "verified_urls": verified_urls, "otp_alert": otp_alert,
@@ -289,7 +340,8 @@ async def analyze_message_hybrid(message_text: str, time_of_message: str = None,
 def _compact_evidence(evidence: Dict) -> Dict:
     """Small evidence summary sent to the LLM (Stage-2 input context)."""
     return {
-        "rule_signals": {"strong": evidence["strong"], "medium": evidence["medium"], "weak": evidence["weak"]},
+        "rule_signals": {"strong": evidence["strong"], "medium": evidence["medium"], "weak": evidence["weak"],
+                         "combos": evidence["combos"]},
         "ml_classifier": {"label": evidence["ml_label"]},
         "urls": [_hostname(u) for u in evidence["urls"]],
         "max_link_risk_score": evidence["max_link_score"],

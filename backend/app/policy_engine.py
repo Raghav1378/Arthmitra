@@ -79,13 +79,23 @@ def decide(evidence: Dict, llm: Optional[Dict] = None) -> Dict:
                 resolution_steps.append("ML suspicious corroborated by rule signals -> SUSPICIOUS (45)")
             # lone ML 'suspicious' (no rules) is weak evidence: stays SAFE (old behavior)
         elif rule_score > 0:
-            # ML 'safe' dissent: dampen uncorroborated rule evidence.
-            # Multi-signal rule scores (>=60) still stay in/SUSPICIOUS+ bands.
-            dampened = min(base, int(0.6 * rule_score) + 2)
-            resolution_steps.append(
-                f"ML 'safe' vs rule evidence (disagreement) -> rule score {rule_score} "
-                f"dampened to {dampened} by benign statistical evidence")
-            base = dampened
+            # Dampening targets UNCORROBORATED single-signal rule FPs (the 852
+            # single-signal safe-message FPs the ML model vetoes). When the rule
+            # evidence is corroborated — two distinct strong signals, or a
+            # pattern-combo raise (emergency money request, loan lure, reward+link)
+            # — the deterministic evidence stands: a lone ML 'safe' does not veto it.
+            corroborated = len(set(strong)) >= 2 or bool(evidence.get("combos"))
+            if corroborated:
+                resolution_steps.append(
+                    f"ML 'safe' dissent vs corroborated rule evidence "
+                    f"({len(set(strong))} strong signals, {len(evidence.get('combos', []))} combos) "
+                    "-> dampening skipped; deterministic evidence stands")
+            else:
+                dampened = min(base, int(0.6 * rule_score) + 2)
+                resolution_steps.append(
+                    f"ML 'safe' vs rule evidence (disagreement) -> rule score {rule_score} "
+                    f"dampened to {dampened} by benign statistical evidence")
+                base = dampened
 
     # ── LLM evidence (semantic/contextual) ───────────────────────────────
     llm_usable = llm is not None and llm["llm_confidence"] >= LLM_MIN_CONFIDENCE
@@ -225,9 +235,10 @@ def _confidence(evidence: Dict, llm: Optional[Dict], final_verdict: str) -> int:
 
 def _test():
     def ev(rule_score=0, strong=None, medium=None, weak=None, ml_label=None, ml_score=None,
-            urls=None, verified=None, max_link=0, otp=False):
+            urls=None, verified=None, max_link=0, otp=False, combos=None):
         return {"rule_score": rule_score, "strong": strong or [], "medium": medium or [],
                 "weak": weak or [], "ml_label": ml_label, "ml_score": ml_score,
+                "combos": combos or [],
                 "urls": urls or [], "verified_urls": verified or [],
                 "max_link_score": max_link, "otp_alert": otp}
 
