@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   Shield, AlertTriangle, CheckCircle, XCircle,
   Link, Loader2, Send, Clock, RotateCcw,
   Eye, Zap, Globe, CreditCard, Briefcase,
-  ChevronDown, ChevronUp, Info, IndianRupee, Hash, Lock, Gift, Wallet, Brain
+  ChevronDown, ChevronUp, Info, IndianRupee, Hash, Lock, Gift, Wallet, Brain,
+  History, Camera, Trash2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -114,6 +115,26 @@ interface LinkResult {
     details: string[];
   };
   advice: string[];
+}
+
+interface ScanRow {
+  id: string;
+  message_text: string;
+  risk: "SAFE" | "SUSPICIOUS" | "HIGH_RISK";
+  risk_score: number;
+  confidence: number;
+  scam_type: string;
+  source: string;
+  created_at: string;
+}
+
+interface HistoryData {
+  scans: ScanRow[];
+  stats: {
+    total: number;
+    by_risk: Record<string, number>;
+    top_scam_types: [string, number][];
+  };
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -269,7 +290,7 @@ function RiskMeterArc({ score }: { score: number }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ScamShield() {
-  const [activeTab, setActiveTab] = useState<"message" | "behavior" | "link" | "decision">("message");
+  const [activeTab, setActiveTab] = useState<"message" | "behavior" | "link" | "decision" | "history">("message");
 
   // Message states
   const [message, setMessage] = useState("");
@@ -289,6 +310,10 @@ export default function ScamShield() {
   // Decision states
   const [decisionInput, setDecisionInput] = useState("");
   const [decisionResult, setDecisionResult] = useState<DecisionResult | null>(null);
+
+  // History + image states
+  const [history, setHistory] = useState<HistoryData | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Shared states
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -363,6 +388,41 @@ export default function ScamShield() {
       setIsAnalyzing(false);
     }
   }, [message, timeOfMessage, amount, timeOfTransaction, frequency, linkInput, decisionInput, activeTab, isAnalyzing]);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/scam/history`);
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      setHistory(await res.json());
+    } catch (e: any) {
+      setError(e.message || "Could not load history.");
+    }
+  }, []);
+
+  const scanImage = useCallback(async (file: File) => {
+    if (isAnalyzing) return;
+    setIsAnalyzing(true);
+    setError(null);
+    setShowReasoning(false);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`${API_BASE}/scam/scan_image`, { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `Server error: ${res.status}`);
+      setMessage(data.ocr_text || "");
+      setMessageResult(data);
+      setAnalysisCount(c => c + 1);
+    } catch (e: any) {
+      setError(e.message || "Screenshot scan failed.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [isAnalyzing]);
+
+  useEffect(() => {
+    if (activeTab === "history") loadHistory();
+  }, [activeTab, loadHistory]);
 
   const reset = () => {
     setMessage("");
@@ -447,6 +507,12 @@ export default function ScamShield() {
             >
               <Wallet className="w-4 h-4" /> 💰 Payment Decision
             </button>
+            <button
+              onClick={() => setActiveTab("history")}
+              className={`flex-1 py-3 justify-center items-center flex gap-2 rounded-xl text-xs font-black uppercase tracking-widest font-display transition-all ${activeTab === "history" ? "bg-violet-500/20 text-violet-700 shadow-lg border border-violet-500/20" : "text-parchment-faint hover:text-parchment-dim"}`}
+            >
+              <History className="w-4 h-4" /> Scan History
+            </button>
           </div>
 
           {/* ── Inputs ── */}
@@ -483,6 +549,25 @@ export default function ScamShield() {
                       className="w-full bg-ink-900/[0.02] border border-ink-900/[0.06] rounded-xl pl-9 pr-4 py-2.5 text-xs text-parchment-faint placeholder:text-stone-600 focus:outline-none focus:border-gold-500/30 transition-all font-sans"
                     />
                   </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (f) scanImage(f);
+                      e.target.value = "";
+                    }}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isAnalyzing}
+                    className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-ink-900/[0.03] border border-ink-900/[0.08] text-parchment-faint text-xs font-black uppercase tracking-widest font-display hover:bg-ink-900/[0.07] hover:text-ink-950 transition-all disabled:opacity-30"
+                  >
+                    {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                    {isAnalyzing ? "Scanning Screenshot…" : "Scan a Screenshot Instead"}
+                  </button>
                 </>
               ) : activeTab === "behavior" ? (
                 <>
@@ -546,7 +631,7 @@ export default function ScamShield() {
                     />
                   </div>
                 </>
-              ) : (
+              ) : activeTab === "decision" ? (
                 <>
                   <label className="text-[10px] font-black text-parchment-faint uppercase tracking-[0.2em] font-display">Payment Situation Details</label>
                   <div className="relative">
@@ -562,9 +647,10 @@ export default function ScamShield() {
                     <div className="absolute bottom-3 right-3 text-[10px] text-stone-600 font-display font-bold">Ctrl+Enter to analyze</div>
                   </div>
                 </>
-              )}
+              ) : null}
 
               {/* Action Buttons */}
+              {activeTab !== "history" && (
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={analyze}
@@ -595,6 +681,7 @@ export default function ScamShield() {
                   </button>
                 )}
               </div>
+              )}
             </motion.div>
           </AnimatePresence>
 
@@ -607,6 +694,81 @@ export default function ScamShield() {
               >
                 <XCircle className="w-5 h-5 shrink-0" />
                 <span>{error}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── History Dashboard ── */}
+          <AnimatePresence>
+            {activeTab === "history" && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4, ease: "easeOut" }}
+                className="space-y-5"
+              >
+                {!history ? (
+                  <div className="h-32 rounded-2xl bg-ink-900/[0.02] border border-ink-900/[0.05] animate-pulse" />
+                ) : history.stats.total === 0 ? (
+                  <div className="p-8 rounded-2xl bg-ink-900/[0.02] border border-ink-900/[0.06] text-center">
+                    <History className="w-8 h-8 text-stone-600 mx-auto mb-3" />
+                    <p className="text-sm text-parchment-faint font-sans">No scans yet. Run a message or screenshot scan first.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="p-4 rounded-2xl bg-ink-900/[0.03] border border-ink-900/[0.06]">
+                        <p className="text-[9px] font-black text-parchment-faint uppercase tracking-widest font-display">Total Scans</p>
+                        <p className="text-2xl font-black font-display text-ink-950 mt-1">{history.stats.total}</p>
+                      </div>
+                      {(["SAFE", "SUSPICIOUS", "HIGH_RISK"] as const).map(r => (
+                        <div key={r} className="p-4 rounded-2xl bg-ink-900/[0.03] border border-ink-900/[0.06]">
+                          <p className="text-[9px] font-black text-parchment-faint uppercase tracking-widest font-display">{r.replace("_", " ")}</p>
+                          <p className={`text-2xl font-black font-display mt-1 ${r === "SAFE" ? "text-emerald-700" : r === "SUSPICIOUS" ? "text-amber-700" : "text-red-600"}`}>
+                            {history.stats.by_risk[r] || 0}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {history.stats.top_scam_types.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {history.stats.top_scam_types.map(([t, n]) => (
+                          <span key={t} className="px-3 py-1.5 rounded-full bg-ink-900/[0.03] border border-ink-900/[0.06] text-[10px] font-bold text-parchment-faint uppercase tracking-wider font-display">
+                            {t.replace("_", " ")}: {n}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex justify-end">
+                      <button
+                        onClick={async () => {
+                          await fetch(`${API_BASE}/scam/history`, { method: "DELETE" });
+                          loadHistory();
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 text-[10px] font-black uppercase tracking-widest font-display hover:bg-red-500/20 transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Clear History
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {history.scans.map(scan => (
+                        <div key={scan.id} className="p-4 rounded-2xl bg-ink-900/[0.02] border border-ink-900/[0.06] flex items-start gap-3">
+                          <span className={scan.risk === "SAFE" ? "text-emerald-700" : scan.risk === "SUSPICIOUS" ? "text-amber-700" : "text-red-600"}>
+                            {scan.risk === "SAFE" ? <CheckCircle className="w-4 h-4 mt-0.5" /> : scan.risk === "SUSPICIOUS" ? <AlertTriangle className="w-4 h-4 mt-0.5" /> : <XCircle className="w-4 h-4 mt-0.5" />}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs text-parchment-dim font-sans truncate">{scan.message_text || "(no text)"}</p>
+                            <p className="text-[10px] text-stone-600 font-bold font-display uppercase tracking-wider mt-1">
+                              {scan.risk} · {scan.risk_score}/100 · {scan.scam_type.replace("_", " ")} · {scan.source === "image" ? "📷" : "💬"} · {new Date(scan.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

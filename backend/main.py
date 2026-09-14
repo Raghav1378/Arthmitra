@@ -34,6 +34,19 @@ expenses_table = Table(
     Column("type", String),
 )
 
+scam_scans_table = Table(
+    "scam_scans",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("message_text", String),
+    Column("risk", String),
+    Column("risk_score", Integer),
+    Column("confidence", Integer),
+    Column("scam_type", String),
+    Column("source", String),  # 'text' | 'image'
+    Column("created_at", String),
+)
+
 engine = create_engine(DATABASE_URL)
 metadata.create_all(engine)
 
@@ -388,11 +401,104 @@ async def scam_analyze(request: ScamAnalyzeRequest):
     Groq failure degrades to Stage 1 + Stage 3 with identical response shape.
     """
     from app.scam_engine import analyze_message_hybrid
-    return await analyze_message_hybrid(
+    result = await analyze_message_hybrid(
         request.message_text,
         time_of_message=request.time_of_message,
         message_frequency=request.message_frequency,
     )
+    await _record_scan(request.message_text, result, "text")
+    return result
+
+
+async def _record_scan(text: str, result: dict, source: str):
+    """Persist a scan for the history dashboard. Never fails the request."""
+    try:
+        fd = result["final_decision"]
+        await database.execute(insert(scam_scans_table).values(
+            id=uuid4().hex,
+            message_text=text[:500],
+            risk=fd["risk"],
+            risk_score=fd["risk_score"],
+            confidence=fd["confidence"],
+            scam_type=fd.get("scam_type", "unknown"),
+            source=source,
+            created_at=datetime.now().isoformat(),
+        ))
+    except Exception as e:
+        logger.warning(f"scan history write failed: {e}")
+
+
+@app.get("/scam/history")
+async def scam_history(limit: int = 50):
+    """Recent scans + aggregate stats for the dashboard."""
+    rows = await database.fetch_all(
+        select(scam_scans_table).order_by(scam_scans_table.c.created_at.desc()).limit(min(limit, 200))
+    )
+    rows = [dict(r) for r in rows]
+    # Stats over ALL scans, not just the page
+    all_rows = await database.fetch_all(
+        select(scam_scans_table.c.risk, scam_scans_table.c.scam_type)
+    )
+    counts: Dict[str, int] = defaultdict(int)
+    types: Dict[str, int] = defaultdict(int)
+    for r in all_rows:
+        counts[r["risk"]] += 1
+        types[r["scam_type"] or "unknown"] += 1
+    return {
+        "scans": rows,
+        "stats": {
+            "total": len(all_rows),
+            "by_risk": dict(counts),
+            "top_scam_types": sorted(types.items(), key=lambda kv: -kv[1])[:5],
+        },
+    }
+
+
+@app.delete("/scam/history")
+async def clear_scam_history():
+    await database.execute(delete(scam_scans_table))
+    return {"status": "all_deleted"}
+
+
+@app.post("/scam/scan_image")
+async def scam_scan_image(file: UploadFile = File(...)):
+    """
+    Screenshot scan: OCR the image, then run the same three-stage pipeline.
+    """
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image too large (max 10 MB).")
+
+    text = None
+    try:
+        import pytesseract
+        from PIL import Image
+        import io as _io
+        import shutil as _shutil
+        # Windows default install path fallback — PATH lags after fresh install
+        if not _shutil.which("tesseract"):
+            _tess = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+            if not os.path.exists(_tess):
+                raise RuntimeError("tesseract is not installed")
+            pytesseract.pytesseract.tesseract_cmd = _tess
+        text = pytesseract.image_to_string(Image.open(_io.BytesIO(content))).strip()
+    except Exception as e:
+        msg = str(e)
+        if "tesseract is not installed" in msg.lower() or "tesseract" in msg.lower():
+            raise HTTPException(
+                status_code=503,
+                detail="OCR engine not installed on server. Install Tesseract OCR (UB-Mannheim build) and restart.",
+            )
+        raise HTTPException(status_code=400, detail="Could not read image.")
+
+    if not text:
+        raise HTTPException(status_code=400, detail="No readable text found in image.")
+
+    from app.scam_engine import analyze_message_hybrid
+    result = await analyze_message_hybrid(text)
+    await _record_scan(text, result, "image")
+    result["ocr_text"] = text
+    return result
 
 # ── Decision Shield Endpoint ───────────────────────────────────────────────────────
 

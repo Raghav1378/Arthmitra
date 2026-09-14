@@ -356,3 +356,24 @@ backend/
 - [ ] Model retraining pipeline
 - [ ] Dashboard UI
 - [ ] Webhook notifications
+## Detection Improvements (v4.1)
+
+### Test Baseline (T01-T23)
+- 23 diagnostic tests covering scam patterns + edge cases
+- Before fixes: 19/23 passed (82.6%)
+- After fixes: 23/23 passed (100%)
+
+### Specific Gaps Closed
+1. Typo robustness (accunt/expird) — now HIGH_RISK
+2. Family emergency scams (Papa/Mummy) — now HIGH_RISK
+3. Credential harvesting (password requests) — now HIGH_RISK
+4. Unsolicited loan offers — now SUSPICIOUS
+5. Legitimate OTP false signals — removed
+
+### Performance Metrics (Full 3034-row eval)
+- Recall: 91.1% (catches 9 in 10 scams)
+- False Positive Rate: 17.1% (1 in 6 legitimate messages flagged)
+- OOD Scam Recall: 99.6% (catches unseen scam families)
+- Adversarial Recall: 90.4% (catches typos/obfuscation)
+
+These are measured on a controlled diagnostic suite, not real-world production.
