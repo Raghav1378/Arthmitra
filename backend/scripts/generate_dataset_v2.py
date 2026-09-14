@@ -477,6 +477,51 @@ def f_exam():
     ])
 
 
+# BUG-001/BUG-002 blind-spot families: the original safe set contained zero
+# personal family messages and zero bank security ADVICE (as opposed to OTP
+# alerts), so TF-IDF learned family words and "verify/credentials" as pure
+# scam signals. These two families close that gap (train-split coverage).
+FAMILY_MEMBERS = ["Papa", "Mummy", "Bhai", "Bhaiyya", "Dost", "Mom", "Dad", "Sister", "Beti", "Beta"]
+HINDI_URGENT = ["turant", "jaldi", "abhi"]
+
+
+@legit("personal_family_message", "legit_personal", hard=True)
+def f_personal_family():
+    p = rng.choice(FAMILY_MEMBERS)
+    h = rng.choice(HINDI_URGENT)
+    return ([
+        f"{p} urgent: call me back when you see this",
+        f"{p}, I'll be home by {rng.randint(6, 10)}",
+        f"{p} {h} ghar aa ja",
+        f"{p}, sab theek hai?",
+        f"{p} is waiting, come quickly",
+        f"{p} needs help, please respond",
+        f"{p}, where are you? Call me",
+        f"{p}, I'm stuck in traffic, will be late",
+        f"{p} ko batao I'm running late",
+        f"{p} {h} ghar aa jao",
+        f"{p} called you twice, call back when free",
+        f"{p}, dinner is ready, come home",
+    ])
+
+
+@legit("bank_security_advice", "legit_security", hard=True)
+def f_bank_advice():
+    b = rng.choice(BANKS)
+    return ([
+        f"{b}: Never share your password with anyone, even for verification",
+        f"{b} support will never ask for your PIN or CVV",
+        f"Bank: Don't share OTP with anyone, not even bank staff",
+        f"{b}: We never ask customers to verify credentials via SMS",
+        f"Your bank will never request password confirmation",
+        f"Genuine banks never ask for 2FA codes via email or SMS",
+        f"RBI advisory: Banks will never ask for sensitive info via SMS",
+        f"If someone asks for your password, it's a scam",
+        f"Never confirm card details with anyone calling",
+        f"Your bank's official policy: we never ask for OTP verification",
+    ])
+
+
 # ── SCAM families ─────────────────────────────────────────────────────
 
 SCAM_FAMILIES = []

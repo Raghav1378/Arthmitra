@@ -33,12 +33,20 @@ STRONG_SIGNALS = [
     # "your aadhaar card was dispatched" or "OTP is 123456, don't share" is not.
     # Negation lookbehinds exclude the legit "do not / never share this OTP".
     ("sensitive info request", r"(?<!do not )(?<!dont )(?<!never )\b(share|enter|send|provide|confirm|reveal|batao|bataiye|give)[^.;]{0,30}\b(otp|password|cvv|pin|aadhaar|pan card details)\b|\b(otp|cvv|card) details\b|\b(otp|cvv|pin|password)\b[^.;]{0,15}\b(batao|bataiye)\b"),
-    # family-term + urgency/emergency pretext in one message: classic impersonation
-    # shape ("Papa ka dost, phone gir gaya, turant bhejo") with no link/bank name.
-    ("emergency impersonation", r"(?=.*\b(papa|papa'?s? friend|mummy|behen|bhaiyya|family|relative)\b)(?=.*\b(emergency|urgent(ly)?|turant|abhi|zaroorat|hospital|admitted|accident)\b)"),
+    # family-term + money-ask (verb or currency) in one message: classic
+    # impersonation shape ("Papa ka dost, turant 5000 bhejo"). The money
+    # component is what separates the scam from a genuine family SMS
+    # ("Mummy admitted to hospital, come soon" fires nothing).
+    # ponytail: lookahead spans the whole message, so "family is fine. Send
+    # 5000 for rent" would still fire — acceptable ceiling, real SMS are short.
+    ("emergency impersonation", r"(?=.*\b(papa|papa'?s? friend|mummy|behen|bhaiyya|family|relative)\b)(?=.*\b(bhejo|bhej|send|transfer|pay|deposit|rupees|rs\.?|₹)\b)"),
     # bank-flavored credential harvesting: institution + action verb + credential
-    # in one message ("Bank asking to confirm username/password for security").
-    ("credential harvest", r"(?=.*\b(bank|rbi|customer care|support team)\b)(?=.*\b(confirm|verify|share|update|validate)\b)(?=.*\b(password|username|login|credentials?)\b)"),
+    # in one message. Negative lookahead blocks banks' own security advice
+    # ("we will never ask you to verify your login credentials").
+    # ponytail: whole-text negation means an adversarial "never asks, but
+    # confirm your password now" is also blocked — same ceiling as the
+    # lookbehind negations on 'sensitive info request' above.
+    ("credential harvest", r"(?!.*\b(never|do not|dont|don't)\s+(ask|share|verify|request)\b)(?=.*\b(bank|rbi|customer care|support team)\b)(?=.*\b(confirm|verify|share|update|validate)\b)(?=.*\b(password|username|login|credentials?)\b)"),
 ]
 
 MEDIUM_SIGNALS = [
@@ -268,7 +276,10 @@ def collect_stage1_evidence(message_text: str, time_of_message: str = None, mess
 
     # Family emergency + a specific amount = the money-request scam shape
     # ("Papa ki zaroorat, 5000 rupees turant bhejo"), not a family chat.
-    if "emergency impersonation" in strong and re.search(r"(₹|rs\.?)\s*\d+|\d+\s*(rupees|rs)\b", normalized):
+    # Bare amount + transfer verb covers "turant 5000 bhejo" (no ₹/rs prefix).
+    if "emergency impersonation" in strong and re.search(
+            r"(₹|rs\.?)\s*\d+|\d+\s*(rupees|rs)\b|\b\d{3,}[^.;]{0,25}\b(bhejo|bhej|send|transfer|deposit)\b",
+            normalized, re.IGNORECASE):
         combos.append("emergency money request")
         score += 30
 
@@ -366,7 +377,7 @@ def _build_result(message_text: str, evidence: Dict, llm: Optional[Dict], llm_st
 
     scam_type = "unknown"
     for name, pat in SCAM_TYPE_PATTERNS:
-        if re.search(pat, message_text.lower()):
+        if re.search(pat, normalize_text(message_text).lower()):  # typo-normalized
             scam_type = name
             break
     # Semantic layer can name a type the rules missed (e.g. impersonation)
@@ -1051,6 +1062,34 @@ def _test():
     assert r["risk"] in ("SUSPICIOUS", "HIGH"), r  # punycode is never legit
     r = analyze_link_upi("http://refund-sbi.example.test/claim")
     assert r["risk"] in ("SUSPICIOUS", "HIGH"), r  # brand in subdomain of unknown root
+
+    # ── BUG-001: genuine family SMS must not fire emergency impersonation ──
+    # (Note: "Papa urgent: call me back" is still an ML FP — a dataset blind
+    # spot: no safe training rows contain family words/personal urgency. The
+    # REGEX fix is verified by signal absence; the ML FP is resolved by the
+    # Stage-2 LLM benign dissent in hybrid mode and documented in BUGS.md.)
+    r = analyze_message("Papa urgent: call me back when you see this")
+    assert "emergency impersonation" not in r["signals_detected"]["strong"], r
+    r = analyze_message("Mummy admitted to hospital, please come soon")
+    assert r["final_decision"]["risk"] == "SAFE" and r["final_decision"]["risk_score"] <= 20, r
+    assert "emergency impersonation" not in r["signals_detected"]["strong"], r
+    r = analyze_message("Bhaiyya hospital mein hai, zaroorat padi to bata dena")
+    assert "emergency impersonation" not in r["signals_detected"]["strong"], r
+
+    # ── BUG-002: bank security advice must not fire credential harvest ──
+    # (Rule layer guarantee. Final SAFE verdict comes from the Stage-2 LLM
+    # benign dissent — ML alone is negation-blind by architecture, see BUGS.md.)
+    r = analyze_message("HDFC support team will never ask you to verify your login credentials")
+    assert "credential harvest" not in r["signals_detected"]["strong"], r
+
+    # ── BUG-003: bare-amount emergency money request (MSG2 shape, no LLM) ──
+    r = analyze_message("Papa ka dost hoon, phone gir gaya, turant 5000 bhejo is number par")
+    assert r["final_decision"]["risk"] in ("SUSPICIOUS", "HIGH_RISK"), r
+    assert r["final_decision"]["risk_score"] >= 40, r
+
+    # ── BUG-004: typo'd text still gets a scam_type from SCAM_TYPE_PATTERNS ──
+    r = analyze_message("Your accunt KYC is expird. Verfy now to avoid suspention of your bank account.")
+    assert r["final_decision"]["scam_type"] != "unknown", r
 
     print("[OK] scam_engine: all self-checks passed")
 
