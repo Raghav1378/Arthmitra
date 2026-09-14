@@ -52,7 +52,7 @@ STRONG_SIGNALS = [
 MEDIUM_SIGNALS = [
     ("urgency", r"\b(urgent(ly)?|immediately|act now|limited time|expires? (today|now)|last chance)\b"),
     ("authority impersonation", r"\b(sbi|hdfc|icici|rbi|paytm|phonepe|gpay|bhim|income tax department|customs)\b"),
-    ("prize or reward claim", r"\b(congratulations|you (have )?won|winner|lucky draw|cashback.*pending|lottery|avail (your|the) (offer|reward|prize)|claim (your|the) (reward|prize|award|offer)|receive the award|gift|free (money|reward|prize|gift)|100% (free|cashback))\b"),
+    ("prize or reward claim", r"\b(congratulations|you (have )?won|winner|lucky draw|cashback.*pending|lottery|avail (your|the) (offer|reward|prize)|claim (your|the) (reward|prize|award|offer)|receive the award|gift|free (money|reward|prize|gift)|100% (free|cashback)|sign.?up bonus|signup bonus|welcome bonus|bonus for (signing|registering)|reward for (clicking|signing)|earn (money|cash) (by|for) (clicking|signing))\b"),
     ("job trap", r"\b(work.from.home|earn ₹?\d+\/day|earn rs\.?\s*\d+\s*(\/|per)\s*day|no experience needed)\b"),
     # unsolicited loan bait: loan "approved" + no-documents/instant + a click hook
     ("unsolicited loan offer", r"(?=.*\b(loan|credit limit)\b)(?=.*\b(approved|sanctioned|pre.?approved)\b)(?=.*\b(no documents?|without documents?|instant|click)\b)"),
@@ -65,7 +65,7 @@ TYPO_MAP = {
     "accunt": "account", "expird": "expired", "verfy": "verify",
     "suspention": "suspension", "pasword": "password",
     "verificaton": "verification", "updte": "update",
-    "imediately": "immediately",
+    "imediately": "immediately", "singup": "signup",
 }
 
 
@@ -200,7 +200,9 @@ def _normalize_defanged_url(value: str) -> str:
 
 
 def _extract_urls(text: str) -> List[str]:
-    return re.findall(r"(?:https?|hxxps?)://[^\s<>]+|www\.[^\s<>]+", text, flags=re.IGNORECASE)
+    # third alternative: malformed single-colon URLs ("https:domain.com") —
+    # common in copy-pasted scam messages
+    return re.findall(r"(?:https?|hxxps?)://[^\s<>]+|www\.[^\s<>]+|(?:https?|hxxps?):[a-z0-9-]+\.[a-z]{2,}[^\s<>]*", text, flags=re.IGNORECASE)
 
 
 def _hostname(value: str) -> str:
