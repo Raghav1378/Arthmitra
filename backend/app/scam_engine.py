@@ -31,8 +31,9 @@ STRONG_SIGNALS = [
     ("suspicious link", r"https?://|www\.|\.xyz|\.top|\.click|bit\.ly|tinyurl"),
     # intent, not mention: "share/enter/send your OTP/aadhaar" is the attack;
     # "your aadhaar card was dispatched" or "OTP is 123456, don't share" is not.
-    # Negation lookbehinds exclude the legit "do not / never share this OTP".
-    ("sensitive info request", r"(?<!do not )(?<!dont )(?<!never )\b(share|enter|send|provide|confirm|reveal|batao|bataiye|give)[^.;]{0,30}\b(otp|password|cvv|pin|aadhaar|pan card details)\b|\b(otp|cvv|card) details\b|\b(otp|cvv|pin|password)\b[^.;]{0,15}\b(batao|bataiye)\b"),
+    # Negation clauses are stripped before matching (see NEG_CLAUSE) — the
+    # lookbehinds below are second-line defense, kept because they're free.
+    ("sensitive info request", r"(?<!do not )(?<!dont )(?<!never )\b(shar(?:e|ing)|enter|send|provide|confirm|reveal|batao|bataiye|give)[^.;]{0,30}\b(otp|password|cvv|pin|aadhaar|pan card details)\b|\b(otp|cvv|card) details\b|\b(otp|cvv|pin|password)\b[^.;]{0,15}\b(batao|bataiye)\b|\b(reply|respond|message)[^.;]{0,20}\b(?:with\s+)?(otp|password|cvv|pin)\b"),
     # family-term + money-ask (verb or currency) in one message: classic
     # impersonation shape ("Papa ka dost, turant 5000 bhejo"). The money
     # component is what separates the scam from a genuine family SMS
@@ -41,12 +42,10 @@ STRONG_SIGNALS = [
     # 5000 for rent" would still fire — acceptable ceiling, real SMS are short.
     ("emergency impersonation", r"(?=.*\b(papa|papa'?s? friend|mummy|behen|bhaiyya|family|relative)\b)(?=.*\b(bhejo|bhej|send|transfer|pay|deposit|rupees|rs\.?|₹)\b)"),
     # bank-flavored credential harvesting: institution + action verb + credential
-    # in one message. Negative lookahead blocks banks' own security advice
-    # ("we will never ask you to verify your login credentials").
-    # ponytail: whole-text negation means an adversarial "never asks, but
-    # confirm your password now" is also blocked — same ceiling as the
-    # lookbehind negations on 'sensitive info request' above.
-    ("credential harvest", r"(?!.*\b(never|do not|dont|don't)\s+(ask|share|verify|request)\b)(?=.*\b(bank|rbi|customer care|support team)\b)(?=.*\b(confirm|verify|share|update|validate)\b)(?=.*\b(password|username|login|credentials?)\b)"),
+    # in one message. Negated advisories are stripped upstream by _NEG_CLAUSE,
+    # so "we never ask you to verify credentials" never reaches this pattern
+    # while "never asks, but confirm your password" keeps its second clause.
+    ("credential harvest", r"(?=.*\b(bank|rbi|customer care|support team)\b)(?=.*\b(confirm|verify|share|update|validate)\b)(?=.*\b(password|username|login|credentials?)\b)"),
 ]
 
 MEDIUM_SIGNALS = [
@@ -68,9 +67,25 @@ TYPO_MAP = {
     "imediately": "immediately", "singup": "signup",
 }
 
+# Zero-width/bidi chars used to split keywords ("O​TP") — invisible to humans,
+# invisible to regexes. Stripped before any matching.
+_INVISIBLE = re.compile(r"[​‌‍⁠﻿‪-‮]")
+
+# Negated ADVISORY clauses ("we never ask for your password", "banks don't
+# share OTP requests") — stripped before signal matching so they can't shield a
+# request in a DIFFERENT clause. Clause-bounded (, ; . ! ?), so
+# "Bank never asks for OTP, but share the OTP 4521" keeps the second clause
+# and still fires. Non-advisory negation ("do not ignore") is untouched.
+# ponytail: two negation words only; a "we're not asking you to never..." style
+# double-negation bypass is a known ceiling — LLM layer sees through it.
+_NEG_CLAUSE = re.compile(
+    r"[,;.!?\n]?\s*[^,;.!?\n]*\b(never|do not|don't|dont|does not|doesn't)\s+(ask|asks|asked|request|requests|share|shares|seek|seeks)\b[^,;.!?\n]*",
+    re.IGNORECASE)
+
 
 def normalize_text(text: str) -> str:
-    out = text
+    out = _INVISIBLE.sub("", text)
+    out = _NEG_CLAUSE.sub(" ", out)
     for typo, fix in TYPO_MAP.items():
         out = re.sub(rf"\b{typo}\b", fix, out, flags=re.IGNORECASE)
     return out

@@ -107,13 +107,66 @@ async def analyze_semantic(message_text: str, stage1_evidence: dict) -> Optional
             ("system", SYSTEM_PROMPT),
             ("user", build_user_prompt(message_text, stage1_evidence)),
         ])
-        return {
-            "semantic_indicators": result.semantic_indicators,
-            "llm_risk": result.llm_risk,
-            "llm_confidence": result.llm_confidence,
-            "scam_type": result.scam_type,
-            "brief_reason": result.brief_reason,
-        }
+        return _to_dict(result)
+    except Exception:
+        pass
+    # gpt-oss sometimes ignores the tool schema and emits raw JSON (its own
+    # field names, singular 'indicator', float confidences). Retry once with
+    # explicit JSON instructions and parse leniently — cheaper than losing
+    # Stage 2 on a formatting whim.
+    # ponytail: one lenient retry, no JSON-repair library; still malformed = None.
+    try:
+        llm = _get_llm()
+        raw = await llm.ainvoke([
+            ("system", SYSTEM_PROMPT + "\nRespond with ONLY a JSON object with EXACTLY these keys: semantic_indicators (array of strings), llm_risk (integer 0-100), llm_confidence (integer 0-100), scam_type (string), brief_reason (string). No other text."),
+            ("user", build_user_prompt(message_text, stage1_evidence)),
+        ])
+        return _parse_lenient(raw.content)
+    except Exception:
+        return None
+
+
+def _to_dict(result) -> dict:
+    return {
+        "semantic_indicators": result.semantic_indicators,
+        "llm_risk": result.llm_risk,
+        "llm_confidence": result.llm_confidence,
+        "scam_type": result.scam_type,
+        "brief_reason": result.brief_reason,
+    }
+
+
+def _parse_lenient(content: str) -> Optional[dict]:
+    """Best-effort parse of free-form model JSON into the schema."""
+    import json
+    m = re.search(r"\{.*\}", content, flags=re.DOTALL)
+    if not m:
+        return None
+    try:
+        data = json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return None
+    inds = data.get("semantic_indicators") or data.get("indicators") or data.get("indicator")
+    if isinstance(inds, str):
+        inds = [inds]
+    if not isinstance(inds, list):
+        inds = ["none"]
+    try:
+        risk = int(float(data.get("llm_risk") or 0))
+    except (TypeError, ValueError):
+        risk = 0
+    risk = max(0, min(100, risk))
+    try:
+        conf = int(float(data.get("llm_confidence") or 0))
+    except (TypeError, ValueError):
+        conf = 0
+    conf = max(0, min(100, conf))
+    try:
+        return _to_dict(SemanticAnalysis(
+            semantic_indicators=inds, llm_risk=risk, llm_confidence=conf,
+            scam_type=str(data.get("scam_type") or "unknown"),
+            brief_reason=str(data.get("brief_reason") or ""),
+        ))
     except Exception:
         return None
 
