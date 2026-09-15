@@ -28,16 +28,30 @@ export default function UPIValidator() {
     setResult(null);
 
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/shield/validate-upi`, {
+      const response = await fetch(`${getApiBaseUrl()}/scam/link_upi`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ upi_id: upiId, display_name: displayName || undefined }),
+        body: JSON.stringify({ input_value: upiId }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        setResult(data);
+        // adapt new /scam/link_upi shape to this component's display fields
+        const name = displayName.trim();
+        const r: UpiValidationResult = {
+          upi_id: upiId,
+          risk_score: data.risk_score,
+          risk_level: data.risk === 'SAFE' ? 'LOW' : data.risk,
+          reasons: [
+            ...data.reasoning?.details || [],
+            ...(name && /sbi|hdfc|icici|axis|pnb|bank|rbi/i.test(name) && !/@(ok|ybl|ibl|axl|paytm)/i.test(upiId)
+              ? [`Display name '${name}' looks like an institution on a personal handle`]
+              : []),
+          ],
+          model_used: 'Scam Shield Link/UPI Analyst (deterministic rules)',
+        };
+        setResult(r);
       } else {
         setError(data.detail || 'Failed to validate UPI ID');
       }

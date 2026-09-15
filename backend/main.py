@@ -62,7 +62,6 @@ if os.path.exists(_env_path):
 
 from routes.documents import documents_router
 from routes.chats import chats_router
-from app.shield_api import shield_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -223,12 +222,11 @@ async def rate_limit_middleware(request: Request, call_next):
 # Register the documents and chats routers
 app.include_router(documents_router, prefix="/documents", tags=["documents"])
 app.include_router(chats_router, prefix="/chats", tags=["chats"])
-app.include_router(shield_router)  # prefix /api/shield set in shield_api.py
 
 
 @app.on_event("startup")
 async def startup_event():
-    """Connect DB; train shield ML in background so /health answers immediately."""
+    """Connect DB; warm heavy imports so /health answers immediately."""
     try:
         await database.connect()
     except Exception as e:
@@ -237,12 +235,6 @@ async def startup_event():
         logger.error(f"Database connect failed: {e}")
 
     async def _init_ml():
-        try:
-            from app.shield_ml import check_or_train
-            check_or_train()
-            logger.info("Scam Shield ML models verified/trained.")
-        except Exception as e:
-            logger.error(f"Failed to initialize Scam Shield ML: {e}")
         # Warm heavy imports (torch/groq, ~30s on cold cache) in a worker
         # thread so the first real request doesn't pay the import cost.
         def _warm():
@@ -481,7 +473,13 @@ async def scam_scan_image(file: UploadFile = File(...)):
             if not os.path.exists(_tess):
                 raise RuntimeError("tesseract is not installed")
             pytesseract.pytesseract.tesseract_cmd = _tess
-        text = pytesseract.image_to_string(Image.open(_io.BytesIO(content))).strip()
+        image = Image.open(_io.BytesIO(content))
+        # Tesseract drops spaces on low-res images ("bhejoisnumber" kills the
+        # word-boundary regexes). Upscale small images to ~real-screenshot DPI.
+        if image.width < 1000:
+            scale = max(2, round(1500 / image.width))
+            image = image.resize((image.width * scale, image.height * scale), Image.LANCZOS)
+        text = pytesseract.image_to_string(image).strip()
     except Exception as e:
         msg = str(e)
         if "tesseract is not installed" in msg.lower() or "tesseract" in msg.lower():
