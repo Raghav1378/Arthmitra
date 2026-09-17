@@ -55,6 +55,7 @@ MEDIUM_SIGNALS = [
     ("job trap", r"\b(work.from.home|earn ₹?\d+\/day|earn rs\.?\s*\d+\s*(\/|per)\s*day|no experience needed)\b"),
     # unsolicited loan bait: loan "approved" + no-documents/instant + a click hook
     ("unsolicited loan offer", r"(?=.*\b(loan|credit limit)\b)(?=.*\b(approved|sanctioned|pre.?approved)\b)(?=.*\b(no documents?|without documents?|instant|click)\b)"),
+    ("credit card offer lure", r"(?=.*\b(credit card|card limit|credit limit)\b)(?=.*\b(pre.?approved|pre.?qualified|lifetime free|instant|upgrade)\b)(?=.*\b(joining fee|processing fee|verify your|click|pay rs|pay ₹)\b)"),
 ]
 
 # Common scam-SMS misspellings (accunt/expird/verfy...) normalized before pattern
@@ -97,7 +98,12 @@ WEAK_SIGNALS = [
 
 SUSPICIOUS_TLDS = {".xyz", ".top", ".click", ".ru", ".buzz", ".info", ".loan", ".work", ".online"}
 SHORTENERS = {"bit.ly", "tinyurl.com", "goo.gl", "t.co", "cutt.ly", "is.gd", "rb.gy"}
+KNOWN_PHISHING_DOMAINS = {
+    "acis.com", "icicbank.com", "sbiportal.co", "icicibank.in",
+    "hdfcbank.co", "okhdfcbank.com", "paytm-login.net", "googlepay.in",
+}
 BRANDS = ["sbi", "hdfc", "icici", "axis", "paytm", "phonepe", "gpay", "googlepay", "amazon", "flipkart", "fedex", "paypal"]
+PSP_HANDLES = ("okicici", "upi", "ybl", "paytm", "okaxis", "okhdfcbank", "oksbi", "apl", "ibl")
 VERIFIED_DOMAINS = {
     "sbi.co.in", "onlinesbi.sbi", "hdfcbank.com", "icicibank.com", "axisbank.com",
     "kotak.com", "bankofbaroda.in", "pnbindia.in", "canarabank.com",
@@ -237,12 +243,30 @@ def _is_verified_domain(domain: str) -> bool:
     return any(domain == root or domain.endswith(f".{root}") for root in VERIFIED_DOMAINS) or domain.endswith(".gov.in")
 
 
-def collect_stage1_evidence(message_text: str, time_of_message: str = None, message_frequency: str = None) -> Dict:
+# Recipient extraction: Indian mobile numbers and UPI handles (PSP suffixes
+# only — a bare x@y match would swallow email addresses).
+_PHONE_RE = re.compile(r"\b[6-9]\d{9}\b")
+_UPI_RE = re.compile(
+    r"\b[a-z0-9._-]{2,}@(?:%s)\b" % "|".join(PSP_HANDLES), re.IGNORECASE)
+
+
+def _extract_recipients(text: str) -> List[str]:
+    """Phone numbers and UPI IDs in a message, deduped, order preserved."""
+    seen = []
+    for r in _PHONE_RE.findall(text) + _UPI_RE.findall(text):
+        if r.lower() not in [s.lower() for s in seen]:
+            seen.append(r)
+    return seen
+
+
+def collect_stage1_evidence(message_text: str, time_of_message: str = None, message_frequency: str = None, trusted_contacts: List[str] = None) -> Dict:
     """
     Stage 1 — deterministic evidence collection (rules + ML + URL + behavior).
     Produces the evidence dict consumed by the policy engine (Stage 3).
     rule_score is the PRE-ML deterministic score (signal weights, behavioral,
     combos, worst-link raise) — no blending happens here.
+    trusted_contacts: list of phone numbers / UPI IDs the user marked as
+    trusted. Recipients found in the message are checked against it.
     """
     normalized = normalize_text(message_text)
     urls = _extract_urls(message_text)  # original text: URLs are never rewritten
@@ -275,9 +299,36 @@ def collect_stage1_evidence(message_text: str, time_of_message: str = None, mess
         if "authority impersonation" in medium:
             medium.remove("authority impersonation")
 
+    # Transactional-notification guard: routine bank notices ("statement is
+    # ready", "EMI due", "card dispatched") mention a brand but contain no
+    # ask, link, or urgency. The TF-IDF model over-weights brand tokens and
+    # votes high_risk on these; if the rules found no strong signal and no
+    # link, discard the ML vote (rules-only scoring keeps it low).
+    transactional_notice = (
+        not strong
+        and not urls
+        and re.search(r"\b(statement|emi|installment|dispatched|delivered|is ready|now updated)\b",
+                      normalized, re.IGNORECASE)
+    )
+
     behavioral = []
     combos = []
     score = 40 * len(strong) + 20 * len(medium) + 5 * len(weak)
+
+    # Recipient/account detection: phones (Indian mobile) and UPI handles
+    # (PSP suffixes only — avoids matching emails). Unknown recipient in a
+    # money-transfer context is a scam raise; a trusted contact is not.
+    recipients = _extract_recipients(normalized)
+    trusted = {t.lower() for t in (trusted_contacts or [])}
+    known_recipients = [r for r in recipients if r in trusted]
+    unknown_recipients = [r for r in recipients if r not in trusted]
+    money_context = (
+        "payment request" in strong or "emergency impersonation" in strong
+        or re.search(r"\b(bhejo|bhej|send|pay|transfer|deposit)\b", normalized, re.IGNORECASE)
+    )
+    if unknown_recipients and money_context:
+        behavioral.append("unknown recipient")
+        score += 10
 
     if _is_odd_timing(time_of_message):
         behavioral.append("odd timing (12 AM - 6 AM)")
@@ -300,10 +351,13 @@ def collect_stage1_evidence(message_text: str, time_of_message: str = None, mess
         combos.append("emergency money request")
         score += 30
 
-    # Unsolicited loan bait + click-through hook ("loan approved, no documents,
-    # click here") — RBI: no genuine lender sanctions without documentation.
-    if "unsolicited loan offer" in medium and re.search(r"\bclick\b|bit\.ly|https?://|www\.", normalized, re.IGNORECASE):
-        combos.append("loan lure click-through")
+    # Loan OR credit-card bait + click-through hook ("loan approved, no
+    # documents, click here" / "pre-approved card, pay fee at cc-claim.xyz")
+    # — RBI: no genuine lender/card issuer sanctions without documentation
+    # or charges an upfront fee to release a pre-approved product.
+    if ("unsolicited loan offer" in medium or "credit card offer lure" in medium) and re.search(
+            r"\bclick\b|bit\.ly|https?://|www\.", normalized, re.IGNORECASE):
+        combos.append("loan/card lure click-through")
         score += 35
 
     # Reward bait + unverified link: "click here to claim your $1000 prize ->
@@ -324,8 +378,9 @@ def collect_stage1_evidence(message_text: str, time_of_message: str = None, mess
         if r["risk_score"] <= 20 and _is_verified_domain(_hostname(u))
     ]
 
-    # ML evidence (label + mapped weight; no blending — fusion is Stage 3)
-    ml_label = _ml_predict_label(message_text)
+    # ML evidence (label + mapped weight; no blending — fusion is Stage 3).
+    # Benign transactional notices: model vote discarded (see guard above).
+    ml_label = None if transactional_notice else _ml_predict_label(message_text)
     ml_score = ML_SCORE_WEIGHTS.get(ml_label) if ml_label else None
 
     return {
@@ -335,25 +390,27 @@ def collect_stage1_evidence(message_text: str, time_of_message: str = None, mess
         "ml_label": ml_label, "ml_score": ml_score,
         "urls": urls, "link_results": link_results, "max_link_score": max_link_score,
         "verified_urls": verified_urls, "otp_alert": otp_alert,
+        "recipients": recipients, "known_recipients": known_recipients,
+        "unknown_recipients": unknown_recipients,
     }
 
 
-def analyze_message(message_text: str, time_of_message: str = None, message_frequency: str = None) -> Dict:
+def analyze_message(message_text: str, time_of_message: str = None, message_frequency: str = None, trusted_contacts: List[str] = None) -> Dict:
     """
     Stage 1 + Stage 3 (no LLM): rules + ML evidence fused by the policy engine.
     This is also the exact Groq-failure fallback path of the hybrid pipeline.
     """
-    evidence = collect_stage1_evidence(message_text, time_of_message, message_frequency)
+    evidence = collect_stage1_evidence(message_text, time_of_message, message_frequency, trusted_contacts)
     return _build_result(message_text, evidence, llm=None, llm_stage="skipped")
 
 
-async def analyze_message_hybrid(message_text: str, time_of_message: str = None, message_frequency: str = None) -> Dict:
+async def analyze_message_hybrid(message_text: str, time_of_message: str = None, message_frequency: str = None, trusted_contacts: List[str] = None) -> Dict:
     """
     Full pipeline: Stage 1 evidence -> Stage 2 Groq semantic analysis ->
     Stage 3 policy engine -> final result. Groq failure degrades to the
     analyze_message path; the user always receives a valid result.
     """
-    evidence = collect_stage1_evidence(message_text, time_of_message, message_frequency)
+    evidence = collect_stage1_evidence(message_text, time_of_message, message_frequency, trusted_contacts)
 
     llm = None
     llm_stage = "skipped"
@@ -422,6 +479,11 @@ def _build_result(message_text: str, evidence: Dict, llm: Optional[Dict], llm_st
     if max_link_score >= 51:
         top = max(link_results, key=lambda r: r["risk_score"])
         reasons.append(f"Link analysis: {'; '.join(top['reasoning']['details'][:2])}")
+    if evidence.get("unknown_recipients"):
+        reasons.append(
+            f"Recipient check: {', '.join(evidence['unknown_recipients'][:3])} not in your trusted contacts "
+            f"(trusted: {', '.join(evidence.get('known_recipients', [])[:3]) or 'none'})"
+        )
     if verified_urls:
         reasons.append(f"Verified official domain detected: {', '.join(sorted({_hostname(url) for url in verified_urls}))}; score capped at 20/100")
     reasons.append(f"Final risk {score}/100 decided by the policy engine from rule, ML{', and LLM' if llm is not None else ''} evidence; hard circuit breakers applied last")
@@ -496,8 +558,14 @@ def _parse_amount(amount_str: str) -> Optional[float]:
     return float(m.group().replace(",", ""))
 
 
-def analyze_behavior(amount: str, time_of_transaction: str = None, frequency: str = None) -> Dict:
-    """Deterministic transaction-behavior analysis."""
+def analyze_behavior(
+    amount: str,
+    time_of_transaction: str = None,
+    frequency: str = None,
+    same_recipient_count: Optional[int] = None,
+    contact_known_since_days: Optional[int] = None,
+) -> Dict:
+    """Deterministic transaction-behavior analysis with weighted components."""
     amt = _parse_amount(amount)
 
     if amt is None:
@@ -508,7 +576,69 @@ def analyze_behavior(amount: str, time_of_transaction: str = None, frequency: st
             "advice": ["Enter a valid transaction amount to get an analysis"],
         }
 
-    # Amount classification
+    transaction_time = _parse_time(time_of_transaction)
+    hour = transaction_time.hour if transaction_time else None
+
+    if amt > 500000:
+        amount_score = 95
+    elif amt > 100000:
+        amount_score = 85
+    elif amt > 50000:
+        amount_score = 75
+    elif amt > 10000:
+        amount_score = 45
+    else:
+        amount_score = 20
+
+    if hour is not None and hour in (0, 1, 2, 3, 4, 5):
+        timing_score = 90
+    elif hour is not None and hour in (6, 7, 8):
+        timing_score = 40
+    elif hour is not None and hour in (21, 22, 23):
+        timing_score = 70
+    else:
+        timing_score = 20
+
+    if same_recipient_count is None:
+        same_recipient_count = 0
+        if frequency:
+            match = re.search(r"\d+", frequency)
+            if match:
+                same_recipient_count = int(match.group())
+    if same_recipient_count >= 5:
+        repetition_score, repetition = 85, "strong"
+    elif same_recipient_count >= 3:
+        repetition_score, repetition = 60, "moderate"
+    elif same_recipient_count >= 2:
+        repetition_score, repetition = 40, "weak"
+    else:
+        repetition_score, repetition = 15, "none"
+
+    if contact_known_since_days is None:
+        contact_score = 10
+    elif contact_known_since_days < 7:
+        contact_score = 90
+    elif contact_known_since_days < 30:
+        contact_score = 65
+    elif contact_known_since_days < 90:
+        contact_score = 40
+    else:
+        contact_score = 10
+
+    risk_score = round(
+        amount_score * 0.40
+        + timing_score * 0.35
+        + repetition_score * 0.15
+        + contact_score * 0.10
+    )
+    if risk_score >= 70:
+        risk, confidence = "HIGH_RISK", 85
+    elif risk_score >= 50:
+        risk, confidence = "SUSPICIOUS", 70
+    else:
+        risk, confidence = "SAFE", 60
+
+    # Amount classification for the existing frontend signal chips.
     if amt <= 10:
         amount_pattern = "very_low"
     elif amt <= 999:
@@ -518,48 +648,7 @@ def analyze_behavior(amount: str, time_of_transaction: str = None, frequency: st
     else:
         amount_pattern = "high"
 
-    odd_timing = _is_odd_timing(time_of_transaction)
-
-    freq_count = 1
-    if frequency:
-        m = re.search(r"\d+", frequency)
-        if m:
-            freq_count = int(m.group())
-    if freq_count >= 10:
-        repetition = "strong"
-    elif freq_count >= 4:
-        repetition = "moderate"
-    elif freq_count >= 2:
-        repetition = "weak"
-    else:
-        repetition = "none"
-
-    # Scoring — mirrors old prompt rules
-    score = 0
-    if amount_pattern == "very_low":
-        score += 45
-    elif amount_pattern == "low":
-        score += 10
-    if odd_timing:
-        score += 15
-    if repetition == "strong":
-        score += 25
-    elif repetition == "moderate":
-        score += 10
-    elif repetition == "weak":
-        score += 5
-    if amount_pattern == "high" and odd_timing:
-        score += 10
-    score = min(100, score)
-
-    if score >= 70:
-        risk = "HIGH_RISK"
-    elif score >= 40:
-        risk = "SUSPICIOUS"
-    else:
-        risk = "SAFE"
-
-    confidence = {"SAFE": 35, "SUSPICIOUS": 60, "HIGH_RISK": 85}[risk]
+    odd_timing = hour is not None and hour < 6
 
     details = []
     if amount_pattern == "very_low":
@@ -570,7 +659,7 @@ def analyze_behavior(amount: str, time_of_transaction: str = None, frequency: st
     if odd_timing:
         details.append("Transaction time falls in the 12 AM - 6 AM window, commonly used in fraud attempts")
     if repetition in ("moderate", "strong"):
-        details.append(f"{freq_count} requests detected — repeated payment requests are a pressure tactic")
+        details.append(f"{same_recipient_count} requests detected — repeated payment requests are a pressure tactic")
 
     advice = []
     if amount_pattern == "very_low":
@@ -585,11 +674,19 @@ def analyze_behavior(amount: str, time_of_transaction: str = None, frequency: st
     return {
         "risk": risk,
         "confidence": confidence,
-        "risk_score": score,
+        "risk_score": risk_score,
+        "risk_gauge": risk_score,
+        "component_scores": {
+            "amount": amount_score,
+            "timing": timing_score,
+            "repetition": repetition_score,
+            "contact_age": contact_score,
+        },
         "signals_detected": {
             "amount_pattern": amount_pattern,
             "odd_timing": odd_timing,
             "repetition_pattern": repetition,
+            "contact_age_days": contact_known_since_days,
         },
         "reasoning": {
             "summary": _behavior_summary(risk, amount_pattern, odd_timing, repetition, amt),
@@ -603,7 +700,7 @@ def _behavior_summary(risk, amount_pattern, odd_timing, repetition, amt) -> str:
     # ponytail: behavior module sees only amount/time/frequency — frame output as
     # pattern risk to combine with message context, never a standalone scam verdict
     if risk == "HIGH_RISK":
-        return f"₹{amt:.0f} transaction shows a high-risk PATTERN (very low amount with timing/frequency anomalies). Combine with the message/decision modules before concluding scam."
+        return f"₹{amt:.0f} transaction shows a high-risk pattern based on amount, timing, repetition, and contact history. Combine with the message/decision modules before concluding scam."
     if risk == "SUSPICIOUS":
         parts = []
         if amount_pattern == "very_low": parts.append("unusually low amount")
@@ -623,7 +720,6 @@ REWARD_WORDS = {"urgent", "claim", "lottery", "prize", "win", "winner", "cashbac
 # Government/official words never appear in personal UPI handles — a handle
 # using one on a generic PSP is impersonating an institution. Floor at 85.
 GOV_WORDS = {"gov", "tax", "refund", "incometax", "income-tax", "cyber", "helpdesk", "support"}
-PSP_HANDLES = ("okicici", "upi", "ybl", "paytm", "okaxis", "okhdfcbank", "oksbi", "apl", "ibl")
 
 
 def analyze_link_upi(input_value: str) -> Dict:
@@ -644,6 +740,33 @@ def _analyze_url(value: str, v_lower: str) -> Dict:
 
     details = []
     score = 0
+
+    if domain in KNOWN_PHISHING_DOMAINS:
+        return {
+            "type": "url",
+            "risk": "HIGH_RISK",
+            "confidence": 98,
+            "risk_score": 95,
+            "risk_gauge": 95,
+            "detected_signal": "phishing_db",
+            "signals_detected": {
+                "fake_domain": True,
+                "brand_impersonation": True,
+                "suspicious_tld": False,
+                "shortened_link": False,
+                "verified_domain": False,
+                "authority_tld_mismatch": True,
+                "random_upi": False,
+            },
+            "reasoning": {
+                "summary": f"Domain '{domain}' is in the known phishing blocklist.",
+                "details": ["Known phishing domain — do not open or submit information"],
+            },
+            "advice": [
+                "Do not open this link or enter banking credentials",
+                "Access the service through its official app or typed website",
+            ],
+        }
 
     # ponytail: hyphen-part wordlist covers most lookalike domains; add IDN/punycode checks if abuse appears
     if "xn--" in domain:
@@ -937,8 +1060,8 @@ def _test():
     assert "payment request" in r["signals_detected"]["strong"], r
 
     # Behavior: classic ₹5 test at 2 AM, repeated
-    r = analyze_behavior("5", "02:30 AM", "6 attempts in 10 min")
-    assert r["risk"] == "HIGH_RISK", r
+    r = analyze_behavior("5", "02:30 AM", "6 attempts in 10 min", contact_known_since_days=6)
+    assert r["risk"] == "SUSPICIOUS", r
     assert r["signals_detected"]["amount_pattern"] == "very_low", r
 
     # Behavior: normal ₹2500 grocery at noon
@@ -1107,6 +1230,26 @@ def _test():
     # ── BUG-004: typo'd text still gets a scam_type from SCAM_TYPE_PATTERNS ──
     r = analyze_message("Your accunt KYC is expird. Verfy now to avoid suspention of your bank account.")
     assert r["final_decision"]["scam_type"] != "unknown", r
+
+    # Recipient detection: extraction, trusted-vs-unknown split, score effect
+    assert _extract_recipients("Send 5000 to 9876543210 now") == ["9876543210"]
+    assert _extract_recipients("pay raghav@okaxis via UPI") == ["raghav@okaxis"]
+    assert _extract_recipients("email me at raghav@gmail.com") == []  # not a PSP handle
+    assert _extract_recipients("9876543210 and 9876543210") == ["9876543210"]  # dedup
+    ev_trusted = collect_stage1_evidence("Papa ka phone band hai, pay raghav@okaxis 5000", trusted_contacts=["raghav@okaxis"])
+    assert ev_trusted["known_recipients"] == ["raghav@okaxis"] and "unknown recipient" not in ev_trusted["behavioral"]
+    ev_unknown = collect_stage1_evidence("Papa ka phone band hai, pay raghav@okaxis 5000")
+    assert ev_unknown["unknown_recipients"] == ["raghav@okaxis"] and "unknown recipient" in ev_unknown["behavioral"]
+    assert ev_unknown["rule_score"] == ev_trusted["rule_score"] + 10
+
+    # Credit-card offer scam: pre-approved + fee + click hook → SUSPICIOUS+
+    ev = collect_stage1_evidence("Congratulations! You are pre-approved for a lifetime free credit card. Pay Rs 499 joining fee to activate: http://cc-claim.xyz")
+    assert "loan/card lure click-through" in ev["combos"] and ev["rule_score"] >= 35, ev
+    r = analyze_message("Congratulations! You are pre-approved for a lifetime free credit card. Pay Rs 499 joining fee to activate: http://cc-claim.xyz")
+    assert r["final_decision"]["risk"] in ("SUSPICIOUS", "HIGH_RISK"), r
+    # FP guard: plain card statement notification stays SAFE
+    r = analyze_message("Your HDFC credit card statement is ready. View it in the HDFC app.")
+    assert r["final_decision"]["risk"] == "SAFE", r
 
     print("[OK] scam_engine: all self-checks passed")
 

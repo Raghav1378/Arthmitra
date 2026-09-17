@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 import json
 from uuid import uuid4
 import sqlite3
-from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Float, DateTime, select, insert, delete
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Float, DateTime, select, insert, delete, update, text
 from databases import Database
 
 # ── Database Config ────────────────────────────────────────────────────────────
@@ -44,11 +44,52 @@ scam_scans_table = Table(
     Column("confidence", Integer),
     Column("scam_type", String),
     Column("source", String),  # 'text' | 'image'
+    Column("feedback", String),  # user verdict: 'scam' | 'legit' | NULL
+    Column("created_at", String),
+)
+
+trusted_contacts_table = Table(
+    "trusted_contacts",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("value", String, unique=True),   # phone number or UPI ID
+    Column("label", String),                # e.g. "Mom", "Landlord"
+    Column("created_at", String),
+)
+
+subscriptions_table = Table(
+    "subscriptions",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("name", String),
+    Column("amount", Float),
+    Column("frequency", String),    # 'monthly' | 'yearly'
+    Column("category", String),     # 'streaming' | 'utility' | 'fitness' | ...
+    Column("next_due", String),     # ISO date or ''
+    Column("active", Integer, default=1),  # 1 = paying, 0 = cancelled
+    Column("created_at", String),
+)
+
+goals_table = Table(
+    "goals",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("title", String),
+    Column("target_amount", Float),
+    Column("saved_amount", Float, default=0),
+    Column("target_date", String),  # ISO date or ''
     Column("created_at", String),
 )
 
 engine = create_engine(DATABASE_URL)
 metadata.create_all(engine)
+# create_all won't ALTER an existing table — add the feedback column if missing
+with engine.connect() as _conn:
+    try:
+        _conn.execute(text("ALTER TABLE scam_scans ADD COLUMN feedback VARCHAR"))
+        _conn.commit()
+    except Exception:
+        pass  # column already exists
 
 # Load .env from backend directory, then fallback to PROJECT ROOT
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
@@ -198,12 +239,16 @@ app.add_middleware(
 # ── Rate Limiting ───────────────────────────────────────────────────────────────
 # In-memory sliding window per client IP. Zero deps.
 # ponytail: per-process dict — add Redis if you ever run multiple workers.
-RATE_LIMITS = {"/chat/stream": (6, 60), "/scam/": (30, 60)}   # (max requests, window secs)
+RATE_LIMITS = {"/chat/stream": (6, 60), "/scam/": (30, 60), "/advisor/": (10, 60)}   # (max requests, window secs)
 DEFAULT_LIMIT = (60, 60)
-_rate_hits: Dict[str, deque] = defaultdict(deque)
+_rate_hits: Dict[tuple, deque] = defaultdict(deque)
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
+    # CORS preflight (OPTIONS) never counts: the 429 response would lack CORS
+    # headers and the browser reports it as "Failed to fetch", not 429.
+    if request.method == "OPTIONS":
+        return await call_next(request)
     ip = request.client.host if request.client else "unknown"
     for prefix, (limit, window) in RATE_LIMITS.items():
         if request.url.path.startswith(prefix):
@@ -211,7 +256,7 @@ async def rate_limit_middleware(request: Request, call_next):
     else:
         limit, window = DEFAULT_LIMIT
     now = time.monotonic()
-    hits = _rate_hits[ip]
+    hits = _rate_hits[(ip, prefix)]
     while hits and hits[0] <= now - window:
         hits.popleft()
     if len(hits) >= limit:
@@ -235,15 +280,13 @@ async def startup_event():
         logger.error(f"Database connect failed: {e}")
 
     async def _init_ml():
-        # Warm heavy imports (torch/groq, ~30s on cold cache) in a worker
-        # thread so the first real request doesn't pay the import cost.
+        # Warm only lightweight LLM wrappers. Loading the sentence-transformer
+        # here causes high CPU/network activity while the API is serving requests.
         def _warm():
             try:
                 import langchain_groq  # noqa: F401
                 import langchain_ollama  # noqa: F401
-                from rag.embedder import get_embedder
-                get_embedder()
-                logger.info("LLM + embedder imports warmed.")
+                logger.info("LLM imports warmed.")
             except Exception as e:
                 logger.warning(f"Warmup skipped: {e}")
         await asyncio.to_thread(_warm)
@@ -366,8 +409,99 @@ async def streaming_chat(request: ChatRequest):
     )
 
 
-@app.get("/")
-async def root():
+# ── Advisor: data-grounded chat over the user's own ArthMitra data ──────────
+
+class AdvisorRequest(BaseModel):
+    message: str
+    history: Optional[List[Dict]] = None
+
+
+ADVISOR_PROMPT = """You are ArthMitra Advisor — a personal finance coach for an Indian user.
+You are given the user's LIVE financial data below (subscriptions, savings goals, scam-scan history).
+Rules:
+- Ground every answer in this data. Quote exact numbers (₹ amounts, % progress, dates) from it.
+- Give CONCRETE suggestions: which subscription to cancel, how much ₹/month to save for which goal,
+  what scam patterns appeared in their history and how to avoid them.
+- If data is empty in an area, say so and suggest what to add in the app.
+- Be concise, warm, and practical. Use ₹. Short paragraphs or bullets. No disclaimers beyond one line.
+- Never invent data that is not in the context.
+"""
+
+
+async def _advisor_snapshot() -> str:
+    """Text summary of the user's ArthMitra data. Missing areas degrade gracefully."""
+    parts: List[str] = []
+    try:
+        subs = [dict(r) for r in await database.fetch_all(
+            select(subscriptions_table).where(subscriptions_table.c.active == 1))]
+        monthly = sum(s["amount"] for s in subs if s["frequency"] == "monthly") \
+            + sum(s["amount"] / 12 for s in subs if s["frequency"] == "yearly")
+        if subs:
+            lines = [f"- {s['name']}: ₹{s['amount']:.0f}/{s['frequency']}"
+                     f" (category: {s['category']}, next due: {s['next_due'] or 'unknown'})"
+                     for s in subs]
+            parts.append("SUBSCRIPTIONS (active):\n" + "\n".join(lines)
+                         + f"\nTotal recurring burn: ₹{monthly:.0f}/month (₹{monthly*12:.0f}/year)")
+        else:
+            parts.append("SUBSCRIPTIONS: none tracked yet")
+    except Exception:
+        parts.append("SUBSCRIPTIONS: unavailable")
+    try:
+        goals = [dict(r) for r in await database.fetch_all(select(goals_table))]
+        if goals:
+            lines = [f"- {g['title']}: saved ₹{g['saved_amount']:.0f} of ₹{g['target_amount']:.0f}"
+                     f" ({g['saved_amount']/g['target_amount']*100:.0f}%)"
+                     + (f", target date {g['target_date']}" if g['target_date'] else "")
+                     for g in goals]
+            parts.append("SAVINGS GOALS:\n" + "\n".join(lines))
+        else:
+            parts.append("SAVINGS GOALS: none set yet")
+    except Exception:
+        parts.append("SAVINGS GOALS: unavailable")
+    try:
+        scans = [dict(r) for r in await database.fetch_all(
+            select(scam_scans_table).order_by(scam_scans_table.c.created_at.desc()).limit(20))]
+        if scans:
+            counts: Dict[str, int] = defaultdict(int)
+            for s in scans:
+                counts[s["risk"]] += 1
+            lines = [f"- [{s['risk']}] {s['message_text'][:80]}" for s in scans[:10]]
+            parts.append(f"RECENT SCAM SCANS (last {len(scans)}, counts {dict(counts)}):\n" + "\n".join(lines))
+        else:
+            parts.append("RECENT SCAM SCANS: none yet")
+    except Exception:
+        parts.append("RECENT SCAM SCANS: unavailable")
+    return "\n\n".join(parts)
+
+
+@app.post("/advisor/stream")
+async def advisor_stream(request: AdvisorRequest):
+    """Data-grounded advisor chat. Always local Ollama, SSE stream like /chat/stream."""
+    message = request.message
+    snapshot = await _advisor_snapshot()
+
+    async def generate():
+        try:
+            yield f"data: {json.dumps({'snapshot': True})}\n\n"
+            from langchain_core.messages import HumanMessage, SystemMessage
+            llm = get_llm(provider="ollama", temperature=0.4, streaming=True)
+            messages = [SystemMessage(content=ADVISOR_PROMPT + "\n--- USER DATA ---\n" + snapshot + "\n--- END USER DATA ---\n")]
+            messages.extend(build_history_messages(request.history or []))
+            messages.append(HumanMessage(content=message))
+            async for chunk in llm.astream(messages):
+                if chunk.content:
+                    yield f"data: {json.dumps({'token': chunk.content, 'model': OLLAMA_CHAT_MODEL})}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            logger.error(f"advisor stream error: {e}")
+            yield f"data: {json.dumps({'token': f' [Error: {str(e)}]'})}\n\n"
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
     return {
         "status": "online",
         "groq_key": bool(os.getenv("GROQ_API_KEY")),
@@ -393,21 +527,38 @@ async def scam_analyze(request: ScamAnalyzeRequest):
     Groq failure degrades to Stage 1 + Stage 3 with identical response shape.
     """
     from app.scam_engine import analyze_message_hybrid
+    # Trusted contacts lower recipient risk — fetch once per scan, tolerate DB down
+    try:
+        rows = await database.fetch_all(select(trusted_contacts_table.c.value))
+        trusted = [r["value"] for r in rows]
+    except Exception:
+        trusted = []
     result = await analyze_message_hybrid(
         request.message_text,
         time_of_message=request.time_of_message,
         message_frequency=request.message_frequency,
+        trusted_contacts=trusted,
     )
-    await _record_scan(request.message_text, result, "text")
+    result["scan_id"] = await _record_scan(request.message_text, result, "text")
     return result
 
 
-async def _record_scan(text: str, result: dict, source: str):
-    """Persist a scan for the history dashboard. Never fails the request."""
+async def _get_trusted() -> List[str]:
+    try:
+        rows = await database.fetch_all(select(trusted_contacts_table.c.value))
+        return [r["value"] for r in rows]
+    except Exception:
+        return []
+
+
+async def _record_scan(text: str, result: dict, source: str) -> Optional[str]:
+    """Persist a scan for the history dashboard. Never fails the request.
+    Returns the scan id (for feedback buttons), or None on failure."""
+    scan_id = uuid4().hex
     try:
         fd = result["final_decision"]
         await database.execute(insert(scam_scans_table).values(
-            id=uuid4().hex,
+            id=scan_id,
             message_text=text[:500],
             risk=fd["risk"],
             risk_score=fd["risk_score"],
@@ -416,8 +567,10 @@ async def _record_scan(text: str, result: dict, source: str):
             source=source,
             created_at=datetime.now().isoformat(),
         ))
+        return scan_id
     except Exception as e:
         logger.warning(f"scan history write failed: {e}")
+        return None
 
 
 @app.get("/scam/history")
@@ -446,10 +599,154 @@ async def scam_history(limit: int = 50):
     }
 
 
+class TrustedContactIn(BaseModel):
+    value: str = Field(..., min_length=3, max_length=100)  # phone or UPI ID
+    label: Optional[str] = Field(None, max_length=50)
+
+
+@app.get("/scam/contacts")
+async def list_trusted_contacts():
+    rows = await database.fetch_all(
+        select(trusted_contacts_table).order_by(trusted_contacts_table.c.created_at.desc())
+    )
+    return [dict(r) for r in rows]
+
+
+@app.post("/scam/contacts")
+async def add_trusted_contact(c: TrustedContactIn):
+    value = c.value.strip().lower()
+    try:
+        await database.execute(insert(trusted_contacts_table).values(
+            id=uuid4().hex, value=value, label=c.label, created_at=datetime.now().isoformat(),
+        ))
+    except Exception:
+        raise HTTPException(status_code=409, detail="Contact already trusted.")
+    return {"status": "added", "value": value}
+
+
+@app.delete("/scam/contacts/{contact_id}")
+async def delete_trusted_contact(contact_id: str):
+    await database.execute(delete(trusted_contacts_table).where(trusted_contacts_table.c.id == contact_id))
+    return {"status": "deleted"}
+
+
 @app.delete("/scam/history")
 async def clear_scam_history():
     await database.execute(delete(scam_scans_table))
     return {"status": "all_deleted"}
+
+
+class ScanFeedbackRequest(BaseModel):
+    scan_id: str
+    feedback: str  # 'scam' | 'legit'
+
+
+@app.post("/scam/feedback")
+async def scam_feedback(req: ScanFeedbackRequest):
+    """User verdict on a scan — 'Report as scam' / 'This is legit' buttons.
+    Stored on the scan row for later model tuning / FP analysis."""
+    if req.feedback not in ("scam", "legit"):
+        raise HTTPException(status_code=422, detail="feedback must be 'scam' or 'legit'.")
+    row = await database.fetch_one(select(scam_scans_table.c.id).where(scam_scans_table.c.id == req.scan_id))
+    if not row:
+        raise HTTPException(status_code=404, detail="Scan not found.")
+    await database.execute(
+        update(scam_scans_table).where(scam_scans_table.c.id == req.scan_id).values(feedback=req.feedback)
+    )
+    return {"status": "recorded", "scan_id": req.scan_id, "feedback": req.feedback}
+
+
+# ── Subscriptions (recurring payments tracker) ─────────────────────────────
+
+class SubscriptionIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    amount: float = Field(..., gt=0)
+    frequency: str  # 'monthly' | 'yearly'
+    category: Optional[str] = Field(None, max_length=50)
+    next_due: Optional[str] = None  # ISO date
+
+
+@app.get("/subscriptions")
+async def list_subscriptions():
+    rows = await database.fetch_all(
+        select(subscriptions_table).order_by(subscriptions_table.c.created_at.desc())
+    )
+    items = [dict(r) for r in rows]
+    active = [s for s in items if s["active"]]
+    monthly_burn = sum(s["amount"] for s in active if s["frequency"] == "monthly") \
+        + sum(s["amount"] / 12 for s in active if s["frequency"] == "yearly")
+    return {"subscriptions": items, "stats": {
+        "monthly_burn": round(monthly_burn, 2),
+        "yearly_burn": round(monthly_burn * 12, 2),
+        "active_count": len(active),
+    }}
+
+
+@app.post("/subscriptions")
+async def add_subscription(s: SubscriptionIn):
+    if s.frequency not in ("monthly", "yearly"):
+        raise HTTPException(status_code=422, detail="frequency must be 'monthly' or 'yearly'.")
+    sub_id = uuid4().hex
+    await database.execute(insert(subscriptions_table).values(
+        id=sub_id, name=s.name.strip(), amount=round(s.amount, 2), frequency=s.frequency,
+        category=(s.category or "other").strip().lower(), next_due=s.next_due or "",
+        active=1, created_at=datetime.now().isoformat(),
+    ))
+    return {"status": "added", "id": sub_id}
+
+
+@app.delete("/subscriptions/{sub_id}")
+async def delete_subscription(sub_id: str):
+    await database.execute(delete(subscriptions_table).where(subscriptions_table.c.id == sub_id))
+    return {"status": "deleted"}
+
+
+# ── Savings Goals ───────────────────────────────────────────────────────────
+
+class GoalIn(BaseModel):
+    title: str = Field(..., min_length=1, max_length=100)
+    target_amount: float = Field(..., gt=0)
+    saved_amount: float = Field(0, ge=0)
+    target_date: Optional[str] = None  # ISO date
+
+
+@app.get("/goals")
+async def list_goals():
+    rows = await database.fetch_all(select(goals_table).order_by(goals_table.c.created_at.desc()))
+    return [dict(r) for r in rows]
+
+
+@app.post("/goals")
+async def add_goal(g: GoalIn):
+    goal_id = uuid4().hex
+    await database.execute(insert(goals_table).values(
+        id=goal_id, title=g.title.strip(), target_amount=round(g.target_amount, 2),
+        saved_amount=round(g.saved_amount, 2), target_date=g.target_date or "",
+        created_at=datetime.now().isoformat(),
+    ))
+    return {"status": "added", "id": goal_id}
+
+
+class GoalContribution(BaseModel):
+    amount: float = Field(..., gt=0)  # positive = add savings
+
+
+@app.post("/goals/{goal_id}/contribute")
+async def contribute_goal(goal_id: str, c: GoalContribution):
+    row = await database.fetch_one(select(goals_table).where(goals_table.c.id == goal_id))
+    if not row:
+        raise HTTPException(status_code=404, detail="Goal not found.")
+    new_saved = round(min(row["saved_amount"] + c.amount, row["target_amount"]), 2)
+    await database.execute(
+        update(goals_table).where(goals_table.c.id == goal_id).values(saved_amount=new_saved)
+    )
+    return {"status": "updated", "saved_amount": new_saved}
+
+
+@app.delete("/goals/{goal_id}")
+async def delete_goal(goal_id: str):
+    await database.execute(delete(goals_table).where(goals_table.c.id == goal_id))
+    return {"status": "deleted"}
 
 
 @app.post("/scam/scan_image")
@@ -494,7 +791,7 @@ async def scam_scan_image(file: UploadFile = File(...)):
 
     from app.scam_engine import analyze_message_hybrid
     result = await analyze_message_hybrid(text)
-    await _record_scan(text, result, "image")
+    result["scan_id"] = await _record_scan(text, result, "image")
     result["ocr_text"] = text
     return result
 
@@ -879,6 +1176,8 @@ class BehaviorAnalyzeRequest(BaseModel):
     amount: str
     time_of_transaction: Optional[str] = None
     frequency: Optional[str] = None
+    same_recipient_count: Optional[int] = None
+    contact_known_since_days: Optional[int] = None
 
 @app.post("/scam/behavior")
 async def scam_behavior(request: BehaviorAnalyzeRequest):
@@ -890,6 +1189,8 @@ async def scam_behavior(request: BehaviorAnalyzeRequest):
         request.amount,
         time_of_transaction=request.time_of_transaction,
         frequency=request.frequency,
+        same_recipient_count=request.same_recipient_count,
+        contact_known_since_days=request.contact_known_since_days,
     )
 
 

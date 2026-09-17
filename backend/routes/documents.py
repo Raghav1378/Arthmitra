@@ -17,10 +17,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-# Heavy deps (sentence-transformers+torch, ~4.5s import) are imported lazily
-# inside handlers: get_embedder via rag.embedder, ingesters via rag.ingest.
-# ingest_text is light enough (embedder import is itself lazy in rag.ingest).
-from rag.ingest import ingest_text
+# Heavy RAG dependencies are imported inside handlers so API startup stays fast.
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +98,7 @@ async def paste_text(body: PasteRequest) -> dict[str, Any]:
     if not body.text.strip():
         raise HTTPException(status_code=400, detail="Pasted text cannot be empty.")
 
+    from rag.ingest import ingest_text
     filename = f"{body.label or 'pasted_text'}.txt"
     chunks = await ingest_text(body.text, filename, body.session_id)
 

@@ -41,7 +41,7 @@ def test_planner():
     
     result = analyze_financial_plan(goals, budget, transactions)
     
-    with open("test_output.txt", "w") as f:
+    with open("test_output.txt", "w", encoding="utf-8") as f:
         f.write("\n--- PLANNER RESULT ---\n")
         f.write(json.dumps(result, indent=2))
         f.write("\n")
