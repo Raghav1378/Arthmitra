@@ -12,7 +12,8 @@
       "Bash(python -)",
       "Bash(./arthmitra/Scripts/python.exe app/policy_engine.py)",
       "Bash(./arthmitra/Scripts/python.exe app/scam_engine.py)",
-      "Bash(./arthmitra/Scripts/python.exe scripts/eval_hybrid.py --mode ml)"
+      "Bash(./arthmitra/Scripts/python.exe scripts/eval_hybrid.py --mode ml)",
+      "Bash(PYTHONIOENCODING=utf-8 arthmitra/Scripts/python.exe -m app.scam_engine)"
     ]
   }
 }

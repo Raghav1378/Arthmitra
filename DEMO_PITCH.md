@@ -4,19 +4,26 @@ End-to-end demo script. Only live, working features. Honest framing.
 
 ---
 
-## Pitch
+## One-line pitch
 
-> "Every scam starts by creating pressure. A scammer may pretend to be a bank, a police officer, or a family member and say: 'Pay now, or your account will be blocked.' The victim has only a few seconds to decide whether the request is real.
->
-> ArthMitra gives the victim that missing moment of safety. The user pastes the message or payment request into Scam Shield. The system checks the words, the urgency, the link, the UPI ID, and the request for money. It then combines rules, ML pattern detection, semantic analysis, and policy checks to produce a risk level, evidence, a safe next step, and relevant RBI guidance.
->
-> The protection continues after the message. ArthMitra can check transaction behaviour such as unusual timing, repeated small verification payments, or a transfer to an unknown person. The expense ledger records the transaction and its security audit. The Mitra assistant explains the result in simple language and can use trusted documents or optional live web research.
->
-> This is the complete journey: a scammer creates urgency, ArthMitra examines the message and payment details, the backend makes an explainable decision, and the user gets a clear reason to pause before sending money. ArthMitra does not promise that scams will disappear; it helps people recognise the warning signs early enough to make a safer decision."
+> "ArthMitra is a financial safety layer for India: it checks suspicious messages, links, UPI handles, and spending behaviour before money leaves your account, then explains the decision with RBI-grounded guidance."
 
-### End-to-end system in one line
+## Best 90-second pitch
 
-> "User message or transaction -> Next.js interface -> FastAPI backend -> rules, ML, semantic analysis, and policy engine -> risk score with evidence and RBI guidance -> ledger audit and assistant advice."
+> "Digital payments are fast, but scams are designed to make people act before they think. A caller can impersonate a bank, a police officer, or a family member and create pressure in seconds. The problem is bigger than any single headline: official complaint counts only show reported incidents, and many victims never report.
+>
+> ArthMitra is my answer to that gap. I built one local financial-safety app with four connected capabilities: Scam Shield analyses messages, links, and UPI handles; the behaviour engine checks suspicious transactions such as unusual timing or repeated small verification payments; the ledger keeps expenses and attaches a security audit; and the assistant explains what happened using Indian financial context and RBI guidance.
+>
+> The important design choice is trust. The final risk decision is reproducible: deterministic rules and a statistical model do the first check, policy logic resolves conflicts, and hard circuit breakers protect legitimate OTPs and verified bank alerts. AI is used for explanations and context, not as an unaccountable yes-or-no gate.
+>
+> In the demo, I will show a real bank OTP passing as safe, a defanged KYC link being caught, and a government-impersonation UPI request being blocked. That is ArthMitra: detect the pressure, explain the risk, and help the user pause before paying."
+
+### Why this pitch works
+
+- It starts with a human consequence: scams create urgency before a person can verify.
+- It makes a specific product promise instead of claiming to solve all fraud.
+- It distinguishes reported public incidents from ArthMitra's own measured test results.
+- It shows the strongest product proof: safe legitimate messages pass, while disguised scams are still examined.
 
 ---
 
@@ -39,6 +46,24 @@ npm run dev
 ```
 
 **Dry-run the test messages below once before the audience arrives.** No surprises on stage.
+
+### Live public evidence (optional 45-second add-on)
+
+Use the Chat tab with the live-research/Tavily mode enabled and ask:
+
+```text
+Find the latest official Indian cyber-fraud complaint and reported-loss figures.
+Give the source organisation, publication date, reporting period, URL, and a
+one-line caveat about under-reporting. Do not estimate victims from complaints.
+```
+
+Say:
+
+> "This is a live public-data context check, not a fake real-time victim counter. Complaint data tells us what was reported; it does not tell us the true number of victims. ArthMitra uses that context to explain urgency, while its own performance is measured separately on regression tests and held-out evaluation data."
+
+**The honest out-of-10 framing:** do not say "6 out of 10 Indians get scammed" unless a named survey supports that exact figure. Complaint totals cannot be converted into a probability for ten people. If the audience asks for a simple example, say: "For every 10 suspicious messages, the goal is to give each person a fast, explainable second opinion before they pay" - that is a product goal, not a population statistic.
+
+If you need a dated statistic on a slide, show the exact reporting period and source next to it. Never label an annual official total as live or real-time.
 
 ---
 
@@ -120,7 +145,11 @@ Documents tab: upload a PDF (e.g., RBI circular), ask a question about it — re
 
 ### Act 5 — Close (30 sec)
 
-> "Detection, ledger, audit, and an assistant — one local app. The engine has 35+ regression tests around real Indian scam patterns: KYC phishing, Cyber-Cell extortion, job traps, lottery bait, defanged links."
+> "Detection, ledger, audit, and an assistant — one local app. I built the safety layer around real Indian scam patterns: KYC phishing, Cyber-Cell extortion, job traps, lottery bait, defanged links, suspicious timing, and UPI impersonation. The result is not just a warning; it is a reasoned decision, a safer next action, and an audit trail."
+
+### What you made, in one sentence
+
+> "I built ArthMitra as a local-first financial safety assistant that combines deterministic scam detection, ML pattern screening, policy-based decisioning, RBI-grounded explanations, expense tracking, and an AI assistant in one workflow."
 
 ---
 

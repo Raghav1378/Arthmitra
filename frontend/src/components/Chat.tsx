@@ -124,6 +124,7 @@ export default function Chat() {
   const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
   const [provider, setProvider] = useState<"ollama" | "groq">("ollama");
   const [groqAvailable, setGroqAvailable] = useState(false);
+  const [providerConfigLoaded, setProviderConfigLoaded] = useState(false);
   const [tavilyAvailable, setTavilyAvailable] = useState(false);
   const [activeDocs, setActiveDocs] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -153,7 +154,8 @@ export default function Chat() {
         setIsWebSearchEnabled(Boolean(config.tavily_available));
         if (config.default_provider === "groq" && config.groq_available) setProvider("groq");
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setProviderConfigLoaded(true));
   }, []);
 
   // Initialize Speech Recognition
@@ -483,7 +485,7 @@ export default function Chat() {
       setIsLoading(false);
       setIsStreaming(false);
     }
-  }, [isLoading, isStreaming, isWebSearchEnabled, isDeepSearchEnabled, provider, currentSessionId, messages]);
+  }, [isLoading, isStreaming, isWebSearchEnabled, isDeepSearchEnabled, tavilyAvailable, provider, currentSessionId, messages]);
 
   const handleFileUpload = useCallback(async (file: File) => {
     if (file.size > 10 * 1024 * 1024) return;
@@ -601,11 +603,11 @@ export default function Chat() {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-ink-900/[0.03] border border-ink-900/[0.06]" title={groqAvailable ? "Choose the AI provider" : "Add GROQ_API_KEY to backend/.env to enable Groq"}>
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-ink-900/[0.03] border border-ink-900/[0.06]" title={!providerConfigLoaded ? "Checking AI provider availability..." : groqAvailable ? "Choose the AI provider" : "Add GROQ_API_KEY to backend/.env to enable Groq"}>
             <button onClick={() => setProvider("ollama")} title="Local Ollama: private, offline, and free" className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${provider === "ollama" ? "bg-ink-900/[0.09] text-ink-950" : "text-parchment-faint"}`}>
               Local
             </button>
-            <button disabled={!groqAvailable} onClick={() => setProvider("groq")} title="Groq cloud: faster responses and stronger reasoning" className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all disabled:opacity-40 ${provider === "groq" ? "bg-gold-500/15 text-gold-700" : "text-parchment-faint"}`}>
+            <button disabled={providerConfigLoaded && !groqAvailable} onClick={() => setProvider("groq")} title={!providerConfigLoaded ? "Checking Groq availability..." : groqAvailable ? "Groq cloud: faster responses and stronger reasoning" : "Add GROQ_API_KEY to backend/.env to enable Groq"} className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all disabled:opacity-40 ${provider === "groq" ? "bg-gold-500/15 text-gold-700" : "text-parchment-faint"}`}>
               Groq
             </button>
           </div>

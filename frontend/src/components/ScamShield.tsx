@@ -49,6 +49,7 @@ interface ScamResult {
   llm_stage?: "used" | "skipped";
   ai_analysis?: AIAnalysis;
   engine_disagreement?: EngineDisagreement;
+  scan_id?: string | null;
 }
 
 interface DecisionResult {
@@ -125,6 +126,13 @@ interface ScanRow {
   confidence: number;
   scam_type: string;
   source: string;
+  created_at: string;
+}
+
+interface TrustedContact {
+  id: string;
+  value: string;
+  label: string | null;
   created_at: string;
 }
 
@@ -296,6 +304,7 @@ export default function ScamShield() {
   const [message, setMessage] = useState("");
   const [timeOfMessage, setTimeOfMessage] = useState("");
   const [messageResult, setMessageResult] = useState<ScamResult | null>(null);
+  const [feedbackSent, setFeedbackSent] = useState<"scam" | "legit" | null>(null);
 
   // Behavior states
   const [amount, setAmount] = useState("");
@@ -314,6 +323,42 @@ export default function ScamShield() {
   // History + image states
   const [history, setHistory] = useState<HistoryData | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Trusted contacts (recipient detection)
+  const [contacts, setContacts] = useState<TrustedContact[]>([]);
+  const [contactInput, setContactInput] = useState("");
+  const [contactLabel, setContactLabel] = useState("");
+  const [showContacts, setShowContacts] = useState(false);
+
+  const loadContacts = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/scam/contacts`);
+      if (res.ok) setContacts(await res.json());
+    } catch { /* list stays stale; scan still works with backend-side fetch */ }
+  }, []);
+
+  const addContact = useCallback(async () => {
+    const value = contactInput.trim();
+    if (!value) return;
+    try {
+      const res = await fetch(`${API_BASE}/scam/contacts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value, label: contactLabel.trim() || undefined }),
+      });
+      if (!res.ok) throw new Error((await res.json()).detail || "Failed");
+      setContactInput("");
+      setContactLabel("");
+      loadContacts();
+    } catch (e: any) {
+      setError(e.message || "Could not add contact.");
+    }
+  }, [contactInput, contactLabel, loadContacts]);
+
+  const removeContact = useCallback(async (id: string) => {
+    await fetch(`${API_BASE}/scam/contacts/${id}`, { method: "DELETE" });
+    loadContacts();
+  }, [loadContacts]);
 
   // Shared states
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -335,6 +380,7 @@ export default function ScamShield() {
     try {
       if (activeTab === "message") {
         setMessageResult(null);
+        setFeedbackSent(null);
         const res = await fetch(`${API_BASE}/scam/analyze`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -412,6 +458,7 @@ export default function ScamShield() {
       if (!res.ok) throw new Error(data.detail || `Server error: ${res.status}`);
       setMessage(data.ocr_text || "");
       setMessageResult(data);
+      setFeedbackSent(null);
       setAnalysisCount(c => c + 1);
     } catch (e: any) {
       setError(e.message || "Screenshot scan failed.");
@@ -420,9 +467,27 @@ export default function ScamShield() {
     }
   }, [isAnalyzing]);
 
+  const sendFeedback = useCallback(async (feedback: "scam" | "legit") => {
+    const scanId = messageResult?.scan_id;
+    if (!scanId) return;
+    setFeedbackSent(null);
+    try {
+      const res = await fetch(`${API_BASE}/scam/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scan_id: scanId, feedback }),
+      });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      setFeedbackSent(feedback);
+    } catch (e: any) {
+      setError(e.message || "Could not record feedback.");
+    }
+  }, [messageResult]);
+
   useEffect(() => {
     if (activeTab === "history") loadHistory();
-  }, [activeTab, loadHistory]);
+    if (activeTab === "message") loadContacts();
+  }, [activeTab, loadHistory, loadContacts]);
 
   const reset = () => {
     setMessage("");
@@ -431,6 +496,7 @@ export default function ScamShield() {
     setTimeOfTransaction("");
     setFrequency("");
     setMessageResult(null);
+    setFeedbackSent(null);
     setBehaviorResult(null);
     setLinkInput("");
     setLinkResult(null);
@@ -568,6 +634,58 @@ export default function ScamShield() {
                     {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
                     {isAnalyzing ? "Scanning Screenshot…" : "Scan a Screenshot Instead"}
                   </button>
+
+                  {/* Trusted contacts — recipient detection */}
+                  <div className="rounded-2xl border border-ink-900/[0.06] bg-ink-900/[0.02] overflow-hidden">
+                    <button onClick={() => setShowContacts(!showContacts)} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-ink-900/[0.04] transition-all">
+                      <span className="flex items-center gap-2 text-[11px] font-black text-parchment-faint uppercase tracking-widest font-display">
+                        <CheckCircle className="w-4 h-4 text-emerald-700" /> Trusted Contacts ({contacts.length})
+                      </span>
+                      {showContacts ? <ChevronUp className="w-4 h-4 text-parchment-faint" /> : <ChevronDown className="w-4 h-4 text-parchment-faint" />}
+                    </button>
+                    <AnimatePresence>
+                      {showContacts && (
+                        <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
+                          <div className="px-5 pb-5 space-y-3">
+                            <p className="text-xs text-parchment-faint font-sans">Numbers and UPI IDs here are treated as known recipients — scans won't add the "Unknown Recipient" risk signal for them.</p>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <input
+                                type="text"
+                                value={contactInput}
+                                onChange={e => setContactInput(e.target.value)}
+                                onKeyDown={e => e.key === "Enter" && addContact()}
+                                placeholder="Phone (9876543210) or UPI (papa@ybl)"
+                                className="flex-1 bg-ink-900/[0.03] border border-ink-900/[0.08] rounded-xl px-4 py-2.5 text-xs text-parchment placeholder:text-stone-600 focus:outline-none focus:border-emerald-500/40 transition-all font-sans"
+                              />
+                              <input
+                                type="text"
+                                value={contactLabel}
+                                onChange={e => setContactLabel(e.target.value)}
+                                onKeyDown={e => e.key === "Enter" && addContact()}
+                                placeholder="Name (optional)"
+                                className="sm:w-40 bg-ink-900/[0.03] border border-ink-900/[0.08] rounded-xl px-4 py-2.5 text-xs text-parchment placeholder:text-stone-600 focus:outline-none focus:border-emerald-500/40 transition-all font-sans"
+                              />
+                              <button onClick={addContact} disabled={!contactInput.trim()} className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest font-display hover:bg-emerald-500 transition-all disabled:opacity-30">
+                                Add
+                              </button>
+                            </div>
+                            {contacts.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {contacts.map(ct => (
+                                  <span key={ct.id} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-bold text-emerald-700">
+                                    {ct.label ? `${ct.label} · ` : ""}{ct.value}
+                                    <button onClick={() => removeContact(ct.id)} className="text-emerald-700/60 hover:text-red-600 transition-colors">
+                                      <XCircle className="w-3.5 h-3.5" />
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </>
               ) : activeTab === "behavior" ? (
                 <>
@@ -831,6 +949,7 @@ export default function ScamShield() {
                     <SignalChip label="Impersonation" active={hasExact('authority impersonation')} icon={<Eye className="w-3.5 h-3.5" />} />
                     <SignalChip label="Odd Timing" active={hasExact('odd timing (12 AM - 6 AM)')} icon={<Clock className="w-3.5 h-3.5" />} />
                     <SignalChip label="Repetition" active={hasExact('repeated messages')} icon={<Hash className="w-3.5 h-3.5" />} />
+                    <SignalChip label="Unknown Recipient" active={hasExact('unknown recipient')} icon={<Eye className="w-3.5 h-3.5" />} />
                   </div>
                 </div>
 
@@ -897,6 +1016,32 @@ export default function ScamShield() {
                     )}
                   </AnimatePresence>
                 </div>
+
+                {messageResult.scan_id && (
+                  <div className="flex items-center gap-3">
+                    {feedbackSent ? (
+                      <p className="text-xs text-parchment-faint font-sans">
+                        Thanks — marked as <span className="font-bold">{feedbackSent === "scam" ? "scam" : "legit"}</span>.
+                      </p>
+                    ) : (
+                      <>
+                        <span className="text-[10px] font-black text-parchment-faint uppercase tracking-widest font-display">Was this right?</span>
+                        <button
+                          onClick={() => sendFeedback("scam")}
+                          className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-600 text-xs font-bold hover:bg-red-500/20 transition-all"
+                        >
+                          Report as Scam
+                        </button>
+                        <button
+                          onClick={() => sendFeedback("legit")}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 text-xs font-bold hover:bg-emerald-500/20 transition-all"
+                        >
+                          This is Legit
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

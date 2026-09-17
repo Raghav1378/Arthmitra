@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Upload, FileText, Image as ImageIcon, Database, X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getSessionId } from "@/lib/session";
@@ -26,12 +26,7 @@ export default function DocumentUploader() {
 
   const sessionId = getSessionId();
 
-  // Load documents on mount
-  useEffect(() => {
-    fetchDocs();
-  }, []);
-
-  const fetchDocs = async () => {
+  const fetchDocs = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/documents/list?session_id=${sessionId}`);
       const data = await res.json();
@@ -41,7 +36,12 @@ export default function DocumentUploader() {
     } catch (e) {
       console.error("Failed to list documents", e);
     }
-  };
+  }, [sessionId]);
+
+  // Load documents on mount
+  useEffect(() => {
+    fetchDocs();
+  }, [fetchDocs]);
 
   const showMessage = (type: "success" | "error", text: string) => {
     setMessage({ type, text });

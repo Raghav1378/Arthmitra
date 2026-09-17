@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   MessageSquare, Shield, PieChart,
-  Settings, HelpCircle, GripVertical
+  Settings, HelpCircle, GripVertical, Repeat, Target, Calculator, Brain
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Expense } from './ExpenseTracker';
@@ -21,6 +21,10 @@ const navItems: NavItem[] = [
   { id: 'chat', label: 'Mitra Chat', icon: MessageSquare, color: 'text-gold-400', active: true },
   { id: 'expenses', label: 'Ledger', icon: PieChart, color: 'text-ledger-green', active: true },
   { id: 'security', label: 'Scam Shield', icon: Shield, color: 'text-ledger-red', active: true },
+  { id: 'subscriptions', label: 'Subscriptions', icon: Repeat, color: 'text-cyan-400', active: true },
+  { id: 'goals', label: 'Goals', icon: Target, color: 'text-violet-400', active: true },
+  { id: 'emi', label: 'EMI Compare', icon: Calculator, color: 'text-emerald-400', active: true },
+  { id: 'advisor', label: 'Advisor', icon: Brain, color: 'text-gold-400', active: true },
 ];
 
 const secondaryItems = [

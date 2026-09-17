@@ -13,6 +13,10 @@ import Chat from '../components/Chat';
 // recharts/jspdf — load them on demand instead of in the first bundle.
 const ScamShield = dynamic(() => import('../components/ScamShield'), { ssr: false, loading: () => <div className="h-full flex items-center justify-center font-mono text-xs uppercase tracking-widest text-parchment-faint">Loading Shield…</div> });
 const ExpenseTracker = dynamic(() => import('../components/ExpenseTracker'), { ssr: false, loading: () => <div className="h-full flex items-center justify-center font-mono text-xs uppercase tracking-widest text-parchment-faint">Opening Ledger…</div> });
+const Subscriptions = dynamic(() => import('../components/Subscriptions'), { ssr: false, loading: () => <div className="h-full flex items-center justify-center font-mono text-xs uppercase tracking-widest text-parchment-faint">Loading Subscriptions…</div> });
+const Goals = dynamic(() => import('../components/Goals'), { ssr: false, loading: () => <div className="h-full flex items-center justify-center font-mono text-xs uppercase tracking-widest text-parchment-faint">Opening Goals…</div> });
+const EmiCompare = dynamic(() => import('../components/EmiCompare'), { ssr: false, loading: () => <div className="h-full flex items-center justify-center font-mono text-xs uppercase tracking-widest text-parchment-faint">Opening EMI Compare…</div> });
+const Advisor = dynamic(() => import('../components/Advisor'), { ssr: false, loading: () => <div className="h-full flex items-center justify-center font-mono text-xs uppercase tracking-widest text-parchment-faint">Waking Advisor…</div> });
 import Sidebar from '../components/Sidebar';
 import ApiStatusIndicator from '../components/ApiStatusIndicator';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -143,6 +147,50 @@ export default function Home() {
                         className="w-full h-full flex flex-col shadow-2xl shadow-ink-950/15 rounded-3xl overflow-hidden glass-strong border border-ink-900/[0.05]"
                     >
                         <ExpenseTracker expenses={expenses} setExpenses={setExpenses} onClose={() => setActiveView('chat')} onOpenSecurityAudit={() => setShowSecurityAudit(true)} />
+                    </motion.div>
+                ) : activeView === "subscriptions" ? (
+                    <motion.div
+                        key="subscriptions-view"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        className="w-full max-w-5xl h-full flex flex-col shadow-2xl shadow-ink-950/15 rounded-3xl overflow-hidden glass-strong border border-ink-900/[0.05]"
+                    >
+                        <Subscriptions />
+                    </motion.div>
+                ) : activeView === "goals" ? (
+                    <motion.div
+                        key="goals-view"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        className="w-full max-w-5xl h-full flex flex-col shadow-2xl shadow-ink-950/15 rounded-3xl overflow-hidden glass-strong border border-ink-900/[0.05]"
+                    >
+                        <Goals />
+                    </motion.div>
+                ) : activeView === "emi" ? (
+                    <motion.div
+                        key="emi-view"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        className="w-full max-w-5xl h-full flex flex-col shadow-2xl shadow-ink-950/15 rounded-3xl overflow-hidden glass-strong border border-ink-900/[0.05]"
+                    >
+                        <EmiCompare />
+                    </motion.div>
+                ) : activeView === "advisor" ? (
+                    <motion.div
+                        key="advisor-view"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        className="w-full max-w-5xl h-full flex flex-col shadow-2xl shadow-ink-950/15 rounded-3xl overflow-hidden glass-strong border border-ink-900/[0.05]"
+                    >
+                        <Advisor />
                     </motion.div>
                 ) : null}
             </AnimatePresence>

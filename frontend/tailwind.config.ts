@@ -29,6 +29,15 @@ const config: Config = {
           600: "#8ba6e8",
           500: "#6d8adc",
         },
+        // Sapphire — primary accent: actions, focus, links, active nav.
+        // Gold stays reserved for wealth/premium states.
+        sapphire: {
+          300: "#8ba6e8",
+          400: "#6d8adc",
+          500: "#4a6fd4",
+          600: "#3a56ad",
+          700: "#2c4085",
+        },
         vault: {
           950: "#060b1a",
           900: "#0a1230",
