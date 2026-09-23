@@ -589,7 +589,7 @@ export default function Chat() {
             <History className="w-4 h-4" />
           </button>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-gold-500 to-emerald-500 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent-500 to-emerald-500 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-ink-950" />
             </div>
             <div>
@@ -607,7 +607,7 @@ export default function Chat() {
             <button onClick={() => setProvider("ollama")} title="Local Ollama: private, offline, and free" className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${provider === "ollama" ? "bg-ink-900/[0.09] text-ink-950" : "text-parchment-faint"}`}>
               Local
             </button>
-            <button disabled={providerConfigLoaded && !groqAvailable} onClick={() => setProvider("groq")} title={!providerConfigLoaded ? "Checking Groq availability..." : groqAvailable ? "Groq cloud: faster responses and stronger reasoning" : "Add GROQ_API_KEY to backend/.env to enable Groq"} className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all disabled:opacity-40 ${provider === "groq" ? "bg-gold-500/15 text-gold-700" : "text-parchment-faint"}`}>
+            <button disabled={providerConfigLoaded && !groqAvailable} onClick={() => setProvider("groq")} title={!providerConfigLoaded ? "Checking Groq availability..." : groqAvailable ? "Groq cloud: faster responses and stronger reasoning" : "Add GROQ_API_KEY to backend/.env to enable Groq"} className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all disabled:opacity-40 ${provider === "groq" ? "bg-accent-500/15 text-accent-700" : "text-parchment-faint"}`}>
               Groq
             </button>
           </div>
@@ -620,7 +620,7 @@ export default function Chat() {
           </button>
           <AnimatePresence>
             {isWebSearchEnabled && tavilyAvailable && (
-              <motion.button initial={{ opacity: 0, scale: 0.9, width: 0 }} animate={{ opacity: 1, scale: 1, width: "auto" }} exit={{ opacity: 0, scale: 0.9, width: 0 }} onClick={() => setIsDeepSearchEnabled(!isDeepSearchEnabled)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border overflow-hidden ${isDeepSearchEnabled ? "bg-gold-500/10 border-gold-500/20 text-gold-600" : "bg-ink-900/[0.03] border-ink-900/[0.06] text-parchment-faint"}`}>
+              <motion.button initial={{ opacity: 0, scale: 0.9, width: 0 }} animate={{ opacity: 1, scale: 1, width: "auto" }} exit={{ opacity: 0, scale: 0.9, width: 0 }} onClick={() => setIsDeepSearchEnabled(!isDeepSearchEnabled)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border overflow-hidden ${isDeepSearchEnabled ? "bg-accent-500/10 border-accent-500/20 text-accent-600" : "bg-ink-900/[0.03] border-ink-900/[0.06] text-parchment-faint"}`}>
                 <Sparkles className="w-3 h-3" />
                 Deep
               </motion.button>
@@ -653,7 +653,7 @@ export default function Chat() {
                   <button
                     key={item.id}
                     onClick={() => { switchSession(item.id); setIsSidebarOpen(false); }}
-                    className={`p-3 rounded-xl border text-left transition-all ${item.id === currentSessionId ? 'bg-gold-500/10 border-gold-500/20' : 'bg-ink-900/[0.02] border-ink-900/[0.04] hover:bg-ink-900/[0.05]'}`}
+                    className={`p-3 rounded-xl border text-left transition-all ${item.id === currentSessionId ? 'bg-accent-500/10 border-accent-500/20' : 'bg-ink-900/[0.02] border-ink-900/[0.04] hover:bg-ink-900/[0.05]'}`}
                   >
                     <span className="text-[11px] font-bold text-parchment-dim leading-tight line-clamp-1 block">{item.title}</span>
                     <span className="text-[9px] text-stone-600 mt-1 block">{new Date(item.timestamp).toLocaleDateString()}</span>
@@ -674,8 +674,8 @@ export default function Chat() {
           <div className="h-full flex flex-col items-center justify-center gap-6">
             {/* Iridescent Orb */}
             <div className="relative w-20 h-20">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-gold-400 via-gold-300 to-emerald-400 opacity-40 blur-2xl animate-pulse" style={{ animationDuration: '4s' }} />
-              <div className="relative w-full h-full rounded-full bg-gradient-to-br from-gold-500/80 via-gold-400/80 to-emerald-400/80 shadow-xl flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-accent-400 via-accent-300 to-emerald-400 opacity-40 blur-2xl animate-pulse" style={{ animationDuration: '4s' }} />
+              <div className="relative w-full h-full rounded-full bg-gradient-to-br from-accent-500/80 via-accent-400/80 to-emerald-400/80 shadow-xl flex items-center justify-center">
                 <Sparkles className="w-8 h-8 text-ink-900/70" />
               </div>
             </div>
@@ -689,10 +689,10 @@ export default function Chat() {
           {messages.map((msg) => (
             <motion.div key={msg.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               <div className={`flex gap-3 max-w-[85%] ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 ${msg.role === "user" ? "bg-gold-500/10" : "bg-emerald-500/10"}`}>
-                  {msg.role === "user" ? <User className="w-4 h-4 text-gold-600" /> : <Bot className="w-4 h-4 text-emerald-700" />}
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 ${msg.role === "user" ? "bg-accent-500/10" : "bg-emerald-500/10"}`}>
+                  {msg.role === "user" ? <User className="w-4 h-4 text-accent-600" /> : <Bot className="w-4 h-4 text-emerald-700" />}
                 </div>
-                <div className={`px-4 py-3 rounded-2xl text-[13.5px] leading-relaxed ${msg.role === "user" ? "bg-gradient-to-br from-gold-600 to-indigo-700 text-white rounded-tr-sm" : "bg-ink-900/[0.04] text-parchment rounded-tl-sm border border-ink-900/[0.06]"}`}>
+                <div className={`px-4 py-3 rounded-2xl text-[13.5px] leading-relaxed ${msg.role === "user" ? "bg-gradient-to-br from-accent-600 to-indigo-700 text-white rounded-tr-sm" : "bg-ink-900/[0.04] text-parchment rounded-tl-sm border border-ink-900/[0.06]"}`}>
                   {renderMessageContent(msg)}
                 </div>
               </div>
@@ -727,7 +727,7 @@ export default function Chat() {
         )}
 
         {/* Main Input Bar */}
-        <div className="relative flex items-center gap-2 bg-ink-900/[0.03] border border-ink-900/[0.08] rounded-2xl px-4 py-1 shadow-lg shadow-black/10 focus-within:border-gold-500/30 focus-within:shadow-gold-500/5 transition-all">
+        <div className="relative flex items-center gap-2 bg-ink-900/[0.03] border border-ink-900/[0.08] rounded-2xl px-4 py-1 shadow-lg shadow-black/10 focus-within:border-accent-500/30 focus-within:shadow-accent-500/5 transition-all">
           <span className="text-stone-600 text-lg select-none">+</span>
           <input
             id="chat-input"
@@ -741,7 +741,7 @@ export default function Chat() {
           <button onClick={toggleRecording} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isRecording ? 'bg-red-500/20 text-red-600' : 'text-parchment-faint hover:text-ink-950 hover:bg-ink-900/[0.06]'}`}>
             {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
-          <button onClick={handleSend} disabled={!input.trim() || isLoading} className="w-9 h-9 rounded-xl bg-gradient-to-r from-gold-400 to-gold-500 hover:from-gold-300 hover:to-gold-400 flex items-center justify-center transition-all disabled:opacity-30">
+          <button onClick={handleSend} disabled={!input.trim() || isLoading} className="w-9 h-9 rounded-xl bg-gradient-to-r from-accent-400 to-accent-500 hover:from-accent-300 hover:to-accent-400 flex items-center justify-center transition-all disabled:opacity-30">
             <Send className="w-4 h-4 text-ink-950" />
           </button>
         </div>
@@ -752,7 +752,7 @@ export default function Chat() {
             disabled={!tavilyAvailable}
             title={tavilyAvailable ? "Use Tavily for deep web research" : "Add TAVILY_API_KEY to backend/.env to enable Deep Research"}
             onClick={() => { setIsDeepSearchEnabled(!isDeepSearchEnabled); if (!isWebSearchEnabled) setIsWebSearchEnabled(true); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border disabled:opacity-40 ${isDeepSearchEnabled ? 'bg-gold-500/10 border-gold-500/20 text-gold-600' : 'bg-ink-900/[0.02] border-ink-900/[0.05] text-parchment-faint hover:text-parchment-dim hover:bg-ink-900/[0.04]'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all border disabled:opacity-40 ${isDeepSearchEnabled ? 'bg-accent-500/10 border-accent-500/20 text-accent-600' : 'bg-ink-900/[0.02] border-ink-900/[0.05] text-parchment-faint hover:text-parchment-dim hover:bg-ink-900/[0.04]'}`}
           >
             <Sparkles className="w-3 h-3" /> Deep Research
           </button>

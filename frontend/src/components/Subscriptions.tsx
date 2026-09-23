@@ -99,8 +99,8 @@ export default function Subscriptions() {
     <div className="h-full overflow-y-auto custom-scrollbar p-6 lg:p-8 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-gold-500/15 border border-gold-500/25">
-          <Repeat className="w-6 h-6 text-gold-600" />
+        <div className="p-2.5 rounded-xl bg-accent-500/15 border border-accent-500/25">
+          <Repeat className="w-6 h-6 text-accent-600" />
         </div>
         <div>
           <h2 className="font-display text-2xl font-bold text-parchment tracking-tight">Subscriptions</h2>
@@ -119,7 +119,7 @@ export default function Subscriptions() {
             <p className="font-display text-3xl font-bold text-parchment">{inr(stats.monthly_burn)}</p>
           </div>
           <div className="p-5 rounded-2xl bg-ink-900/[0.03] border border-ink-900/[0.06]">
-            <div className="flex items-center gap-2 mb-2 text-gold-600">
+            <div className="flex items-center gap-2 mb-2 text-accent-600">
               <TrendingUp className="w-4 h-4" />
               <span className="text-[10px] font-black uppercase tracking-widest font-display">Yearly Burn</span>
             </div>
@@ -215,8 +215,8 @@ export default function Subscriptions() {
 
       {/* Insight */}
       {stats && stats.active_count > 0 && (
-        <div className="flex items-start gap-3 p-5 rounded-2xl bg-gold-500/[0.06] border border-gold-500/20">
-          <XCircle className="w-5 h-5 text-gold-600 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 p-5 rounded-2xl bg-accent-500/[0.06] border border-accent-500/20">
+          <XCircle className="w-5 h-5 text-accent-600 shrink-0 mt-0.5" />
           <p className="text-sm text-parchment-dim leading-relaxed">
             You spend <span className="font-bold text-parchment">{inr(stats.yearly_burn)}/year</span> on recurring payments.
             Cancel one ₹500/month subscription you barely use and you save <span className="font-bold text-ledger-green">{inr(6000)}/year</span>.

@@ -114,8 +114,8 @@ export default function Advisor() {
     <div className="h-full flex flex-col p-6 lg:p-8">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4 shrink-0">
-        <div className="p-2.5 rounded-xl bg-gold-500/15 border border-gold-500/25">
-          <Brain className="w-6 h-6 text-gold-600" />
+        <div className="p-2.5 rounded-xl bg-accent-500/15 border border-accent-500/25">
+          <Brain className="w-6 h-6 text-accent-600" />
         </div>
         <div>
           <h2 className="font-display text-2xl font-bold text-parchment tracking-tight">Advisor</h2>
@@ -127,8 +127,8 @@ export default function Advisor() {
       <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center space-y-6 opacity-70">
-            <div className="p-5 rounded-3xl bg-gold-500/10 border border-gold-500/25">
-              <Sparkles className="w-10 h-10 text-gold-600" />
+            <div className="p-5 rounded-3xl bg-accent-500/10 border border-accent-500/25">
+              <Sparkles className="w-10 h-10 text-accent-600" />
             </div>
             <p className="text-sm text-parchment-dim text-center max-w-md">
               I can see your subscriptions, savings goals and scam scan history.
@@ -137,7 +137,7 @@ export default function Advisor() {
             <div className="flex flex-wrap gap-2 justify-center">
               {SUGGESTIONS.map(s => (
                 <button key={s} onClick={() => send(s)}
-                  className="px-4 py-2 rounded-xl bg-ink-900/[0.03] border border-ink-900/[0.08] text-xs text-parchment-dim hover:border-gold-500/40 hover:text-gold-600 transition-all">
+                  className="px-4 py-2 rounded-xl bg-ink-900/[0.03] border border-ink-900/[0.08] text-xs text-parchment-dim hover:border-accent-500/40 hover:text-accent-600 transition-all">
                   {s}
                 </button>
               ))}
@@ -152,13 +152,13 @@ export default function Advisor() {
               className={`flex gap-3 ${m.role === "user" ? "justify-end" : ""}`}>
               {m.role !== "user" && (
                 <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                  m.role === "error" ? "bg-red-500/15 text-red-500" : "bg-gold-500/15 text-gold-600"}`}>
+                  m.role === "error" ? "bg-red-500/15 text-red-500" : "bg-accent-500/15 text-accent-600"}`}>
                   {m.role === "error" ? <Square className="w-4 h-4" /> : <Brain className="w-4 h-4" />}
                 </div>
               )}
               <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
                 m.role === "user"
-                  ? "bg-gold-500/15 border border-gold-500/25 text-parchment"
+                  ? "bg-accent-500/15 border border-accent-500/25 text-parchment"
                   : m.role === "error"
                   ? "bg-red-500/10 border border-red-500/30 text-red-400"
                   : "bg-ink-900/[0.04] border border-ink-900/[0.08] text-parchment-dim"}`}>
@@ -193,7 +193,7 @@ export default function Advisor() {
               <Square className="w-4 h-4" />
             </button>
           : <button onClick={() => send(input)} disabled={!input.trim()}
-              className="px-4 rounded-xl bg-gold-500/15 border border-gold-500/30 text-gold-600 hover:bg-gold-500/25 transition-all disabled:opacity-40">
+              className="px-4 rounded-xl bg-accent-500/15 border border-accent-500/30 text-accent-600 hover:bg-accent-500/25 transition-all disabled:opacity-40">
               <Send className="w-4 h-4" />
             </button>}
       </div>

@@ -98,8 +98,8 @@ export default function Goals() {
     <div className="h-full overflow-y-auto custom-scrollbar p-6 lg:p-8 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-gold-500/15 border border-gold-500/25">
-          <Target className="w-6 h-6 text-gold-600" />
+        <div className="p-2.5 rounded-xl bg-accent-500/15 border border-accent-500/25">
+          <Target className="w-6 h-6 text-accent-600" />
         </div>
         <div>
           <h2 className="font-display text-2xl font-bold text-parchment tracking-tight">Savings Goals</h2>
@@ -168,7 +168,7 @@ export default function Goals() {
                   <div className="flex items-center gap-3 min-w-0">
                     {done
                       ? <CheckCircle2 className="w-6 h-6 text-ledger-green shrink-0" />
-                      : <Flag className="w-5 h-5 text-gold-600 shrink-0" />}
+                      : <Flag className="w-5 h-5 text-accent-600 shrink-0" />}
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-parchment truncate">{g.title}</p>
                       <p className="text-xs text-parchment-faint">
@@ -183,7 +183,7 @@ export default function Goals() {
 
                 <div className="h-2.5 rounded-full bg-ink-900/[0.06] overflow-hidden">
                   <motion.div
-                    className={`h-full rounded-full ${done ? "bg-gradient-to-r from-emerald-500 to-teal-500" : "bg-gradient-to-r from-gold-400 to-gold-600"}`}
+                    className={`h-full rounded-full ${done ? "bg-gradient-to-r from-emerald-500 to-teal-500" : "bg-gradient-to-r from-accent-400 to-accent-600"}`}
                     initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6 }} />
                 </div>
 
@@ -192,7 +192,7 @@ export default function Goals() {
                   {done ? (
                     <span className="text-[10px] font-black uppercase tracking-widest text-ledger-green">Goal reached 🎉</span>
                   ) : perMonth !== null ? (
-                    <span className={`flex items-center gap-1 text-xs font-bold ${perMonth > 0 ? "text-gold-600" : "text-red-600"}`}>
+                    <span className={`flex items-center gap-1 text-xs font-bold ${perMonth > 0 ? "text-accent-600" : "text-red-600"}`}>
                       {perMonth > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                       {perMonth > 0 ? `Save ${inr(perMonth)}/mo to stay on track` : "Deadline passed"}
                     </span>

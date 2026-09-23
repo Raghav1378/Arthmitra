@@ -99,7 +99,7 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   secondary: "bg-ink-900/[0.06] hover:bg-ink-900/[0.1] text-parchment border-ink-900/20 hover:border-ink-900/40",
   ghost:     "bg-transparent hover:bg-ink-900/[0.06] text-parchment-dim hover:text-parchment border-transparent",
   danger:    "bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/40",
-  gold:      "bg-gold-500/15 hover:bg-gold-500/25 text-gold-300 border-gold-500/40",
+  gold:      "bg-accent-500/15 hover:bg-accent-500/25 text-accent-300 border-accent-500/40",
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
@@ -135,7 +135,7 @@ type BadgeTone = "neutral" | "sapphire" | "gold" | "success" | "warning" | "erro
 const BADGE_TONES: Record<BadgeTone, string> = {
   neutral:  "bg-ink-900/[0.05] border-ink-900/[0.12] text-parchment-dim",
   sapphire: "bg-sapphire-500/10 border-sapphire-400/30 text-sapphire-300",
-  gold:     "bg-gold-500/10 border-gold-500/30 text-gold-300",
+  gold:     "bg-accent-500/10 border-accent-500/30 text-accent-300",
   success:  "bg-emerald-500/10 border-emerald-500/30 text-emerald-300",
   warning:  "bg-amber-500/10 border-amber-500/30 text-amber-300",
   error:    "bg-red-500/10 border-red-500/30 text-red-300",
@@ -206,7 +206,7 @@ export function KPI({
 }) {
   const valueTone = {
     default: "text-parchment",
-    gold: "text-gold-300",
+    gold: "text-accent-300",
     success: "text-emerald-300",
     warning: "text-amber-300",
     error: "text-red-300",

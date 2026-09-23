@@ -68,8 +68,8 @@ export default function EmiCompare() {
     <div className="h-full overflow-y-auto custom-scrollbar p-6 lg:p-8 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-gold-500/15 border border-gold-500/25">
-          <Calculator className="w-6 h-6 text-gold-600" />
+        <div className="p-2.5 rounded-xl bg-accent-500/15 border border-accent-500/25">
+          <Calculator className="w-6 h-6 text-accent-600" />
         </div>
         <div>
           <h2 className="font-display text-2xl font-bold text-parchment tracking-tight">EMI Compare</h2>
@@ -79,7 +79,7 @@ export default function EmiCompare() {
 
       {/* Inputs */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <LoanForm loan={a} onChange={setA} accent="text-gold-600" />
+        <LoanForm loan={a} onChange={setA} accent="text-accent-600" />
         <LoanForm loan={b} onChange={setB} accent="text-ledger-green" />
       </div>
 
@@ -87,7 +87,7 @@ export default function EmiCompare() {
       {ra && rb ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {([["a", a, ra, "text-gold-600"], ["b", b, rb, "text-ledger-green"]] as const).map(([key, loan, r, accent]) => (
+            {([["a", a, ra, "text-accent-600"], ["b", b, rb, "text-ledger-green"]] as const).map(([key, loan, r, accent]) => (
               <motion.div key={key} layout
                 className={`p-5 rounded-2xl border space-y-4 transition-all ${
                   winner === key
@@ -123,8 +123,8 @@ export default function EmiCompare() {
           </div>
 
           {/* Verdict */}
-          <div className="flex items-start gap-3 p-5 rounded-2xl bg-gold-500/[0.06] border border-gold-500/20">
-            <Scale className="w-5 h-5 text-gold-600 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 p-5 rounded-2xl bg-accent-500/[0.06] border border-accent-500/20">
+            <Scale className="w-5 h-5 text-accent-600 shrink-0 mt-0.5" />
             <p className="text-sm text-parchment-dim leading-relaxed">
               <span className="font-bold text-parchment">{winner === "a" ? a.label : b.label}</span> costs you{" "}
               <span className="font-bold text-ledger-green">{inr(saving!)}</span> less in total.

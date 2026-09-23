@@ -285,7 +285,7 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
       <header className="shrink-0 pt-4 pb-3 flex justify-between items-end border-b border-ink-900/[0.08]">
         <div>
           <p className="font-mono text-[9px] font-medium tracking-[0.35em] text-parchment-faint uppercase mb-1 flex items-center gap-2">
-            <Sparkles className="w-2.5 h-2.5 text-gold-600" /> Advanced Financial Trace Engine
+            <Sparkles className="w-2.5 h-2.5 text-accent-600" /> Advanced Financial Trace Engine
           </p>
           <h2 className="font-display text-[clamp(1.5rem,3.6vh,2.2rem)] font-semibold text-ink-950 tracking-tight leading-none">
             Wealth Auditor
@@ -294,7 +294,7 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
         <div className="flex gap-2">
           <button
             onClick={() => onClose?.()}
-            className="h-8 px-4 rounded-lg bg-ink-900/[0.04] border border-ink-900/[0.1] text-parchment-faint text-[9px] font-mono font-medium uppercase tracking-[0.2em] hover:border-gold-500/40 hover:text-gold-600 transition-all active:scale-95"
+            className="h-8 px-4 rounded-lg bg-ink-900/[0.04] border border-ink-900/[0.1] text-parchment-faint text-[9px] font-mono font-medium uppercase tracking-[0.2em] hover:border-accent-500/40 hover:text-accent-600 transition-all active:scale-95"
           >
             Exit Workspace
           </button>
@@ -349,7 +349,7 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
         {[
           { l: 'Identified Inflow', v: metrics.inflow, i: ArrowDownCircle, tone: 'text-ledger-green', tint: 'bg-ledger-green/10 border-ledger-green/25', s: 'capture' },
           { l: 'Identified Outflow', v: metrics.outflow, i: ArrowUpCircle, tone: 'text-ledger-red', tint: 'bg-ledger-red/10 border-ledger-red/25', s: 'expenditure' },
-          { l: 'Live Treasury', v: metrics.net, i: IndianRupee, tone: metrics.net >= 0 ? 'text-ink-950' : 'text-ledger-red', tint: metrics.net >= 0 ? 'bg-gold-500/10 border-gold-500/25' : 'bg-ledger-amber/10 border-ledger-amber/25', s: 'asset' },
+          { l: 'Live Treasury', v: metrics.net, i: IndianRupee, tone: metrics.net >= 0 ? 'text-ink-950' : 'text-ledger-red', tint: metrics.net >= 0 ? 'bg-accent-500/10 border-accent-500/25' : 'bg-ledger-amber/10 border-ledger-amber/25', s: 'asset' },
         ].map((card, idx) => (
           <motion.div
             key={idx}
@@ -380,7 +380,7 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
         <div className="min-h-0 flex flex-col border-r border-ink-900/[0.08]">
           <div className="shrink-0 py-2.5 px-1 flex items-center justify-between border-b border-ink-900/[0.08]">
             <h3 className="font-mono text-[9px] font-medium tracking-[0.3em] text-parchment-dim uppercase flex items-center gap-2">
-              <History className="w-3 h-3 text-gold-600" /> Live Treasury Feed
+              <History className="w-3 h-3 text-accent-600" /> Live Treasury Feed
             </h3>
             <div className="flex gap-1.5">
               <button
@@ -394,7 +394,7 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
               >
                 <Shield className="w-3 h-3" /> Run Audit
               </button>
-              <button onClick={handleRefresh} className="h-7 w-7 rounded-lg border border-ink-900/[0.1] flex items-center justify-center text-parchment-faint hover:text-gold-600 hover:border-gold-500/40 transition-all active:scale-95" title="Refresh feed">
+              <button onClick={handleRefresh} className="h-7 w-7 rounded-lg border border-ink-900/[0.1] flex items-center justify-center text-parchment-faint hover:text-accent-600 hover:border-accent-500/40 transition-all active:scale-95" title="Refresh feed">
                 <RefreshCw className="w-3 h-3" />
               </button>
               <button onClick={handleResetExpenses} className="h-7 w-7 rounded-lg border border-ink-900/[0.1] flex items-center justify-center text-parchment-faint hover:text-ledger-red hover:border-ledger-red/40 transition-all active:scale-95" title="Reset audit (delete all)">
@@ -455,12 +455,12 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
                           className="mt-2.5 p-3 bg-vault-900/50 border border-ink-900/[0.08] rounded-xl space-y-2 overflow-hidden"
                         >
                           <div className="flex items-center gap-1.5 text-[8px] font-mono font-medium text-parchment-faint uppercase tracking-[0.2em]">
-                            <Shield className="w-3 h-3 text-gold-600" /> Security Protocol
+                            <Shield className="w-3 h-3 text-accent-600" /> Security Protocol
                           </div>
                           <ul className="space-y-1.5">
                             {exp.riskInfo.advice.map((adv, idx) => (
                               <li key={idx} className="text-[10px] text-parchment-dim flex items-start gap-1.5 leading-snug">
-                                <span className="text-gold-600 font-bold">•</span> {adv}
+                                <span className="text-accent-600 font-bold">•</span> {adv}
                               </li>
                             ))}
                           </ul>
@@ -483,7 +483,7 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
           </div>
 
           {/* ENTRY BAR — docked at the foot of the feed, no floating overlap */}
-          <div className="shrink-0 border-t border-gold-500/25 bg-vault-900/70 backdrop-blur-xl px-4 py-3">
+          <div className="shrink-0 border-t border-accent-500/25 bg-vault-900/70 backdrop-blur-xl px-4 py-3">
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".csv" />
 
             {scanState !== 'idle' && (
@@ -491,14 +491,14 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
                 <div className="relative w-7 h-7 shrink-0">
                   {scanState === 'complete'
                     ? <CheckCircle2 className="w-7 h-7 text-ledger-green" />
-                    : <ScanSearch className="w-7 h-7 text-gold-600 animate-pulse" />}
+                    : <ScanSearch className="w-7 h-7 text-accent-600 animate-pulse" />}
                   {scanState !== 'complete' && (
-                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }} className="absolute inset-0 border-2 border-transparent border-t-gold-500 rounded-full" />
+                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }} className="absolute inset-0 border-2 border-transparent border-t-accent-500 rounded-full" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
-                    <p className="font-mono text-[8px] font-medium text-gold-600 uppercase tracking-[0.25em]">
+                    <p className="font-mono text-[8px] font-medium text-accent-600 uppercase tracking-[0.25em]">
                       {scanState === 'scanning' ? 'Auditing dataset…' : scanState === 'extracting' ? 'Tracking real-time…' : 'Sync synchronized'}
                     </p>
                     <span className="font-mono text-[8px] text-ink-900/40 tabular-nums">{scanProgress.current}/{scanProgress.total}</span>
@@ -507,7 +507,7 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: scanState === 'scanning' ? '40%' : scanState === 'extracting' ? `${(scanProgress.current / Math.max(scanProgress.total, 1)) * 100}%` : '100%' }}
-                      className="h-full bg-gradient-to-r from-gold-600 to-gold-300"
+                      className="h-full bg-gradient-to-r from-accent-600 to-accent-300"
                     />
                   </div>
                   <p className="font-mono text-[7px] text-parchment-faint truncate mt-1 uppercase tracking-[0.2em]">{scanProgress.lastItem || 'Awaiting trace…'}</p>
@@ -546,7 +546,7 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
                 whileHover={{ scale: 1.08, rotate: 90 }}
                 whileTap={{ scale: 0.92 }}
                 onClick={() => fileInputRef.current?.click()}
-                className="shrink-0 w-8 h-8 rounded-lg border border-gold-500/40 bg-gold-500/15 text-gold-600 flex items-center justify-center transition-all"
+                className="shrink-0 w-8 h-8 rounded-lg border border-accent-500/40 bg-accent-500/15 text-accent-600 flex items-center justify-center transition-all"
                 title="Import CSV"
               >
                 {scanState !== 'idle' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -554,7 +554,7 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
               <button
                 type="submit"
                 disabled={!input.trim()}
-                className="shrink-0 h-8 px-4 rounded-lg text-[9px] font-mono font-medium uppercase tracking-[0.25em] bg-gradient-to-r from-gold-400 to-gold-500 text-ink-950 shadow-sm hover:from-gold-300 hover:to-gold-400 transition-all active:scale-95 disabled:opacity-40"
+                className="shrink-0 h-8 px-4 rounded-lg text-[9px] font-mono font-medium uppercase tracking-[0.25em] bg-gradient-to-r from-accent-400 to-accent-500 text-ink-950 shadow-sm hover:from-accent-300 hover:to-accent-400 transition-all active:scale-95 disabled:opacity-40"
               >
                 Execute
               </button>
@@ -570,9 +570,9 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
         <aside className="hidden lg:flex min-h-0 flex-col bg-vault-900/40">
           <div className="shrink-0 py-2.5 px-5 border-b border-ink-900/[0.08] flex items-center justify-between">
             <h3 className="font-mono text-[9px] font-medium tracking-[0.3em] text-parchment-dim uppercase flex items-center gap-2">
-              <PieIcon className="w-3 h-3 text-gold-600" /> {pieMode === 'spend' ? 'Allocation Matrix' : 'Sources Tracking'}
+              <PieIcon className="w-3 h-3 text-accent-600" /> {pieMode === 'spend' ? 'Allocation Matrix' : 'Sources Tracking'}
             </h3>
-            <button onClick={() => setPieMode(prev => prev === 'spend' ? 'receive' : 'spend')} className="h-7 px-2.5 rounded-lg border border-ink-900/[0.1] flex items-center gap-1.5 text-[8px] font-mono font-medium uppercase tracking-[0.15em] text-parchment-dim hover:text-gold-600 hover:border-gold-500/40 transition-all active:scale-95">
+            <button onClick={() => setPieMode(prev => prev === 'spend' ? 'receive' : 'spend')} className="h-7 px-2.5 rounded-lg border border-ink-900/[0.1] flex items-center gap-1.5 text-[8px] font-mono font-medium uppercase tracking-[0.15em] text-parchment-dim hover:text-accent-600 hover:border-accent-500/40 transition-all active:scale-95">
               <Shuffle className="w-3 h-3" /> Switch
             </button>
           </div>
@@ -625,7 +625,7 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
           <div className="flex-1 min-h-0 flex flex-col p-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="relative">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gold-500 to-gold-400 flex items-center justify-center border border-gold-500/40 shadow-lg shadow-gold-500/20">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-500 to-accent-400 flex items-center justify-center border border-accent-500/40 shadow-lg shadow-accent-500/20">
                   <Bot className="w-5 h-5 text-ink-950" />
                 </div>
                 {isInsightLoading && (
@@ -633,13 +633,13 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: [1, 1.4, 1], opacity: [0.5, 0, 0.5] }}
                     transition={{ repeat: Infinity, duration: 2 }}
-                    className="absolute inset-0 bg-gold-400 rounded-xl"
+                    className="absolute inset-0 bg-accent-400 rounded-xl"
                   />
                 )}
               </div>
               <div>
                 <h3 className="font-display text-[14px] font-semibold text-ink-950 tracking-tight leading-none">ArthMitra Strategist</h3>
-                <p className="font-mono text-[7px] text-gold-600 tracking-[0.25em] uppercase mt-1">Wealth Auditor v4.2</p>
+                <p className="font-mono text-[7px] text-accent-600 tracking-[0.25em] uppercase mt-1">Wealth Auditor v4.2</p>
               </div>
             </div>
 
@@ -654,13 +654,13 @@ export default function ExpenseTracker({ expenses, setExpenses, onClose, onOpenS
                   </motion.div>
                 ) : (
                   <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                    <div className="border-l-2 border-gold-500/60 pl-3.5 py-1">
+                    <div className="border-l-2 border-accent-500/60 pl-3.5 py-1">
                       <p className="font-display text-[12px] leading-[1.7] text-parchment italic">“{aiInsight}”</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2 mt-4">
-                      <div className="p-2.5 bg-gold-500/10 border border-gold-500/20 rounded-lg flex items-center gap-2">
-                        <GraduationCap className="w-3.5 h-3.5 text-gold-600" />
-                        <span className="text-[8px] font-mono font-medium text-gold-600 uppercase tracking-[0.12em]">Strategy Ready</span>
+                      <div className="p-2.5 bg-accent-500/10 border border-accent-500/20 rounded-lg flex items-center gap-2">
+                        <GraduationCap className="w-3.5 h-3.5 text-accent-600" />
+                        <span className="text-[8px] font-mono font-medium text-accent-600 uppercase tracking-[0.12em]">Strategy Ready</span>
                       </div>
                       <div className="p-2.5 bg-ledger-green/10 border border-ledger-green/20 rounded-lg flex items-center gap-2">
                         <Target className="w-3.5 h-3.5 text-ledger-green" />

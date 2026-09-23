@@ -10,29 +10,33 @@
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  --ink-950: #f2f5ff;
-  --ink-900: #dfe7fb;
-  --ink-800: #c6d3f2;
-  --gold-500: #c9992b;
-  --gold-300: #eccb7d;
-  --parchment: #e7edfa;
-  --parchment-dim: #b3c0dc;
-  --parchment-faint: #7e8db0;
-  --parchment-ghost: #57668a;
-  --ledger-green: #2fbf7f;
-  --ledger-red: #ff5d70;
-  --ledger-amber: #f0a12e;
-  --vault-950: #060b1a;
-  --vault-900: #0a1230;
-  --vault-800: #0f1c46;
-  --sapphire-400: #6d8adc;
-  --sapphire-500: #4a6fd4;
+  --vault-950: #121212;
+  --vault-900: #1a1a1a;
+  --vault-800: #242424;
+  --accent-400: #ffaa00;
+  --accent-500: #ff8800;
+  --parchment: #f0f0f0;
+  --parchment-dim: #d1d1d1;
+  --parchment-faint: #a0a0a0;
+  --parchment-ghost: #707070;
+  --ledger-green: #00c853;
+  --ledger-red: #ff3d00;
+  --ledger-amber: #ffab00;
 
-  --hairline: rgba(231, 237, 250, 0.1);
-  --hairline-strong: rgba(231, 237, 250, 0.16);
-  --gold-hairline: rgba(201, 153, 43, 0.35);
-  --panel-bg: rgba(15, 28, 70, 0.62);
-  --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.25);
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.14);
+  --accent-hairline: rgba(255, 136, 0, 0.3);
+  --panel-bg: rgba(30, 30, 30, 0.7);
+  --shadow-panel: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes entrance {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.animate-entrance {
+  animation: entrance 400ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 
 * {
@@ -56,14 +60,14 @@ body {
 
 /* ── Accessibility: visible keyboard focus on every interactive element ── */
 :focus-visible {
-  outline: 2px solid var(--sapphire-400);
+  outline: 2px solid var(--accent-400);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
 ::selection {
-  background: rgba(74, 111, 212, 0.35);
-  color: var(--ink-950);
+  background: rgba(255, 136, 0, 0.35);
+  color: #ffffff;
 }
 
 /* Respect users who opt out of motion */
@@ -95,36 +99,9 @@ body {
   .bg-vault {
     background-color: var(--vault-950);
     background-image:
-      /* engraved concentric rings, top-left — sapphire */
-      repeating-radial-gradient(
-        circle at 12% 8%,
-        transparent 0px,
-        transparent 38px,
-        rgba(109, 138, 220, 0.07) 38px,
-        rgba(109, 138, 220, 0.07) 39px,
-        transparent 40px
-      ),
-      /* ring set, bottom-right — gold */
-      repeating-radial-gradient(
-        circle at 88% 92%,
-        transparent 0px,
-        transparent 52px,
-        rgba(201, 153, 43, 0.07) 52px,
-        rgba(201, 153, 43, 0.07) 53px,
-        transparent 54px
-      ),
-      /* fine diagonal engraving lines */
-      repeating-linear-gradient(
-        115deg,
-        transparent 0px,
-        transparent 7px,
-        rgba(179, 192, 220, 0.03) 7px,
-        rgba(179, 192, 220, 0.03) 8px
-      ),
-      radial-gradient(1400px 900px at 50% -20%, rgba(26, 47, 110, 0.85), transparent 65%);
+      radial-gradient(1400px 900px at 50% -20%, rgba(36, 36, 36, 0.85), transparent 65%);
   }
 
-  /* Paper grain overlay — apply on a fixed full-bleed div */
   .grain::after {
     content: "";
     position: absolute;
@@ -135,31 +112,6 @@ body {
   }
 }
 
-/* Custom Scrollbar — sapphire on porcelain */
-@layer utilities {
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(6, 11, 26, 0.5);
-    border-radius: 4px;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(109, 138, 220, 0.35);
-    border-radius: 4px;
-    transition: background 0.2s ease;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(109, 138, 220, 0.6);
-  }
-}
-
-/* Glass — layered vault surfaces. Blur kept low (10px): depth comes
-   from stacking and hairlines, not frosted-glass blur. */
 @layer utilities {
   .glass {
     background: var(--panel-bg);
@@ -170,39 +122,41 @@ body {
   }
 
   .glass-strong {
-    background: linear-gradient(150deg, rgba(15, 28, 70, 0.92), rgba(10, 18, 48, 0.96));
+    background: linear-gradient(150deg, rgba(30, 30, 30, 0.92), rgba(18, 18, 18, 0.96));
     border: 1px solid var(--hairline-strong);
     box-shadow: var(--shadow-panel);
   }
 }
 
-/* Buttons — sapphire primary; gold stays for premium/wealth surfaces */
 @layer components {
   .btn-primary {
     @apply px-6 py-2.5 text-sm font-semibold rounded-xl text-white
            transition-all duration-200 active:scale-[0.98]
-           bg-sapphire-500 hover:bg-sapphire-400
-           focus-visible:outline focus-visible:outline-2 focus-visible:outline-sapphire-300
            disabled:opacity-40 disabled:pointer-events-none;
+    background-color: var(--accent-500);
+  }
+  .btn-primary:hover {
+    background-color: var(--accent-400);
   }
 }
 
-/* Input Styles — porcelain field with sapphire focus */
 @layer components {
   .input-field {
-    @apply w-full border border-ink-900/20 rounded-xl px-4 py-2.5
+    @apply w-full border border-white/10 rounded-xl px-4 py-2.5
            text-sm text-parchment placeholder-parchment-ghost
-           focus:outline-none focus:ring-2 focus:ring-sapphire-400/40 focus:border-sapphire-400/60
-           transition-all duration-200;
+           focus:outline-none transition-all duration-200;
     background-color: var(--vault-800);
+  }
+  .input-field:focus {
+    border-color: var(--accent-400);
   }
 }
 
 /* Card — 1px hairline, one shadow level, no blur */
 @layer components {
   .card {
-    @apply border border-ink-900/10 rounded-2xl;
-    background-color: rgba(15, 28, 70, 0.6);
+    @apply border border-white/10 rounded-2xl;
+    background-color: var(--panel-bg);
     box-shadow: var(--shadow-panel);
   }
 }

@@ -522,8 +522,8 @@ export default function ScamShield() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <div className="absolute inset-0 bg-gold-500/20 blur-xl animate-pulse" />
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-gold-500 to-gold-700 flex items-center justify-center relative z-10 border border-ink-900/20 shadow-xl shadow-gold-500/20">
+              <div className="absolute inset-0 bg-accent-500/20 blur-xl animate-pulse" />
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-accent-500 to-accent-700 flex items-center justify-center relative z-10 border border-ink-900/20 shadow-xl shadow-accent-500/20">
                 <Shield className="w-6 h-6 text-ink-950" />
               </div>
             </div>
@@ -534,9 +534,9 @@ export default function ScamShield() {
           </div>
           <div className="flex items-center gap-3">
             {analysisCount > 0 && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-gold-500/10 border border-gold-500/20 rounded-xl font-display">
-                <Zap className="w-3.5 h-3.5 text-gold-600" />
-                <span className="text-[10px] font-black text-gold-600 uppercase tracking-widest">{analysisCount} scanned</span>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-accent-500/10 border border-accent-500/20 rounded-xl font-display">
+                <Zap className="w-3.5 h-3.5 text-accent-600" />
+                <span className="text-[10px] font-black text-accent-600 uppercase tracking-widest">{analysisCount} scanned</span>
               </div>
             )}
           </div>
@@ -551,7 +551,7 @@ export default function ScamShield() {
           <div className="flex bg-ink-900/[0.03] border border-ink-900/[0.06] rounded-2xl p-1 shrink-0">
             <button
               onClick={() => setActiveTab("message")}
-              className={`flex-1 py-3 justify-center items-center flex gap-2 rounded-xl text-xs font-black uppercase tracking-widest font-display transition-all ${activeTab === "message" ? "bg-gold-500/20 text-gold-600 shadow-lg border border-gold-500/20" : "text-parchment-faint hover:text-parchment-dim"}`}
+              className={`flex-1 py-3 justify-center items-center flex gap-2 rounded-xl text-xs font-black uppercase tracking-widest font-display transition-all ${activeTab === "message" ? "bg-accent-500/20 text-accent-600 shadow-lg border border-accent-500/20" : "text-parchment-faint hover:text-parchment-dim"}`}
             >
               <Send className="w-4 h-4" /> Message Scanner
             </button>
@@ -601,7 +601,7 @@ export default function ScamShield() {
                       rows={5}
                       disabled={isAnalyzing}
                       onKeyDown={e => e.key === "Enter" && e.ctrlKey && analyze()}
-                      className="w-full bg-ink-900/[0.03] border border-ink-900/[0.08] rounded-2xl px-5 py-4 text-sm text-parchment placeholder:text-stone-600 focus:outline-none focus:border-gold-500/40 focus:bg-ink-900/[0.05] transition-all resize-none font-sans leading-relaxed"
+                      className="w-full bg-ink-900/[0.03] border border-ink-900/[0.08] rounded-2xl px-5 py-4 text-sm text-parchment placeholder:text-stone-600 focus:outline-none focus:border-accent-500/40 focus:bg-ink-900/[0.05] transition-all resize-none font-sans leading-relaxed"
                     />
                     <div className="absolute bottom-3 right-3 text-[10px] text-stone-600 font-display font-bold">Ctrl+Enter to analyze</div>
                   </div>
@@ -612,7 +612,7 @@ export default function ScamShield() {
                       value={timeOfMessage}
                       onChange={e => setTimeOfMessage(e.target.value)}
                       placeholder="Time of message (e.g. 02:30 AM) — optional"
-                      className="w-full bg-ink-900/[0.02] border border-ink-900/[0.06] rounded-xl pl-9 pr-4 py-2.5 text-xs text-parchment-faint placeholder:text-stone-600 focus:outline-none focus:border-gold-500/30 transition-all font-sans"
+                      className="w-full bg-ink-900/[0.02] border border-ink-900/[0.06] rounded-xl pl-9 pr-4 py-2.5 text-xs text-parchment-faint placeholder:text-stone-600 focus:outline-none focus:border-accent-500/30 transition-all font-sans"
                     />
                   </div>
                   <input
@@ -779,7 +779,7 @@ export default function ScamShield() {
                      !linkInput.trim()) || isAnalyzing
                   }
                   className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl text-ink-950 text-sm font-black uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed shadow-xl font-display
-                    ${activeTab === "message" ? "bg-gradient-to-r from-gold-500 to-gold-700 hover:from-gold-400 hover:to-gold-600 shadow-gold-500/20" 
+                    ${activeTab === "message" ? "bg-gradient-to-r from-accent-500 to-accent-700 hover:from-accent-400 hover:to-accent-600 shadow-accent-500/20" 
                     : activeTab === "behavior" ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20" 
                     : activeTab === "decision" ? "bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 shadow-red-500/20"
                     : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20"}`}
@@ -1009,7 +1009,7 @@ export default function ScamShield() {
                       <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
                         <div className="px-5 pb-5 space-y-2 pt-2">
                           {messageResult.reasoning.detailed_reasons.map((r, i) => (
-                            <div key={i} className="flex items-start gap-3 text-sm text-parchment-faint font-sans"><span className="text-gold-600 mt-0.5 shrink-0">→</span>{r}</div>
+                            <div key={i} className="flex items-start gap-3 text-sm text-parchment-faint font-sans"><span className="text-accent-600 mt-0.5 shrink-0">→</span>{r}</div>
                           ))}
                         </div>
                       </motion.div>
@@ -1105,7 +1105,7 @@ export default function ScamShield() {
                       <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
                         <div className="px-5 pb-5 space-y-2 pt-2">
                           {behaviorResult.reasoning.details.map((r, i) => (
-                            <div key={i} className="flex items-start gap-3 text-sm text-parchment-faint font-sans"><span className="text-gold-600 mt-0.5 shrink-0">→</span>{r}</div>
+                            <div key={i} className="flex items-start gap-3 text-sm text-parchment-faint font-sans"><span className="text-accent-600 mt-0.5 shrink-0">→</span>{r}</div>
                           ))}
                         </div>
                       </motion.div>

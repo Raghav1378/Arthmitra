@@ -17,7 +17,7 @@ function inline(text: string, keyPrefix: string): React.ReactNode[] {
     else if (tok.startsWith("`")) out.push(<code key={key} className="font-mono text-[0.85em] bg-ink-900/[0.07] text-ink-900 px-1.5 py-0.5 rounded-md">{tok.slice(1, -1)}</code>);
     else if (tok.startsWith("[")) {
       const mm = tok.match(/\[([^\]]+)\]\(([^)]+)\)/)!;
-      out.push(<a key={key} href={mm[2]} target="_blank" rel="noreferrer" className="text-ink-700 underline decoration-gold-500/60 hover:decoration-gold-500">{mm[1]}</a>);
+      out.push(<a key={key} href={mm[2]} target="_blank" rel="noreferrer" className="text-ink-700 underline decoration-accent-500/60 hover:decoration-accent-500">{mm[1]}</a>);
     }
     else if (tok.startsWith("₹")) out.push(<span key={key} className="font-semibold text-ink-950 tabular-nums">{tok}</span>);
     else out.push(<em key={key} className="italic">{tok.slice(1, -1)}</em>);
@@ -36,7 +36,7 @@ export default function Markdown({ text }: { text: string }) {
     if (!list) return;
     const Tag = list.ordered ? "ol" : "ul";
     blocks.push(
-      <Tag key={key} className={`ml-5 space-y-1.5 my-2 ${list.ordered ? "list-decimal" : "list-disc"} marker:text-gold-600`}>
+      <Tag key={key} className={`ml-5 space-y-1.5 my-2 ${list.ordered ? "list-decimal" : "list-disc"} marker:text-accent-600`}>
         {list.items.map((it, i) => <li key={i} className="leading-relaxed">{inline(it, `${key}-${i}`)}</li>)}
       </Tag>
     );

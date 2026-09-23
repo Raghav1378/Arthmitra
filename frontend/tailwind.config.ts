@@ -19,50 +19,29 @@ const config: Config = {
         mono: ["var(--font-mono)", "monospace"],
       },
       colors: {
-        // Midnight Court — dark vault ground, gold guilloche, mint/rose ledger.
-        // ink/parchment are TEXT scales (light on dark); vault is the dark ground.
-        ink: {
-          950: "#f2f5ff",
-          900: "#dfe7fb",
-          800: "#c6d3f2",
-          700: "#a8bcf0",
-          600: "#8ba6e8",
-          500: "#6d8adc",
-        },
-        // Sapphire — primary accent: actions, focus, links, active nav.
-        // Gold stays reserved for wealth/premium states.
-        sapphire: {
-          300: "#8ba6e8",
-          400: "#6d8adc",
-          500: "#4a6fd4",
-          600: "#3a56ad",
-          700: "#2c4085",
-        },
         vault: {
-          950: "#060b1a",
-          900: "#0a1230",
-          800: "#0f1c46",
-          700: "#14265c",
-          600: "#1a2f6e",
+          950: "#121212",
+          900: "#1a1a1a",
+          800: "#242424",
+          700: "#303030",
+          600: "#3d3d3d",
         },
-        gold: {
-          200: "#f5e3b3",
-          300: "#eccb7d",
-          400: "#e0b558",
-          500: "#c9992b",
-          600: "#a67a1c",
-          700: "#7f5c12",
+        accent: {
+          300: "#ffcc00",
+          400: "#ffaa00",
+          500: "#ff8800",
+          600: "#e67700",
         },
         parchment: {
-          DEFAULT: "#e7edfa",
-          dim: "#b3c0dc",
-          faint: "#7e8db0",
-          ghost: "#57668a",
+          DEFAULT: "#f0f0f0",
+          dim: "#d1d1d1",
+          faint: "#a0a0a0",
+          ghost: "#707070",
         },
         ledger: {
-          green: "#2fbf7f",
-          red: "#ff5d70",
-          amber: "#f0a12e",
+          green: "#00c853",
+          red: "#ff3d00",
+          amber: "#ffab00",
         },
       },
     },

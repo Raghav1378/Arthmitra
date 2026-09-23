@@ -1,0 +1,32 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:20128",
+    "ANTHROPIC_AUTH_TOKEN": "sk-ae1efe808a719b2f-818bee-f6d7c72b",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4.5",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4.5",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1"
+  },
+  "model": "sonnet",
+  "statusLine": {
+    "type": "command",
+    "command": "node \"C:\\Users\\91800\\.claude\\statusline.js\""
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "ponytail@ponytail": true,
+    "frontend-design@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    }
+  },
+  "effortLevel": "low",
+  "theme": "dark",
+  "autoCompactEnabled": true
+}

@@ -1206,6 +1206,64 @@ async def scam_link_upi(request: LinkAnalyzeRequest):
     return analyze_link_upi(request.input_value)
 
 
+
+# ── Market Fraud Tool Comparison API ──────────────────────────────────────────
+
+@app.get("/tools")
+async def get_fraud_tools():
+    return [
+        {
+            "id": "feedzai", "name": "Feedzai", "vendor": "Feedzai", "website": "feedzai.com",
+            "summary": "AI-native risk intelligence for global banks. Handles massive transaction volumes with sub-millisecond latency.",
+            "detection_methods": ["real-time scoring", "consortium data", "aml"],
+            "ml_approach": ["deep-learning", "adaptive"],
+            "trust_score": 96, "api_available": True, "price_model": "enterprise"
+        },
+        {
+            "id": "featurespace", "name": "Featurespace", "vendor": "Featurespace", "website": "featurespace.com",
+            "summary": "ARIC platform using Adaptive Behavioral Analytics to learn individual customer patterns in real-time.",
+            "detection_methods": ["behavioral-analytics", "anomaly-detection"],
+            "ml_approach": ["unsupervised", "supervised"],
+            "trust_score": 94, "api_available": True, "price_model": "enterprise"
+        },
+        {
+            "id": "sift", "name": "Sift", "vendor": "Sift", "website": "sift.com",
+            "summary": "Digital Trust & Safety. Leverages a global network of 1T+ events to stop account takeover and payment fraud.",
+            "detection_methods": ["device-fingerprinting", "graph-network"],
+            "ml_approach": ["supervised", "global-model"],
+            "trust_score": 92, "api_available": True, "price_model": "growth/enterprise"
+        },
+        {
+            "id": "seon", "name": "SEON", "vendor": "SEON", "website": "seon.io",
+            "summary": "Digital footprinting and social profiling. Excellent for low-friction identity verification.",
+            "detection_methods": ["social-lookup", "email-analysis"],
+            "ml_approach": ["whitebox-ml", "rules-engine"],
+            "trust_score": 89, "api_available": True, "price_model": "usage-based"
+        },
+        {
+            "id": "sardine", "name": "Sardine", "vendor": "Sardine", "website": "sardine.ai",
+            "summary": "Fraud and compliance for crypto and fintech. Focuses on behavioral biometrics (how you type/move).",
+            "detection_methods": ["behavioral-biometrics", "device-intelligence"],
+            "ml_approach": ["real-time-scoring", "biometrics"],
+            "trust_score": 91, "api_available": True, "price_model": "tiered"
+        },
+        {
+            "id": "trustpair", "name": "Trustpair", "vendor": "Trustpair", "website": "trustpair.com",
+            "summary": "Market leader in B2B account ownership validation. Protects global corporations from vendor payment fraud.",
+            "detection_methods": ["bank-validation", "b2b-heuristics"],
+            "ml_approach": ["rules", "graph-validation"],
+            "trust_score": 88, "api_available": True, "price_model": "enterprise"
+        },
+        {
+            "id": "arthmitra", "name": "ArthMitra Scam Shield", "vendor": "ArthMitra", "website": "arthmitra.com",
+            "summary": "Local-first hybrid defense for Indian retail users. Optimized for UPI, SMS phishing, and social engineering.",
+            "detection_methods": ["3-stage-policy", "ocr-scan", "local-rag"],
+            "ml_approach": ["heuristic-fusion", "semantic-llm"],
+            "trust_score": 98, "api_available": True, "price_model": "free-retail"
+        }
+    ]
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

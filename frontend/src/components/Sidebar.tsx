@@ -3,10 +3,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   MessageSquare, Shield, PieChart,
-  Settings, HelpCircle, GripVertical, Repeat, Target, Calculator, Brain
+  Settings, HelpCircle, GripVertical, Repeat, Target, Calculator, Brain, Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Expense } from './ExpenseTracker';
+import { cn } from "@/lib/utils";
+
+// Design engineering constants
+const EASE_OUT = [0.23, 1, 0.32, 1];
 
 interface NavItem {
   id: string;
@@ -18,13 +22,14 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { id: 'chat', label: 'Mitra Chat', icon: MessageSquare, color: 'text-gold-400', active: true },
+  { id: 'chat', label: 'Mitra Chat', icon: MessageSquare, color: 'text-accent-400', active: true },
   { id: 'expenses', label: 'Ledger', icon: PieChart, color: 'text-ledger-green', active: true },
   { id: 'security', label: 'Scam Shield', icon: Shield, color: 'text-ledger-red', active: true },
-  { id: 'subscriptions', label: 'Subscriptions', icon: Repeat, color: 'text-cyan-400', active: true },
-  { id: 'goals', label: 'Goals', icon: Target, color: 'text-violet-400', active: true },
-  { id: 'emi', label: 'EMI Compare', icon: Calculator, color: 'text-emerald-400', active: true },
-  { id: 'advisor', label: 'Advisor', icon: Brain, color: 'text-gold-400', active: true },
+  { id: 'market', label: 'Market Intel', icon: Globe, color: 'text-ledger-amber', active: true },
+  { id: 'subscriptions', label: 'Subscriptions', icon: Repeat, color: 'text-accent-400', active: true },
+  { id: 'goals', label: 'Goals', icon: Target, color: 'text-accent-400', active: true },
+  { id: 'emi', label: 'EMI Compare', icon: Calculator, color: 'text-ledger-green', active: true },
+  { id: 'advisor', label: 'Advisor', icon: Brain, color: 'text-accent-400', active: true },
 ];
 
 const secondaryItems = [
@@ -141,13 +146,13 @@ export default function Sidebar({ activeView, onViewChange, isOpen, expenses = [
         opacity: isOpen ? 1 : 0,
         x: isOpen ? 0 : -20
       }}
-      transition={isResizing ? { duration: 0 } : { duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-      className="h-screen flex flex-col bg-vault-950/95 backdrop-blur-[60px] border-r border-gold-500/[0.14] relative z-30 shrink-0 select-none group/sidebar overflow-hidden shadow-2xl"
+      transition={isResizing ? { duration: 0 } : { duration: 0.3, ease: EASE_OUT }}
+      className="h-screen flex flex-col bg-vault-950/95 backdrop-blur-[60px] border-r border-accent-500/[0.14] relative z-30 shrink-0 select-none group/sidebar overflow-hidden shadow-2xl"
     >
       {/* ─── Resizer Handle ─── */}
       <div
         onMouseDown={startResizing}
-        className={`absolute top-0 right-[-4px] w-2 h-full cursor-col-resize z-50 hover:bg-gold-500/30 transition-colors ${isResizing ? 'bg-gold-500/50' : ''}`}
+        className={`absolute top-0 right-[-4px] w-2 h-full cursor-col-resize z-50 hover:bg-accent-500/30 transition-colors ${isResizing ? 'bg-accent-500/50' : ''}`}
       >
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover/sidebar:opacity-100 transition-opacity">
             {!isResizing && <GripVertical className="w-3 h-3 text-blue-100/70" />}
@@ -156,16 +161,16 @@ export default function Sidebar({ activeView, onViewChange, isOpen, expenses = [
 
       <div className="flex flex-col h-full min-w-[280px]">
         {/* ─── Brand Header — engraved seal ─── */}
-        <div className="p-6 flex items-center gap-4 border-b border-gold-500/[0.14] mb-4 relative overflow-hidden">
+        <div className="p-6 flex items-center gap-4 border-b border-accent-500/[0.14] mb-4 relative overflow-hidden">
           {/* guilloche corner engraving */}
-          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full border border-gold-500/[0.08]" />
-          <div className="absolute -top-10 -right-10 w-24 h-24 rounded-full border border-gold-500/[0.06] mt-4 ml-4" />
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center shadow-lg shadow-gold-500/25 shrink-0 border border-gold-300/30">
+          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full border border-accent-500/[0.08]" />
+          <div className="absolute -top-10 -right-10 w-24 h-24 rounded-full border border-accent-500/[0.06] mt-4 ml-4" />
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center shadow-lg shadow-accent-500/25 shrink-0 border border-accent-300/30">
             <Shield className="w-5 h-5 text-ink-950" strokeWidth={2.2} />
           </div>
           <div className="flex flex-col whitespace-nowrap">
             <h2 className="font-display text-xl font-semibold tracking-tight text-white leading-none">
-              Arth<span className="text-gold-400">Mitra</span>
+              Arth<span className="text-accent-400">Mitra</span>
             </h2>
             <span className="font-mono text-[9px] text-blue-100/60 uppercase tracking-[0.28em] mt-1.5">अर्थ · मित्र · Ledger</span>
           </div>
@@ -179,17 +184,17 @@ export default function Sidebar({ activeView, onViewChange, isOpen, expenses = [
               <button
                 key={item.id}
                 onClick={() => !item.badge && onViewChange(item.id)}
-                className={`w-full group flex flex-col gap-3 px-4 py-4 rounded-xl transition-all duration-300 relative overflow-hidden
-                  ${activeView === item.id
-                    ? 'bg-gradient-to-r from-gold-500/[0.1] to-transparent text-white border border-gold-500/25 shadow-sm shadow-black/30'
-                    : 'text-blue-100/70 hover:text-white hover:bg-white/[0.06] active:scale-[0.98] border border-transparent'
-                  }
-                  ${item.badge ? 'opacity-40 cursor-not-allowed' : ''}
-                `}
+                className={cn(
+                  "w-full group flex flex-col gap-3 px-4 py-4 rounded-xl transition-all duration-200 relative overflow-hidden active:scale-[0.97]",
+                  activeView === item.id
+                    ? "bg-gradient-to-r from-accent-500/[0.12] to-transparent text-white border border-accent-500/30 shadow-sm shadow-black/30"
+                    : "text-blue-100/70 hover:text-white hover:bg-white/[0.08] border border-transparent",
+                  item.badge && "opacity-40 cursor-not-allowed active:scale-100"
+                )}
               >
                 {/* active engraved left notch */}
                 {activeView === item.id && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-7 bg-gold-400 rounded-r" />
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-7 bg-accent-400 rounded-r" />
                 )}
                 <div className="flex items-center gap-4 w-full">
                   <div className="relative">
@@ -230,7 +235,7 @@ export default function Sidebar({ activeView, onViewChange, isOpen, expenses = [
         </nav>
 
         {/* ─── Footer ─── */}
-        <div className="p-5 border-t border-gold-500/[0.14] bg-vault-900/55">
+        <div className="p-5 border-t border-accent-500/[0.14] bg-vault-900/55">
           {(monthlySpend > 0 || monthlyEarn > 0) && (
             <div className="mb-3 px-4 py-3 rounded-xl bg-white/[0.05] border border-white/10 space-y-1.5">
               <p className="font-mono text-[8px] text-blue-100/60 uppercase tracking-[0.3em]">This Month</p>

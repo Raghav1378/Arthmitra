@@ -17,6 +17,7 @@ const Subscriptions = dynamic(() => import('../components/Subscriptions'), { ssr
 const Goals = dynamic(() => import('../components/Goals'), { ssr: false, loading: () => <div className="h-full flex items-center justify-center font-mono text-xs uppercase tracking-widest text-parchment-faint">Opening Goals…</div> });
 const EmiCompare = dynamic(() => import('../components/EmiCompare'), { ssr: false, loading: () => <div className="h-full flex items-center justify-center font-mono text-xs uppercase tracking-widest text-parchment-faint">Opening EMI Compare…</div> });
 const Advisor = dynamic(() => import('../components/Advisor'), { ssr: false, loading: () => <div className="h-full flex items-center justify-center font-mono text-xs uppercase tracking-widest text-parchment-faint">Waking Advisor…</div> });
+const MarketCompare = dynamic(() => import('../components/MarketCompare'), { ssr: false, loading: () => <div className="h-full flex items-center justify-center font-mono text-xs uppercase tracking-widest text-parchment-faint">Loading Market Intel…</div> });
 import Sidebar from '../components/Sidebar';
 import ApiStatusIndicator from '../components/ApiStatusIndicator';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -52,9 +53,9 @@ export default function Home() {
     <main className="h-screen bg-vault text-parchment overflow-hidden flex relative">
       {/* Guilloche atmosphere + paper grain */}
       <div className="fixed inset-0 pointer-events-none z-0 grain">
-        <div className="absolute top-[-15%] left-[-8%] w-[650px] h-[650px] rounded-full bg-gold-500/[0.04] blur-[150px]" />
+        <div className="absolute top-[-15%] left-[-8%] w-[650px] h-[650px] rounded-full bg-accent-500/[0.04] blur-[150px]" />
         <div className="absolute bottom-[-12%] right-[-6%] w-[550px] h-[550px] rounded-full bg-ledger-green/[0.035] blur-[130px]" />
-        <div className="absolute top-[35%] right-[24%] w-[420px] h-[420px] rounded-full bg-gold-300/[0.025] blur-[120px]" />
+        <div className="absolute top-[35%] right-[24%] w-[420px] h-[420px] rounded-full bg-accent-300/[0.025] blur-[120px]" />
       </div>
 
       {/* ─── Sidebar Component (Gains Global Expenses) ─── */}
@@ -74,11 +75,11 @@ export default function Home() {
           <div className="flex items-center gap-6">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="group relative flex items-center justify-center w-10 h-10 rounded-xl bg-ink-900/[0.03] border border-gold-500/15 hover:bg-gold-500/10 hover:border-gold-500/35 transition-all text-parchment-faint hover:text-gold-600 overflow-hidden"
+              className="group relative flex items-center justify-center w-10 h-10 rounded-xl bg-ink-900/[0.03] border border-accent-500/15 hover:bg-accent-500/10 hover:border-accent-500/35 transition-all text-parchment-faint hover:text-accent-600 overflow-hidden"
               title={isSidebarOpen ? "Retract Sidebar" : "Show Sidebar"}
             >
-              <div className="absolute inset-0 bg-gradient-to-tr from-gold-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              {isSidebarOpen ? <PanelLeftClose className="w-5 h-5 relative z-10" /> : <PanelLeft className="w-5 h-5 relative z-10 text-gold-600" />}
+              <div className="absolute inset-0 bg-gradient-to-tr from-accent-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              {isSidebarOpen ? <PanelLeftClose className="w-5 h-5 relative z-10" /> : <PanelLeft className="w-5 h-5 relative z-10 text-accent-600" />}
             </button>
 
             <div className="flex flex-col">
@@ -86,28 +87,28 @@ export default function Home() {
                 {activeView === 'chat' ? 'VIRTUAL ASSISTANT' : activeView.toUpperCase()}
               </h1>
               <div className="flex items-center gap-2">
-                    <LayoutDashboard className="w-3.5 h-3.5 text-gold-500/80" />
+                    <LayoutDashboard className="w-3.5 h-3.5 text-accent-500/80" />
                     <span className="font-display text-sm font-semibold text-parchment tracking-tight">Command Center</span>
                 </div>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-gold-500/10 border border-gold-500/25 mr-2">
-                <Sparkles className="w-3.5 h-3.5 text-gold-600" />
-                <span className="font-mono text-[10px] font-medium text-gold-600 uppercase tracking-[0.2em] leading-none">Mitra v3.0</span>
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-500/10 border border-accent-500/25 mr-2">
+                <Sparkles className="w-3.5 h-3.5 text-accent-600" />
+                <span className="font-mono text-[10px] font-medium text-accent-600 uppercase tracking-[0.2em] leading-none">Mitra v3.0</span>
             </div>
             <ApiStatusIndicator />
-            <div className="flex items-center gap-2 pr-2 border-r border-gold-500/15 group cursor-pointer ml-2">
+            <div className="flex items-center gap-2 pr-2 border-r border-accent-500/15 group cursor-pointer ml-2">
                 <div className="text-right hidden sm:block">
                     <p className="font-display text-[12px] font-semibold text-parchment leading-none">RAGHAV</p>
                     <p className="font-mono text-[8px] text-ledger-green uppercase tracking-[0.25em] mt-1">PRO ACCOUNT</p>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center font-display text-[13px] font-semibold text-ink-950 shadow-lg shadow-gold-500/20 group-hover:scale-105 transition-transform border border-gold-300/40">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center font-display text-[13px] font-semibold text-ink-950 shadow-lg shadow-accent-500/20 group-hover:scale-105 transition-transform border border-accent-300/40">
                 R
                 </div>
             </div>
-            <button className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-gold-500/10 transition-all text-parchment-faint hover:text-gold-600 border border-transparent hover:border-gold-500/25">
+            <button className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-accent-500/10 transition-all text-parchment-faint hover:text-accent-600 border border-transparent hover:border-accent-500/25">
                 <Settings className="w-4.5 h-4.5" />
             </button>
           </div>
@@ -192,6 +193,17 @@ export default function Home() {
                     >
                         <Advisor />
                     </motion.div>
+                ) : activeView === "market" ? (
+                    <motion.div
+                        key="market-view"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        className="w-full max-w-6xl h-full flex flex-col shadow-2xl shadow-ink-950/15 rounded-3xl overflow-hidden glass-strong border border-ink-900/[0.05]"
+                    >
+                        <MarketCompare />
+                    </motion.div>
                 ) : null}
             </AnimatePresence>
         </div>
@@ -211,9 +223,9 @@ export default function Home() {
                 initial={{ scale: 0.9, opacity: 0, y: 20 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                className="relative w-full max-w-4xl max-h-[85vh] bg-vault-800 border border-gold-500/40 rounded-[2rem] shadow-[0_50px_200px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col"
+                className="relative w-full max-w-4xl max-h-[85vh] bg-vault-800 border border-accent-500/40 rounded-[2rem] shadow-[0_50px_200px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col"
               >
-                <div className="p-8 border-b border-gold-500/[0.14] flex justify-between items-center bg-gradient-to-r from-ledger-red/[0.08] to-transparent">
+                <div className="p-8 border-b border-accent-500/[0.14] flex justify-between items-center bg-gradient-to-r from-ledger-red/[0.08] to-transparent">
                   <div>
                     <h3 className="font-display text-2xl font-semibold text-parchment tracking-tight flex items-center gap-4">
                       <Shield className="w-8 h-8 text-ledger-red" /> Security Audit Trace
@@ -225,13 +237,13 @@ export default function Home() {
                   <div className="flex gap-4">
                     <button 
                       onClick={() => { setShowSecurityAudit(false); setActiveView('chat'); }}
-                      className="px-6 py-2 rounded-xl bg-gold-500/10 border border-gold-500/30 text-gold-600 font-mono text-[10px] font-medium uppercase tracking-[0.2em] hover:bg-gold-500 hover:text-ink-950 transition-all"
+                      className="px-6 py-2 rounded-xl bg-accent-500/10 border border-accent-500/30 text-accent-600 font-mono text-[10px] font-medium uppercase tracking-[0.2em] hover:bg-accent-500 hover:text-ink-950 transition-all"
                     >
                       Enter Chat
                     </button>
                     <button
                       onClick={() => setShowSecurityAudit(false)}
-                      className="p-3 rounded-xl bg-ink-900/5 border border-gold-500/15 text-parchment-faint hover:text-parchment transition-all"
+                      className="p-3 rounded-xl bg-ink-900/5 border border-accent-500/15 text-parchment-faint hover:text-parchment transition-all"
                     >
                       <X className="w-6 h-6" />
                     </button>
