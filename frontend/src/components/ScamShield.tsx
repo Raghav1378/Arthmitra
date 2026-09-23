@@ -20,6 +20,12 @@ interface AIAnalysis {
   brief_reason: string;
 }
 
+interface Evidence {
+  signal: string;
+  severity: number;
+  source: string;
+}
+
 interface EngineDisagreement {
   ml_assessment: string;
   llm_assessment: string;
@@ -49,6 +55,11 @@ interface ScamResult {
   llm_stage?: "used" | "skipped";
   ai_analysis?: AIAnalysis;
   engine_disagreement?: EngineDisagreement;
+  evidence?: Array<{
+    signal: string;
+    severity: number;
+    source: string;
+  }>;
   scan_id?: string | null;
 }
 
@@ -952,6 +963,28 @@ export default function ScamShield() {
                     <SignalChip label="Unknown Recipient" active={hasExact('unknown recipient')} icon={<Eye className="w-3.5 h-3.5" />} />
                   </div>
                 </div>
+
+                {messageResult.evidence && messageResult.evidence.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-black text-parchment-faint uppercase tracking-[0.2em] font-display">Multi-Signal Evidence Breakdown</p>
+                    <div className="space-y-2">
+                      {messageResult.evidence.map((ev, i) => (
+                        <div key={i} className="p-3 rounded-xl bg-ink-900/[0.02] border border-ink-900/[0.05] flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded bg-ink-900/[0.05] text-[10px] font-bold text-parchment-faint uppercase font-display">{ev.source}</span>
+                            <span className="font-sans font-medium text-parchment">{ev.signal.replace(/_/g, ' ')}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 h-1.5 rounded-full bg-ink-900/[0.05] overflow-hidden">
+                              <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${Math.round(ev.severity * 100)}%` }} />
+                            </div>
+                            <span className="text-[10px] font-mono text-parchment-faint">{Math.round(ev.severity * 100)}%</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* AI semantic analysis — rendered ONLY when the LLM stage actually ran */}
                 {messageResult.ai_analysis && messageResult.llm_stage === "used" && (

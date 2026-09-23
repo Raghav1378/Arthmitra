@@ -508,6 +508,31 @@ def _build_result(message_text: str, evidence: Dict, llm: Optional[Dict], llm_st
     if risk in ("HIGH_RISK", "SUSPICIOUS") and guideline:
         advice.append(guideline)
 
+    evidence_list = []
+    for s in strong:
+        evidence_list.append({"signal": s.upper().replace(" ", "_"), "severity": 0.9, "source": "rule_engine"})
+    for m in medium:
+        evidence_list.append({"signal": m.upper().replace(" ", "_"), "severity": 0.6, "source": "rule_engine"})
+    for w in weak:
+        evidence_list.append({"signal": w.upper().replace(" ", "_"), "severity": 0.3, "source": "rule_engine"})
+    for b in evidence.get("behavioral", []):
+        evidence_list.append({"signal": b.upper().replace(" ", "_"), "severity": 0.5, "source": "behavior_analyzer"})
+    if max_link_score > 0:
+        evidence_list.append({"signal": "SUSPICIOUS_URL", "severity": round(max_link_score / 100.0, 2), "source": "url_analyzer"})
+    if evidence.get("ml_label") and evidence["ml_label"] != "safe":
+        evidence_list.append({
+            "signal": f"ML_{evidence['ml_label'].upper()}",
+            "severity": 0.85 if evidence["ml_label"] == "high_risk" else 0.6,
+            "source": "ml_classifier"
+        })
+    if llm is not None and llm.get("semantic_indicators"):
+        for ind in llm["semantic_indicators"]:
+            evidence_list.append({
+                "signal": ind.upper().replace(" ", "_"),
+                "severity": round(llm.get("llm_risk", 50) / 100.0, 2),
+                "source": "llm_analyzer"
+            })
+
     result = {
         "final_decision": {
             "risk": risk,
@@ -515,6 +540,7 @@ def _build_result(message_text: str, evidence: Dict, llm: Optional[Dict], llm_st
             "risk_score": score,
             "scam_type": scam_type,
         },
+        "evidence": evidence_list,
         "signals_detected": {"strong": strong, "medium": medium, "weak": weak, "behavioral": evidence["behavioral"]},
         "reasoning": {
             "summary": _message_summary(risk, strong, medium, scam_type, llm),
