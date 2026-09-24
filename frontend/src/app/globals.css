@@ -81,10 +81,9 @@ body {
   }
 }
 
-/* Display serif — Fraunces for headings, brand, verdicts */
+/* Display serif — Inter for headings, brand, verdicts */
 .font-display {
-  font-family: var(--font-display), Georgia, serif;
-  font-variation-settings: "opsz" 96, "SOFT" 50, "WONK" 1;
+  font-family: var(--font-body), system-ui, sans-serif;
   letter-spacing: -0.01em;
 }
 
