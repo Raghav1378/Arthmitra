@@ -69,46 +69,45 @@ export default function Home() {
       />
 
       {/* ─── Main Viewport Area ───────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 relative z-10 transition-all duration-500 ease-[0.4, 0, 0.2, 1]">
+      <div className="flex-1 flex flex-col min-w-0 relative z-10 transition-all duration-500 ease-[0.2,0,0,1]">
         
-        <header className="h-16 flex items-center justify-between px-8 border-b border-ink-900/10 bg-vault-900/70 backdrop-blur-xl shrink-0 z-20">
+        <header className="h-16 flex items-center justify-between px-8 border-b border-[#F5F7FF]/10 bg-[#0B1020]/90 backdrop-blur-xl shrink-0 z-20">
           <div className="flex items-center gap-6">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="group relative flex items-center justify-center w-10 h-10 rounded-xl bg-ink-900/[0.03] border border-accent-500/15 hover:bg-accent-500/10 hover:border-accent-500/35 transition-all text-parchment-faint hover:text-accent-600 overflow-hidden"
+              className="group relative flex items-center justify-center w-10 h-10 rounded-xl bg-[#111936] border border-[#F5F7FF]/10 hover:border-[#4F6BFF]/40 transition-all text-[#6C7A9C] hover:text-[#F5F7FF] overflow-hidden"
               title={isSidebarOpen ? "Retract Sidebar" : "Show Sidebar"}
             >
-              <div className="absolute inset-0 bg-gradient-to-tr from-accent-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              {isSidebarOpen ? <PanelLeftClose className="w-5 h-5 relative z-10" /> : <PanelLeft className="w-5 h-5 relative z-10 text-accent-600" />}
+              {isSidebarOpen ? <PanelLeftClose className="w-5 h-5 relative z-10" /> : <PanelLeft className="w-5 h-5 relative z-10 text-[#4F6BFF]" />}
             </button>
 
             <div className="flex flex-col">
-              <h1 className="font-mono text-[10px] font-medium tracking-[0.3em] text-parchment-faint uppercase leading-none mb-1">
+              <h1 className="font-mono text-[10px] font-semibold tracking-[0.25em] text-[#6C7A9C] uppercase leading-none mb-1">
                 {activeView === 'chat' ? 'VIRTUAL ASSISTANT' : activeView.toUpperCase()}
               </h1>
               <div className="flex items-center gap-2">
-                    <LayoutDashboard className="w-3.5 h-3.5 text-accent-500/80" />
-                    <span className="font-display text-sm font-semibold text-parchment tracking-tight">Command Center</span>
-                </div>
+                <LayoutDashboard className="w-3.5 h-3.5 text-[#4F6BFF]" />
+                <span className="font-serif text-sm font-bold text-[#F5F7FF] tracking-tight">Command Center</span>
+              </div>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-500/10 border border-accent-500/25 mr-2">
-                <Sparkles className="w-3.5 h-3.5 text-accent-600" />
-                <span className="font-mono text-[10px] font-medium text-accent-600 uppercase tracking-[0.2em] leading-none">Mitra v3.0</span>
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-[#4F6BFF]/10 border border-[#4F6BFF]/30 mr-2">
+                <Sparkles className="w-3.5 h-3.5 text-[#4F6BFF]" />
+                <span className="font-mono text-[10px] font-semibold text-[#4F6BFF] uppercase tracking-wider leading-none">Mitra v3.0 SIGNAL</span>
             </div>
             <ApiStatusIndicator />
-            <div className="flex items-center gap-2 pr-2 border-r border-accent-500/15 group cursor-pointer ml-2">
-                <div className="text-right hidden sm:block">
-                    <p className="font-display text-[12px] font-semibold text-parchment leading-none">RAGHAV</p>
-                    <p className="font-mono text-[8px] text-ledger-green uppercase tracking-[0.25em] mt-1">PRO ACCOUNT</p>
+            <div className="flex items-center gap-2 pr-2 border-r border-[#F5F7FF]/10 group cursor-pointer ml-2">
+                <div className="text-right hidden sm:block font-mono">
+                    <p className="text-[12px] font-bold text-[#F5F7FF] leading-none">RAGHAV</p>
+                    <p className="text-[8px] text-[#2DD4BF] uppercase tracking-widest mt-1">PRO ACCOUNT</p>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center font-display text-[13px] font-semibold text-ink-950 shadow-lg shadow-accent-500/20 group-hover:scale-105 transition-transform border border-accent-300/40">
+                <div className="w-8 h-8 rounded-full bg-[#4F6BFF] flex items-center justify-center font-mono text-[13px] font-bold text-[#F5F7FF] shadow-lg shadow-[#4F6BFF]/25 border border-white/20">
                 R
                 </div>
             </div>
-            <button className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-accent-500/10 transition-all text-parchment-faint hover:text-accent-600 border border-transparent hover:border-accent-500/25">
+            <button className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-[#111936] transition-all text-[#6C7A9C] hover:text-[#F5F7FF] border border-transparent hover:border-[#F5F7FF]/10">
                 <Settings className="w-4.5 h-4.5" />
             </button>
           </div>
@@ -119,22 +118,22 @@ export default function Home() {
                 {activeView === "chat" ? (
                     <motion.div 
                         key="chat-view"
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.4, ease: "easeOut" }}
-                        className="w-full max-w-7xl h-full flex flex-col shadow-2xl shadow-ink-950/15 rounded-3xl overflow-hidden glass-strong border border-ink-900/[0.05]"
+                        exit={{ opacity: 0, y: -15 }}
+                        transition={{ duration: 0.35, ease: [0.2, 0, 0, 1] }}
+                        className="w-full max-w-7xl h-full flex flex-col shadow-2xl rounded-3xl overflow-hidden bg-[#111936] border border-[#F5F7FF]/10"
                     >
                         <Chat />
                     </motion.div>
                 ) : activeView === "security" ? (
                     <motion.div
                         key="security-view"
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.4, ease: "easeOut" }}
-                        className="w-full max-w-5xl h-full flex flex-col shadow-2xl shadow-ink-950/15 rounded-3xl overflow-hidden glass-strong border border-ink-900/[0.05]"
+                        exit={{ opacity: 0, y: -15 }}
+                        transition={{ duration: 0.35, ease: [0.2, 0, 0, 1] }}
+                        className="w-full max-w-5xl h-full flex flex-col shadow-2xl rounded-3xl overflow-hidden bg-[#111936] border border-[#F5F7FF]/10"
                     >
                         <ScamShield />
                     </motion.div>
