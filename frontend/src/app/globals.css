@@ -3,14 +3,34 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════
-   ARTHMITRA — THE FINANCIAL SIGNAL DESIGN SYSTEM
-   Base: Deep Indigo #0B1020 · Surface: #111936 · Panel: #182246
-   Primary: Electric Cobalt #4F6BFF · Violet: #8B5CF6
-   Safe: Mint #2DD4BF · Review: Coral #FB7185 · Danger: Vermilion #FF4D5A
-   Typography: Fraunces (Editorial Serif) + Inter (UI) + IBM Plex Mono (Data)
+   ARTHMITRA — DESIGN SYSTEM & RENDERING PIPELINE STYLES
+   Vault Navy Ground · Electric Cobalt & Sapphire Accents · Parchment Text
+   Emerald / Mint = SAFE · Amber / Coral = SUSPICIOUS · Red / Vermilion = HIGH_RISK
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
+  /* Core Vault & Palette Variables */
+  --vault-950: #0B1020;
+  --vault-900: #111936;
+  --vault-800: #182246;
+  --vault-700: #202D58;
+  --vault-600: #2C3C70;
+
+  --accent-300: #7088FF;
+  --accent-400: #4F6BFF;
+  --accent-500: #4F6BFF;
+  --accent-600: #3B57E6;
+
+  --parchment: #F5F7FF;
+  --parchment-dim: #AAB4D0;
+  --parchment-faint: #6C7A9C;
+  --parchment-ghost: #4A567A;
+
+  --ledger-green: #2DD4BF;
+  --ledger-red: #FF4D5A;
+  --ledger-amber: #FB7185;
+
+  /* The Financial Signal Token Aliases */
   --signal-base: #0B1020;
   --signal-surface: #111936;
   --signal-panel: #182246;
@@ -24,29 +44,20 @@
   --text-secondary: #AAB4D0;
   --text-muted: #6C7A9C;
 
-  --vault-950: #0B1020;
-  --vault-900: #111936;
-  --vault-800: #182246;
-  --accent-400: #4F6BFF;
-  --accent-500: #4F6BFF;
-  --parchment: #F5F7FF;
-  --parchment-dim: #AAB4D0;
-  --parchment-faint: #6C7A9C;
-  --parchment-ghost: #4A567A;
-
   --hairline: rgba(245, 247, 255, 0.08);
   --hairline-strong: rgba(245, 247, 255, 0.16);
+  --accent-hairline: rgba(79, 107, 255, 0.3);
   --panel-bg: rgba(17, 25, 54, 0.85);
   --shadow-panel: 0 12px 48px rgba(0, 0, 0, 0.45);
 }
 
 @keyframes entrance {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .animate-entrance {
-  animation: entrance 450ms cubic-bezier(0.2, 0, 0, 1) forwards;
+  animation: entrance 400ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 
 * {
@@ -69,18 +80,20 @@ body {
 }
 
 /* ── Typography Classes ── */
-.font-serif {
-  font-family: var(--font-serif), Georgia, serif;
+.font-display {
+  font-family: var(--font-display), var(--font-serif), Georgia, serif;
+  letter-spacing: -0.01em;
 }
 
-.font-display {
-  font-family: var(--font-serif), Georgia, serif;
+.font-serif {
+  font-family: var(--font-display), var(--font-serif), Georgia, serif;
 }
 
 .font-sans {
   font-family: var(--font-body), system-ui, sans-serif;
 }
 
+.tnum,
 .font-mono {
   font-family: var(--font-mono), monospace;
   font-variant-numeric: tabular-nums;
@@ -108,8 +121,14 @@ body {
   }
 }
 
-/* ── Signal Utilities ── */
+/* ── Utilities Layer ── */
 @layer utilities {
+  .bg-vault {
+    background-color: var(--signal-base);
+    background-image:
+      radial-gradient(1400px 900px at 50% -20%, rgba(24, 34, 70, 0.85), transparent 65%);
+  }
+
   .bg-signal {
     background-color: var(--signal-base);
     background-image:
@@ -117,8 +136,27 @@ body {
       radial-gradient(900px 600px at 80% 90%, rgba(139, 92, 246, 0.08), transparent 60%);
   }
 
-  .bg-vault {
-    background-color: var(--signal-base);
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.35;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .glass {
+    background: var(--panel-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--hairline);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .glass-strong {
+    background: linear-gradient(150deg, rgba(24, 34, 70, 0.92), rgba(11, 16, 32, 0.96));
+    border: 1px solid var(--hairline-strong);
+    box-shadow: var(--shadow-panel);
   }
 }
 
@@ -131,6 +169,34 @@ body {
   }
   .backface-hidden {
     backface-visibility: hidden;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-6 py-2.5 text-sm font-semibold rounded-xl text-white
+           transition-all duration-200 active:scale-[0.98]
+           disabled:opacity-40 disabled:pointer-events-none;
+    background-color: var(--accent-cobalt);
+  }
+  .btn-primary:hover {
+    background-color: var(--accent-600);
+  }
+
+  .input-field {
+    @apply w-full border border-white/10 rounded-xl px-4 py-2.5
+           text-sm text-parchment placeholder-parchment-ghost
+           focus:outline-none transition-all duration-200;
+    background-color: var(--vault-800);
+  }
+  .input-field:focus {
+    border-color: var(--accent-cobalt);
+  }
+
+  .card {
+    @apply border border-white/10 rounded-2xl;
+    background-color: var(--panel-bg);
+    box-shadow: var(--shadow-panel);
   }
 }
 

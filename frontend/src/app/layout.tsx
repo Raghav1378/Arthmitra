@@ -16,7 +16,7 @@ const plexMono = IBM_Plex_Mono({
 const fraunces = Fraunces({
   subsets: ["latin"],
   style: ["normal", "italic"],
-  variable: "--font-serif",
+  variable: "--font-display",
 });
 
 export const metadata: Metadata = {
@@ -31,8 +31,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`dark ${inter.variable} ${plexMono.variable} ${fraunces.variable}`}>
-       <body className="font-sans antialiased text-parchment bg-vault">{children}</body>
+      <body className="font-sans antialiased text-parchment bg-vault">{children}</body>
     </html>
   );
 }
-
