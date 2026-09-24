@@ -1,5 +1,8 @@
-import React from 'react';
-import { ShieldCheck, Ban, Eye, Lock, Check } from 'lucide-react';
+"use client";
+
+import React from "react";
+import { ShieldCheck, Ban, Eye, CheckCircle2 } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface ActionPlanProps {
   risk: "SAFE" | "SUSPICIOUS" | "HIGH_RISK" | "LOW" | "HIGH";
@@ -8,37 +11,65 @@ interface ActionPlanProps {
 
 export function ActionPlan({ risk, advice }: ActionPlanProps) {
   const isDanger = risk === "HIGH_RISK" || risk === "HIGH";
-  const isCaution = risk === "SUSPICIOUS" || risk === "LOW";
+  const isCaution = risk === "SUSPICIOUS";
 
-  const icon = isDanger ? (
-    <Ban className="w-5 h-5 text-red-500 shrink-0" />
-  ) : isCaution ? (
-    <Eye className="w-5 h-5 text-amber-500 shrink-0" />
-  ) : (
-    <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-  );
+  const headerConfig = isDanger
+    ? {
+        title: "STOP — Do Not Proceed",
+        color: "text-red-400",
+        border: "border-red-500/30 bg-red-500/10",
+        icon: <Ban className="w-5 h-5 text-red-400 shrink-0" />,
+      }
+    : isCaution
+    ? {
+        title: "Proceed With Extreme Caution",
+        color: "text-amber-400",
+        border: "border-amber-500/30 bg-amber-500/10",
+        icon: <Eye className="w-5 h-5 text-amber-400 shrink-0" />,
+      }
+    : {
+        title: "Safe Action Plan",
+        color: "text-emerald-400",
+        border: "border-emerald-500/30 bg-emerald-500/10",
+        icon: <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />,
+      };
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-[13px] font-black tracking-tight text-ink-950 font-display">What to do next</h3>
-      <div className={`rounded-2xl p-5 border ${isDanger ? 'bg-red-500/[0.03] border-red-500/20' : isCaution ? 'bg-amber-500/[0.03] border-amber-500/20' : 'bg-emerald-500/[0.03] border-emerald-500/20'}`}>
-        <div className="flex gap-3 mb-3">
-          <div className="w-9 h-9 rounded-xl bg-ink-950 flex items-center justify-center shrink-0 shadow-md shadow-ink-900/20">
-            {icon}
-          </div>
-          <h4 className={`text-sm font-black tracking-tight font-display mt-1.5 ${isDanger ? 'text-red-600' : isCaution ? 'text-amber-700' : 'text-emerald-700'}`}>
-            {isDanger ? 'STOP — Do not proceed' : isCaution ? 'Proceed with caution' : 'No major risk detected'}
-          </h4>
-        </div>
-        <div className="pl-12 space-y-2">
-          {advice.map((item, i) => (
-            <div key={i} className="flex items-start gap-2.5 text-sm text-parchment-dim font-sans leading-snug">
-              <Check className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
-              <span>{item}</span>
-            </div>
-          ))}
-        </div>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: 0.1 }}
+      className="p-6 rounded-3xl bg-vault-900 border border-white/[0.08] shadow-2xl space-y-4"
+    >
+      <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+        <h3 className="text-sm font-bold tracking-tight text-white font-display">
+          Recommended Action Plan
+        </h3>
+        <span className="text-[10px] font-mono text-parchment-faint uppercase tracking-wider">
+          Safety Protocol
+        </span>
       </div>
-    </div>
+
+      <div className={`p-4 rounded-2xl border ${headerConfig.border} flex items-center gap-3`}>
+        {headerConfig.icon}
+        <span className={`text-sm font-bold font-display ${headerConfig.color}`}>
+          {headerConfig.title}
+        </span>
+      </div>
+
+      <div className="space-y-2.5 pt-1">
+        {advice.map((item, i) => (
+          <div
+            key={i}
+            className="flex items-start gap-3 p-3 rounded-xl bg-vault-950 border border-white/[0.04] text-xs text-parchment-dim leading-relaxed"
+          >
+            <div className="w-5 h-5 rounded-lg bg-accent-500/10 border border-accent-500/20 text-accent-400 font-mono text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+              {i + 1}
+            </div>
+            <span className="flex-1 text-parchment-dim">{item}</span>
+          </div>
+        ))}
+      </div>
+    </motion.div>
   );
 }

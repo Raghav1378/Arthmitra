@@ -160,6 +160,71 @@ body {
   }
 }
 
+/* ── 3D & Cylinder Motion Utilities ────────────────────────────── */
+@layer utilities {
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  .perspective-1200 {
+    perspective: 1200px;
+  }
+  .transform-style-3d {
+    transform-style: preserve-3d;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); opacity: 0; }
+  25% { opacity: 0.8; }
+  75% { opacity: 0.8; }
+  100% { transform: translateY(1000%); opacity: 0; }
+}
+
+@keyframes ring-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes float-particle {
+  0%, 100% { transform: translateY(0px) scale(1); opacity: 0.3; }
+  50% { transform: translateY(-10px) scale(1.1); opacity: 0.7; }
+}
+
+.animate-scanline {
+  animation: scanline 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-ring-slow {
+  animation: ring-rotate 35s linear infinite;
+}
+
+.animate-ring-reverse {
+  animation: ring-rotate 25s linear infinite reverse;
+}
+
+.animate-float {
+  animation: float-particle 5s ease-in-out infinite;
+}
+
+/* Custom Scrollbar for Scam Shield */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(18, 18, 18, 0.6);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 136, 0, 0.4);
+}
+
 /* Print Styles */
 @media print {
   body {
@@ -171,3 +236,4 @@ body {
     display: none !important;
   }
 }
+
