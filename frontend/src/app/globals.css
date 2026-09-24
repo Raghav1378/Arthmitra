@@ -3,40 +3,50 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════
-   ARTHMITRA — MIDNIGHT COURT (v2 design system)
-   Vault navy ground · sapphire primary · restrained gold
-   Emerald = SAFE · Amber = SUSPICIOUS · Red = HIGH_RISK
-   Motion: 200ms micro · 300ms standard · 400ms page · easeOut
+   ARTHMITRA — THE FINANCIAL SIGNAL DESIGN SYSTEM
+   Base: Deep Indigo #0B1020 · Surface: #111936 · Panel: #182246
+   Primary: Electric Cobalt #4F6BFF · Violet: #8B5CF6
+   Safe: Mint #2DD4BF · Review: Coral #FB7185 · Danger: Vermilion #FF4D5A
+   Typography: Fraunces (Editorial Serif) + Inter (UI) + IBM Plex Mono (Data)
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  --vault-950: #121212;
-  --vault-900: #1a1a1a;
-  --vault-800: #242424;
-  --accent-400: #ffaa00;
-  --accent-500: #ff8800;
-  --parchment: #f0f0f0;
-  --parchment-dim: #d1d1d1;
-  --parchment-faint: #a0a0a0;
-  --parchment-ghost: #707070;
-  --ledger-green: #00c853;
-  --ledger-red: #ff3d00;
-  --ledger-amber: #ffab00;
+  --signal-base: #0B1020;
+  --signal-surface: #111936;
+  --signal-panel: #182246;
+  --accent-cobalt: #4F6BFF;
+  --accent-violet: #8B5CF6;
+  --signal-mint: #2DD4BF;
+  --signal-coral: #FB7185;
+  --signal-vermilion: #FF4D5A;
 
-  --hairline: rgba(255, 255, 255, 0.08);
-  --hairline-strong: rgba(255, 255, 255, 0.14);
-  --accent-hairline: rgba(255, 136, 0, 0.3);
-  --panel-bg: rgba(30, 30, 30, 0.7);
-  --shadow-panel: 0 10px 40px rgba(0, 0, 0, 0.4);
+  --text-primary: #F5F7FF;
+  --text-secondary: #AAB4D0;
+  --text-muted: #6C7A9C;
+
+  --vault-950: #0B1020;
+  --vault-900: #111936;
+  --vault-800: #182246;
+  --accent-400: #4F6BFF;
+  --accent-500: #4F6BFF;
+  --parchment: #F5F7FF;
+  --parchment-dim: #AAB4D0;
+  --parchment-faint: #6C7A9C;
+  --parchment-ghost: #4A567A;
+
+  --hairline: rgba(245, 247, 255, 0.08);
+  --hairline-strong: rgba(245, 247, 255, 0.16);
+  --panel-bg: rgba(17, 25, 54, 0.85);
+  --shadow-panel: 0 12px 48px rgba(0, 0, 0, 0.45);
 }
 
 @keyframes entrance {
-  from { opacity: 0; transform: scale(0.96) translateY(8px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-entrance {
-  animation: entrance 400ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  animation: entrance 450ms cubic-bezier(0.2, 0, 0, 1) forwards;
 }
 
 * {
@@ -50,27 +60,44 @@ html {
 }
 
 body {
-  color: var(--parchment);
-  background-color: var(--vault-950);
+  color: var(--text-primary);
+  background-color: var(--signal-base);
   min-height: 100vh;
   font-family: var(--font-body), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Accessibility: visible keyboard focus on every interactive element ── */
+/* ── Typography Classes ── */
+.font-serif {
+  font-family: var(--font-serif), Georgia, serif;
+}
+
+.font-display {
+  font-family: var(--font-serif), Georgia, serif;
+}
+
+.font-sans {
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+.font-mono {
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Accessibility ── */
 :focus-visible {
-  outline: 2px solid var(--accent-400);
-  outline-offset: 2px;
+  outline: 2px solid var(--accent-cobalt);
+  outline-offset: 3px;
   border-radius: 4px;
 }
 
 ::selection {
-  background: rgba(255, 136, 0, 0.35);
+  background: rgba(79, 107, 255, 0.35);
   color: #ffffff;
 }
 
-/* Respect users who opt out of motion */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -81,92 +108,23 @@ body {
   }
 }
 
-/* Display serif — Inter for headings, brand, verdicts */
-.font-display {
-  font-family: var(--font-body), system-ui, sans-serif;
-  letter-spacing: -0.01em;
-}
-
-/* Tabular numerals everywhere money appears */
-.tnum,
-.font-mono {
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── Guilloche banknote texture + paper grain ─────────────────── */
+/* ── Signal Utilities ── */
 @layer utilities {
-  .bg-vault {
-    background-color: var(--vault-950);
+  .bg-signal {
+    background-color: var(--signal-base);
     background-image:
-      radial-gradient(1400px 900px at 50% -20%, rgba(36, 36, 36, 0.85), transparent 65%);
+      radial-gradient(1200px 700px at 20% -10%, rgba(79, 107, 255, 0.12), transparent 60%),
+      radial-gradient(900px 600px at 80% 90%, rgba(139, 92, 246, 0.08), transparent 60%);
   }
 
-  .grain::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.5;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  .bg-vault {
+    background-color: var(--signal-base);
   }
 }
 
-@layer utilities {
-  .glass {
-    background: var(--panel-bg);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--hairline);
-    box-shadow: var(--shadow-panel);
-  }
-
-  .glass-strong {
-    background: linear-gradient(150deg, rgba(30, 30, 30, 0.92), rgba(18, 18, 18, 0.96));
-    border: 1px solid var(--hairline-strong);
-    box-shadow: var(--shadow-panel);
-  }
-}
-
-@layer components {
-  .btn-primary {
-    @apply px-6 py-2.5 text-sm font-semibold rounded-xl text-white
-           transition-all duration-200 active:scale-[0.98]
-           disabled:opacity-40 disabled:pointer-events-none;
-    background-color: var(--accent-500);
-  }
-  .btn-primary:hover {
-    background-color: var(--accent-400);
-  }
-}
-
-@layer components {
-  .input-field {
-    @apply w-full border border-white/10 rounded-xl px-4 py-2.5
-           text-sm text-parchment placeholder-parchment-ghost
-           focus:outline-none transition-all duration-200;
-    background-color: var(--vault-800);
-  }
-  .input-field:focus {
-    border-color: var(--accent-400);
-  }
-}
-
-/* Card — 1px hairline, one shadow level, no blur */
-@layer components {
-  .card {
-    @apply border border-white/10 rounded-2xl;
-    background-color: var(--panel-bg);
-    box-shadow: var(--shadow-panel);
-  }
-}
-
-/* ── 3D & Cylinder Motion Utilities ────────────────────────────── */
 @layer utilities {
   .perspective-1000 {
     perspective: 1000px;
-  }
-  .perspective-1200 {
-    perspective: 1200px;
   }
   .transform-style-3d {
     transform-style: preserve-3d;
@@ -178,8 +136,8 @@ body {
 
 @keyframes scanline {
   0% { transform: translateY(-100%); opacity: 0; }
-  25% { opacity: 0.8; }
-  75% { opacity: 0.8; }
+  25% { opacity: 0.7; }
+  75% { opacity: 0.7; }
   100% { transform: translateY(1000%); opacity: 0; }
 }
 
@@ -189,8 +147,8 @@ body {
 }
 
 @keyframes float-particle {
-  0%, 100% { transform: translateY(0px) scale(1); opacity: 0.3; }
-  50% { transform: translateY(-10px) scale(1.1); opacity: 0.7; }
+  0%, 100% { transform: translateY(0px); opacity: 0.2; }
+  50% { transform: translateY(-8px); opacity: 0.6; }
 }
 
 .animate-scanline {
@@ -198,42 +156,39 @@ body {
 }
 
 .animate-ring-slow {
-  animation: ring-rotate 35s linear infinite;
+  animation: ring-rotate 40s linear infinite;
 }
 
 .animate-ring-reverse {
-  animation: ring-rotate 25s linear infinite reverse;
+  animation: ring-rotate 30s linear infinite reverse;
 }
 
 .animate-float {
-  animation: float-particle 5s ease-in-out infinite;
+  animation: float-particle 6s ease-in-out infinite;
 }
 
-/* Custom Scrollbar for Scam Shield */
+/* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(18, 18, 18, 0.6);
+  background: rgba(11, 16, 32, 0.8);
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(170, 180, 208, 0.2);
   border-radius: 9999px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 136, 0, 0.4);
+  background: rgba(79, 107, 255, 0.5);
 }
 
-/* Print Styles */
 @media print {
   body {
     background: white;
     color: black;
   }
-
   .no-print {
     display: none !important;
   }
 }
-

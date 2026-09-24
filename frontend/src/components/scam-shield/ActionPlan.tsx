@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ShieldCheck, Ban, Eye, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, Ban, Eye } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface ActionPlanProps {
@@ -15,23 +15,23 @@ export function ActionPlan({ risk, advice }: ActionPlanProps) {
 
   const headerConfig = isDanger
     ? {
-        title: "STOP — Do Not Proceed",
-        color: "text-red-400",
-        border: "border-red-500/30 bg-red-500/10",
-        icon: <Ban className="w-5 h-5 text-red-400 shrink-0" />,
+        title: "STOP — DO NOT PROCEED",
+        color: "text-[#FF4D5A]",
+        border: "border-[#FF4D5A]/30 bg-[#FF4D5A]/10",
+        icon: <Ban className="w-5 h-5 text-[#FF4D5A] shrink-0" />,
       }
     : isCaution
     ? {
-        title: "Proceed With Extreme Caution",
-        color: "text-amber-400",
-        border: "border-amber-500/30 bg-amber-500/10",
-        icon: <Eye className="w-5 h-5 text-amber-400 shrink-0" />,
+        title: "VERIFY BEFORE PROCEEDING",
+        color: "text-[#FB7185]",
+        border: "border-[#FB7185]/30 bg-[#FB7185]/10",
+        icon: <Eye className="w-5 h-5 text-[#FB7185] shrink-0" />,
       }
     : {
-        title: "Safe Action Plan",
-        color: "text-emerald-400",
-        border: "border-emerald-500/30 bg-emerald-500/10",
-        icon: <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />,
+        title: "SAFE PROTOCOL ACTION",
+        color: "text-[#2DD4BF]",
+        border: "border-[#2DD4BF]/30 bg-[#2DD4BF]/10",
+        icon: <ShieldCheck className="w-5 h-5 text-[#2DD4BF] shrink-0" />,
       };
 
   return (
@@ -39,34 +39,32 @@ export function ActionPlan({ risk, advice }: ActionPlanProps) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: 0.1 }}
-      className="p-6 rounded-3xl bg-vault-900 border border-white/[0.08] shadow-2xl space-y-4"
+      className="p-6 rounded-3xl bg-[#111936] border border-[#F5F7FF]/10 shadow-2xl space-y-4"
     >
-      <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
-        <h3 className="text-sm font-bold tracking-tight text-white font-display">
-          Recommended Action Plan
+      <div className="flex items-center justify-between border-b border-[#F5F7FF]/10 pb-3">
+        <h3 className="text-xs font-mono font-semibold uppercase tracking-widest text-[#6C7A9C]">
+          RECOMMENDED SAFETY ACTION
         </h3>
-        <span className="text-[10px] font-mono text-parchment-faint uppercase tracking-wider">
-          Safety Protocol
+        <span className="font-mono text-[10px] text-[#AAB4D0] uppercase">
+          DECISION PROTOCOL
         </span>
       </div>
 
-      <div className={`p-4 rounded-2xl border ${headerConfig.border} flex items-center gap-3`}>
+      <div className={`p-4 rounded-xl border ${headerConfig.border} flex items-center gap-3 font-mono text-xs font-bold ${headerConfig.color}`}>
         {headerConfig.icon}
-        <span className={`text-sm font-bold font-display ${headerConfig.color}`}>
-          {headerConfig.title}
-        </span>
+        <span>{headerConfig.title}</span>
       </div>
 
-      <div className="space-y-2.5 pt-1">
+      <div className="space-y-2 pt-1">
         {advice.map((item, i) => (
           <div
             key={i}
-            className="flex items-start gap-3 p-3 rounded-xl bg-vault-950 border border-white/[0.04] text-xs text-parchment-dim leading-relaxed"
+            className="flex items-start gap-3 p-3.5 rounded-xl bg-[#0B1020] border border-[#F5F7FF]/06 text-xs text-[#AAB4D0] leading-relaxed font-sans"
           >
-            <div className="w-5 h-5 rounded-lg bg-accent-500/10 border border-accent-500/20 text-accent-400 font-mono text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-              {i + 1}
+            <div className="w-5 h-5 rounded bg-[#4F6BFF]/10 border border-[#4F6BFF]/30 text-[#4F6BFF] font-mono text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+              0{i + 1}
             </div>
-            <span className="flex-1 text-parchment-dim">{item}</span>
+            <span className="flex-1">{item}</span>
           </div>
         ))}
       </div>

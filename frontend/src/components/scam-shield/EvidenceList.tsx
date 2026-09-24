@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { EvidenceItem } from "./types";
-import { ChevronDown, ChevronUp, AlertCircle, ShieldAlert } from "lucide-react";
+import { ChevronDown, ChevronUp, AlertCircle, Terminal } from "lucide-react";
 
 interface EvidenceListProps {
   evidence?: EvidenceItem[];
@@ -14,106 +14,97 @@ export function EvidenceList({ evidence = [] }: EvidenceListProps) {
 
   if (!evidence.length) {
     return (
-      <div className="flex items-center gap-3 p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 text-xs text-emerald-300">
-        <AlertCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-        <span>No specific high-risk scam signals detected. Always maintain financial vigilance.</span>
+      <div className="flex items-center gap-3 p-4 rounded-2xl border border-[#2DD4BF]/20 bg-[#2DD4BF]/5 text-xs text-[#2DD4BF]">
+        <AlertCircle className="w-4 h-4 text-[#2DD4BF] shrink-0" />
+        <span>No specific risk signals logged in current trace. Always maintain vigilance.</span>
       </div>
     );
   }
 
-  const displayed = showAll ? evidence : evidence.slice(0, 4);
+  const displayed = showAll ? evidence : evidence.slice(0, 5);
 
-  // Humanize sources
   const humanizeSource = (source: string) => {
     switch (source) {
       case "rule_engine":
-        return "Rule check";
+        return "Rule Check";
       case "url_analyzer":
-        return "URL / Domain analysis";
+        return "URL Analysis";
       case "ml_classifier":
-        return "Pattern classification";
+        return "Pattern Analysis";
       case "behavior_analyzer":
-        return "Behavioral analysis";
+        return "Behavior Check";
       case "llm_analyzer":
-        return "Semantic analysis";
+        return "Semantic LLM";
       default:
         return source.replace(/_/g, " ");
     }
   };
 
-  const getSeverityBadge = (severity: number) => {
+  const getSeverityTag = (severity: number) => {
     if (severity > 0.7) {
-      return { label: "HIGH", color: "text-red-400 bg-red-500/10 border-red-500/20" };
+      return { label: "HIGH", color: "text-[#FF4D5A] bg-[#FF4D5A]/10 border-[#FF4D5A]/30" };
     } else if (severity > 0.4) {
-      return { label: "MEDIUM", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" };
+      return { label: "MEDIUM", color: "text-[#FB7185] bg-[#FB7185]/10 border-[#FB7185]/30" };
     }
-    return { label: "WEAK", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" };
+    return { label: "WEAK", color: "text-[#2DD4BF] bg-[#2DD4BF]/10 border-[#2DD4BF]/30" };
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between border-b border-white/[0.08] pb-2.5">
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="w-4 h-4 text-accent-400" />
-          <h3 className="text-sm font-bold tracking-tight text-white font-display">
-            Why This Was Flagged
-          </h3>
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-[#F5F7FF]/10 pb-3">
+        <div className="flex items-center gap-2 font-mono text-xs font-semibold text-[#4F6BFF] uppercase tracking-widest">
+          <Terminal className="w-4 h-4 text-[#4F6BFF]" />
+          <span>TRACED SIGNAL STACK</span>
         </div>
-        <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-white/[0.06] text-parchment-faint">
-          {evidence.length} {evidence.length === 1 ? "Signal" : "Signals"} Detected
+        <span className="font-mono text-[10px] px-2.5 py-0.5 rounded bg-[#0B1020] text-[#6C7A9C] border border-[#F5F7FF]/10">
+          {evidence.length} SIGNALS LOGGED
         </span>
       </div>
 
-      <div className="space-y-2.5">
+      {/* Signal Stack Rows (Section 24) */}
+      <div className="space-y-2">
         <AnimatePresence mode="popLayout">
           {displayed.map((item, idx) => {
-            const sevBadge = getSeverityBadge(item.severity);
-            const severityPercent = Math.round(item.severity * 100);
+            const tag = getSeverityTag(item.severity);
+            const num = (idx + 1).toString().padStart(2, "0");
 
             return (
               <motion.div
                 key={idx}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.3, delay: idx * 0.05 }}
-                className="p-4 rounded-2xl bg-vault-950 border border-white/[0.08] hover:border-white/20 transition-all space-y-2"
+                transition={{ duration: 0.35, delay: idx * 0.06 }}
+                className="p-3.5 rounded-xl bg-[#0B1020] border border-[#F5F7FF]/08 hover:border-[#4F6BFF]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1 min-w-0">
-                    <span className="font-semibold text-xs text-white capitalize block truncate">
+                {/* Left: Signal Number & Title */}
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <span className="font-mono font-bold text-[#6C7A9C] text-xs shrink-0">
+                    {num}
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-mono font-semibold text-[#F5F7FF] uppercase tracking-wide truncate">
                       {item.signal.replace(/_/g, " ")}
                     </span>
-                    <span className="text-[10px] uppercase font-mono tracking-wider text-parchment-faint block">
-                      Source: {humanizeSource(item.source)}
+                    <span className="font-mono text-[10px] text-[#6C7A9C] uppercase">
+                      {humanizeSource(item.source)}
                     </span>
                   </div>
-
-                  <span
-                    className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border shrink-0 ${sevBadge.color}`}
-                  >
-                    {sevBadge.label} ({severityPercent}%)
-                  </span>
                 </div>
 
-                {item.explanation && (
-                  <p className="text-xs text-parchment-dim leading-relaxed pt-1 border-t border-white/[0.04]">
-                    "{item.explanation}"
-                  </p>
-                )}
-
-                {/* Progress bar */}
-                <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${
-                      item.severity > 0.7
-                        ? "bg-red-500"
-                        : item.severity > 0.4
-                        ? "bg-amber-500"
-                        : "bg-emerald-500"
-                    }`}
-                    style={{ width: `${severityPercent}%` }}
-                  />
+                {/* Right: Severity Badge & Explanation */}
+                <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
+                  {item.explanation && (
+                    <span className="hidden md:inline text-[11px] text-[#AAB4D0] italic max-w-xs truncate">
+                      "{item.explanation}"
+                    </span>
+                  )}
+                  <span
+                    className={`font-mono text-[10px] font-bold px-2.5 py-1 rounded border uppercase tracking-wider ${tag.color}`}
+                  >
+                    {tag.label} ({Math.round(item.severity * 100)}%)
+                  </span>
                 </div>
               </motion.div>
             );
@@ -121,10 +112,10 @@ export function EvidenceList({ evidence = [] }: EvidenceListProps) {
         </AnimatePresence>
       </div>
 
-      {evidence.length > 4 && (
+      {evidence.length > 5 && (
         <button
           onClick={() => setShowAll(!showAll)}
-          className="flex items-center gap-1.5 text-xs font-semibold text-accent-400 hover:text-accent-300 transition-colors pt-1"
+          className="flex items-center gap-1.5 text-xs font-mono font-semibold text-[#4F6BFF] hover:text-[#3B57E6] transition-colors pt-1 uppercase tracking-wider"
         >
           {showAll ? (
             <>

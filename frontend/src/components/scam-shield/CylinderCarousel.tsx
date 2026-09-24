@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   ShieldAlert, Globe, IndianRupee, Lock, Zap,
-  Gift, Briefcase, Truck, ArrowLeft, ArrowRight, ShieldCheck, Pause, Play
+  Gift, Briefcase, Truck, ArrowLeft, ArrowRight, Pause, Play, Eye
 } from "lucide-react";
 
 export interface ThreatCard {
@@ -13,82 +13,139 @@ export interface ThreatCard {
   category: string;
   description: string;
   signals: string[];
-  icon: React.ReactNode;
+  graphicSvg: React.ReactNode;
   accentColor: string;
+  badgeColor: string;
 }
 
 const THREAT_CARDS: ThreatCard[] = [
   {
     id: "phishing",
     title: "Phishing & Spoofing",
-    category: "Web & SMS",
-    description: "Lookalike banking portals and fake login forms designed to steal credentials.",
+    category: "Web & SMS Vector",
+    description: "Lookalike banking portals and fake login forms designed to harvest credentials.",
     signals: ["Domain typos", "Punycode spoofing", "Urgent login demands"],
-    icon: <Globe className="w-6 h-6 text-sky-400" />,
-    accentColor: "from-sky-500/20 to-blue-600/10 border-sky-500/30",
+    graphicSvg: (
+      <svg className="w-16 h-16 text-[#4F6BFF] opacity-90" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <circle cx="32" cy="32" r="24" strokeDasharray="4 4" />
+        <path d="M16 32 C 24 20, 40 44, 48 32" />
+        <circle cx="48" cy="32" r="4" fill="#4F6BFF" />
+      </svg>
+    ),
+    accentColor: "from-[#4F6BFF]/20 to-[#111936] border-[#4F6BFF]/40",
+    badgeColor: "text-[#4F6BFF] bg-[#4F6BFF]/10 border-[#4F6BFF]/30",
   },
   {
     id: "upi",
     title: "UPI & QR Scams",
-    category: "Payment Fraud",
-    description: "Fake collect requests disguised as refunds, money transfers, or cashbacks.",
+    category: "Payment Flow Vector",
+    description: "Collect requests disguised as refunds, cashback rewards, or money transfers.",
     signals: ["PIN entry for credit", "Unverified VPA handle", "Reversed pay flow"],
-    icon: <IndianRupee className="w-6 h-6 text-emerald-400" />,
-    accentColor: "from-emerald-500/20 to-teal-600/10 border-emerald-500/30",
+    graphicSvg: (
+      <svg className="w-16 h-16 text-[#2DD4BF] opacity-90" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <rect x="16" y="16" width="14" height="14" rx="2" />
+        <rect x="34" y="16" width="14" height="14" rx="2" />
+        <rect x="16" y="34" width="14" height="14" rx="2" />
+        <circle cx="41" cy="41" r="5" fill="#2DD4BF" />
+      </svg>
+    ),
+    accentColor: "from-[#2DD4BF]/20 to-[#111936] border-[#2DD4BF]/40",
+    badgeColor: "text-[#2DD4BF] bg-[#2DD4BF]/10 border-[#2DD4BF]/30",
   },
   {
     id: "kyc",
     title: "KYC & Expiry Fraud",
-    category: "Identity Trap",
-    description: "Panic-inducing SMS warning of imminent SIM, PAN, or bank account blocking.",
+    category: "Identity Bait Vector",
+    description: "Panic-inducing SMS warning of imminent SIM, PAN, or bank account suspension.",
     signals: ["Unauthorized APKs", "Urgent deadline", "Third-party remote tools"],
-    icon: <Lock className="w-6 h-6 text-amber-400" />,
-    accentColor: "from-amber-500/20 to-orange-600/10 border-amber-500/30",
+    graphicSvg: (
+      <svg className="w-16 h-16 text-[#FB7185] opacity-90" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <rect x="18" y="14" width="28" height="36" rx="4" />
+        <circle cx="32" cy="26" r="6" />
+        <path d="M24 42 h 16" />
+      </svg>
+    ),
+    accentColor: "from-[#FB7185]/20 to-[#111936] border-[#FB7185]/40",
+    badgeColor: "text-[#FB7185] bg-[#FB7185]/10 border-[#FB7185]/30",
   },
   {
     id: "impersonation",
     title: "Brand Impersonation",
-    category: "Social Engineering",
-    description: "Fraudsters posing as bank officers, police, customs officials, or customer care.",
+    category: "Social Vector",
+    description: "Fraudsters posing as bank executives, police, customs officials, or customer support.",
     signals: ["WhatsApp calls", "Demands for secrecy", "Off-platform payments"],
-    icon: <ShieldAlert className="w-6 h-6 text-rose-400" />,
-    accentColor: "from-rose-500/20 to-red-600/10 border-rose-500/30",
+    graphicSvg: (
+      <svg className="w-16 h-16 text-[#8B5CF6] opacity-90" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M20 44 C 20 32, 28 24, 32 24 C 36 24, 44 32, 44 44" />
+        <circle cx="32" cy="18" r="8" />
+        <line x1="32" y1="10" x2="32" y2="54" strokeDasharray="2 2" />
+      </svg>
+    ),
+    accentColor: "from-[#8B5CF6]/20 to-[#111936] border-[#8B5CF6]/40",
+    badgeColor: "text-[#8B5CF6] bg-[#8B5CF6]/10 border-[#8B5CF6]/30",
   },
   {
     id: "lottery",
     title: "Prize & Lottery Bait",
-    category: "Reward Scams",
-    description: "Fake KBC winnings, scratch card rewards, or lottery payouts requiring fee deposits.",
+    category: "Reward Trap Vector",
+    description: "Fake KBC winnings or scratch card payouts requiring processing fee deposits.",
     signals: ["Processing fee upfront", "Unsolicited winnings", "Suspicious link"],
-    icon: <Gift className="w-6 h-6 text-purple-400" />,
-    accentColor: "from-purple-500/20 to-indigo-600/10 border-purple-500/30",
+    graphicSvg: (
+      <svg className="w-16 h-16 text-[#4F6BFF] opacity-90" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <circle cx="32" cy="32" r="16" />
+        <path d="M32 8 L 32 56 M 8 32 L 56 32 M 15 15 L 49 49 M 15 49 L 49 15" strokeDasharray="2 2" />
+      </svg>
+    ),
+    accentColor: "from-[#4F6BFF]/20 to-[#111936] border-[#4F6BFF]/40",
+    badgeColor: "text-[#4F6BFF] bg-[#4F6BFF]/10 border-[#4F6BFF]/30",
   },
   {
     id: "jobs",
     title: "Part-Time Job Traps",
-    category: "Employment Scams",
-    description: "High-paying Telegram 'YouTube view' or rating tasks that require security deposits.",
+    category: "Task Scam Vector",
+    description: "High-paying Telegram rating tasks requiring upfront security deposits.",
     signals: ["Prepaid tasks", "Telegram grouping", "Unrealistic returns"],
-    icon: <Briefcase className="w-6 h-6 text-yellow-400" />,
-    accentColor: "from-yellow-500/20 to-amber-600/10 border-yellow-500/30",
+    graphicSvg: (
+      <svg className="w-16 h-16 text-[#2DD4BF] opacity-90" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <rect x="16" y="22" width="32" height="26" rx="3" />
+        <path d="M24 22 V 16 H 40 V 22" />
+        <circle cx="32" cy="35" r="4" fill="#2DD4BF" />
+      </svg>
+    ),
+    accentColor: "from-[#2DD4BF]/20 to-[#111936] border-[#2DD4BF]/40",
+    badgeColor: "text-[#2DD4BF] bg-[#2DD4BF]/10 border-[#2DD4BF]/30",
   },
   {
     id: "delivery",
     title: "Courier & Customs Fraud",
-    category: "Delivery Scams",
-    description: "SMS alerting of address issues or unpaid customs fees on unexpected packages.",
+    category: "Logistics Vector",
+    description: "SMS alerting of address errors or unpaid customs clearance fees on packages.",
     signals: ["Urgent micro-payments", "Fake tracking sites", "Shortened links"],
-    icon: <Truck className="w-6 h-6 text-teal-400" />,
-    accentColor: "from-teal-500/20 to-cyan-600/10 border-teal-500/30",
+    graphicSvg: (
+      <svg className="w-16 h-16 text-[#FB7185] opacity-90" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M16 24 L 32 16 L 48 24 L 32 32 Z" />
+        <path d="M16 24 V 40 L 32 48 V 32" />
+        <path d="M48 24 V 40 L 32 48" />
+      </svg>
+    ),
+    accentColor: "from-[#FB7185]/20 to-[#111936] border-[#FB7185]/40",
+    badgeColor: "text-[#FB7185] bg-[#FB7185]/10 border-[#FB7185]/30",
   },
   {
     id: "links",
     title: "Malicious Links & APKs",
-    category: "Device Risk",
-    description: "Malware-laden APK downloads disguised as official bank apps or rewards apps.",
+    category: "Device Risk Vector",
+    description: "Malware-laden APK downloads disguised as official banking or utility apps.",
     signals: ["Sideloading prompt", "SMS permission abuse", "Non-Play Store link"],
-    icon: <Zap className="w-6 h-6 text-red-400" />,
-    accentColor: "from-red-500/20 to-rose-600/10 border-red-500/30",
+    graphicSvg: (
+      <svg className="w-16 h-16 text-[#FF4D5A] opacity-90" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <circle cx="24" cy="32" r="10" />
+        <circle cx="40" cy="32" r="10" />
+        <line x1="28" y1="32" x2="36" y2="32" stroke="#FF4D5A" strokeWidth="3" />
+      </svg>
+    ),
+    accentColor: "from-[#FF4D5A]/20 to-[#111936] border-[#FF4D5A]/40",
+    badgeColor: "text-[#FF4D5A] bg-[#FF4D5A]/10 border-[#FF4D5A]/30",
   },
 ];
 
@@ -102,21 +159,16 @@ export function CylinderCarousel() {
 
   const cardCount = THREAT_CARDS.length;
   const angleStep = 360 / cardCount;
-  // Radius of the cylinder
-  const radius = 340; // px
+  const radius = 350; // px
 
-  // Auto rotation
   useEffect(() => {
     if (isPaused || isDragging) return;
-
     const timer = setInterval(() => {
-      setRotationY((prev) => prev - 0.4);
+      setRotationY((prev) => prev - 0.35);
     }, 30);
-
     return () => clearInterval(timer);
   }, [isPaused, isDragging]);
 
-  // Mouse & Touch Drag Handlers
   const handlePointerDown = (e: React.PointerEvent) => {
     setIsDragging(true);
     startXRef.current = e.clientX;
@@ -137,9 +189,7 @@ export function CylinderCarousel() {
     if (containerRef.current) {
       try {
         containerRef.current.releasePointerCapture(e.pointerId);
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
     }
   };
 
@@ -151,31 +201,27 @@ export function CylinderCarousel() {
     setRotationY((prev) => Math.round((prev + angleStep) / angleStep) * angleStep);
   }, [angleStep]);
 
-  // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowLeft") {
-      rotatePrev();
-    } else if (e.key === "ArrowRight") {
-      rotateNext();
-    }
+    if (e.key === "ArrowLeft") rotatePrev();
+    if (e.key === "ArrowRight") rotateNext();
   };
 
   return (
-    <section className="w-full py-12 px-4 sm:px-6 relative overflow-hidden" aria-label="Threat Surface Protection Showcase">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <section className="w-full py-12 px-2 sm:px-4 relative overflow-hidden" aria-label="3D Threat Atlas">
+      <div className="space-y-8">
         
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-white/[0.08] pb-4">
+        {/* Section Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#F5F7FF]/10 pb-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-mono font-semibold uppercase tracking-widest text-accent-400">
-              <ShieldCheck className="w-4 h-4 text-accent-400" />
-              <span>THREAT SURFACE ANALYSIS</span>
+            <div className="flex items-center gap-2 font-mono text-xs font-semibold text-[#4F6BFF] uppercase tracking-widest">
+              <Eye className="w-4 h-4 text-[#4F6BFF]" />
+              <span>3D THREAT ATLAS</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white font-display mt-1">
-              What ArthMitra Protects You From
+            <h2 className="text-3xl font-serif font-normal text-[#F5F7FF] mt-1">
+              THE THREATS WE WATCH
             </h2>
-            <p className="text-xs text-parchment-faint mt-1 max-w-xl">
-              Our hybrid engine continuously monitors and flags multi-vector financial threats in real time.
+            <p className="text-xs text-[#AAB4D0] mt-1 max-w-xl font-sans">
+              Our policy engine correlates multi-vector signals to intercept financial scam attempts before execution.
             </p>
           </div>
 
@@ -183,8 +229,7 @@ export function CylinderCarousel() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsPaused(!isPaused)}
-              className="p-2.5 rounded-xl border border-white/10 hover:border-white/20 bg-vault-900 text-parchment-dim hover:text-white transition-all text-xs flex items-center gap-1.5"
-              title={isPaused ? "Play Carousel" : "Pause Carousel"}
+              className="p-2.5 rounded-xl border border-[#F5F7FF]/10 hover:border-[#F5F7FF]/20 bg-[#111936] text-[#AAB4D0] hover:text-[#F5F7FF] transition-all text-xs flex items-center gap-1.5"
               aria-label={isPaused ? "Play Carousel" : "Pause Carousel"}
             >
               {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
@@ -192,14 +237,14 @@ export function CylinderCarousel() {
             </button>
             <button
               onClick={rotatePrev}
-              className="p-2.5 rounded-xl border border-white/10 hover:border-white/20 bg-vault-900 text-parchment-dim hover:text-white transition-all"
+              className="p-2.5 rounded-xl border border-[#F5F7FF]/10 hover:border-[#F5F7FF]/20 bg-[#111936] text-[#AAB4D0] hover:text-[#F5F7FF] transition-all"
               aria-label="Previous Threat"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <button
               onClick={rotateNext}
-              className="p-2.5 rounded-xl border border-white/10 hover:border-white/20 bg-vault-900 text-parchment-dim hover:text-white transition-all"
+              className="p-2.5 rounded-xl border border-[#F5F7FF]/10 hover:border-[#F5F7FF]/20 bg-[#111936] text-[#AAB4D0] hover:text-[#F5F7FF] transition-all"
               aria-label="Next Threat"
             >
               <ArrowRight className="w-4 h-4" />
@@ -218,13 +263,8 @@ export function CylinderCarousel() {
           onMouseLeave={() => setIsPaused(false)}
           onKeyDown={handleKeyDown}
           tabIndex={0}
-          className="hidden sm:block relative h-[380px] w-full perspective-1000 cursor-grab active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-accent-500/50 rounded-3xl"
+          className="hidden sm:block relative h-[380px] w-full perspective-1000 cursor-grab active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-[#4F6BFF]/50 rounded-3xl"
         >
-          {/* Subtle Ambient Shield Spotlight */}
-          <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0">
-            <div className="w-[500px] h-[300px] bg-accent-500/[0.04] blur-[100px] rounded-full" />
-          </div>
-
           <div
             className="w-full h-full relative transform-style-3d transition-transform duration-75 ease-out"
             style={{
@@ -242,34 +282,37 @@ export function CylinderCarousel() {
                   }}
                 >
                   <div
-                    className={`h-full w-full p-6 rounded-3xl bg-vault-900/90 border bg-gradient-to-b ${card.accentColor} shadow-2xl backdrop-blur-md flex flex-col justify-between transition-all hover:scale-[1.02]`}
+                    className={`h-full w-full p-6 rounded-2xl bg-[#111936] border bg-gradient-to-b ${card.accentColor} shadow-2xl backdrop-blur-md flex flex-col justify-between transition-all hover:scale-[1.02]`}
                   >
                     <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="p-2.5 rounded-2xl bg-white/[0.06] border border-white/10">
-                          {card.icon}
-                        </div>
-                        <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-white/[0.06] border border-white/10 text-parchment-faint uppercase tracking-wider">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-[10px] font-mono px-2.5 py-1 rounded border uppercase tracking-wider ${card.badgeColor}`}>
                           {card.category}
                         </span>
                       </div>
-                      <h3 className="text-base font-bold text-white tracking-tight">
+
+                      {/* Abstract Graphic SVG Composition */}
+                      <div className="flex items-center justify-center my-3">
+                        {card.graphicSvg}
+                      </div>
+
+                      <h3 className="text-base font-bold text-[#F5F7FF] tracking-tight font-sans">
                         {card.title}
                       </h3>
-                      <p className="text-xs text-parchment-dim mt-2 leading-relaxed">
+                      <p className="text-xs text-[#AAB4D0] mt-1 leading-relaxed font-sans">
                         {card.description}
                       </p>
                     </div>
 
-                    <div className="space-y-1.5 pt-3 border-t border-white/[0.08]">
-                      <span className="text-[10px] font-mono text-accent-400 font-semibold uppercase tracking-wider block">
-                        Traced Signals:
+                    <div className="space-y-1.5 pt-3 border-t border-[#F5F7FF]/08">
+                      <span className="text-[10px] font-mono text-[#4F6BFF] font-semibold uppercase tracking-wider block">
+                        Traced Markers:
                       </span>
                       <div className="flex flex-wrap gap-1">
                         {card.signals.map((sig, sIdx) => (
                           <span
                             key={sIdx}
-                            className="text-[10px] px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.08] text-parchment-faint"
+                            className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#0B1020] text-[#6C7A9C] border border-[#F5F7FF]/08"
                           >
                             {sig}
                           </span>
@@ -288,32 +331,32 @@ export function CylinderCarousel() {
           {THREAT_CARDS.map((card) => (
             <div
               key={card.id}
-              className="snap-center shrink-0 w-[270px] p-5 rounded-2xl bg-vault-900 border border-white/10 bg-gradient-to-b ${card.accentColor} flex flex-col justify-between"
+              className={`snap-center shrink-0 w-[270px] p-5 rounded-2xl bg-[#111936] border bg-gradient-to-b ${card.accentColor} flex flex-col justify-between`}
             >
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="p-2 rounded-xl bg-white/[0.06] border border-white/10">
-                    {card.icon}
-                  </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.06] text-parchment-faint">
-                    {card.category}
-                  </span>
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase ${card.badgeColor}`}>
+                  {card.category}
+                </span>
+
+                <div className="flex items-center justify-center my-3">
+                  {card.graphicSvg}
                 </div>
-                <h3 className="text-sm font-bold text-white">{card.title}</h3>
-                <p className="text-xs text-parchment-dim mt-1.5 leading-relaxed">
+
+                <h3 className="text-sm font-bold text-[#F5F7FF]">{card.title}</h3>
+                <p className="text-xs text-[#AAB4D0] mt-1 leading-relaxed font-sans">
                   {card.description}
                 </p>
               </div>
 
-              <div className="pt-3 mt-3 border-t border-white/[0.08] space-y-1">
-                <span className="text-[10px] font-mono text-accent-400 font-semibold uppercase block">
-                  Traced Signals:
+              <div className="pt-3 mt-3 border-t border-[#F5F7FF]/08 space-y-1">
+                <span className="text-[10px] font-mono text-[#4F6BFF] font-semibold uppercase block">
+                  Traced Markers:
                 </span>
                 <div className="flex flex-wrap gap-1">
                   {card.signals.map((sig, sIdx) => (
                     <span
                       key={sIdx}
-                      className="text-[10px] px-2 py-0.5 rounded bg-white/[0.04] text-parchment-faint"
+                      className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#0B1020] text-[#6C7A9C]"
                     >
                       {sig}
                     </span>

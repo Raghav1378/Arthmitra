@@ -3,7 +3,6 @@
 import React from "react";
 import { CheckCircle, AlertTriangle, XCircle, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
-import { RiskGauge } from "./RiskGauge";
 
 interface VerdictProps {
   risk: "SAFE" | "SUSPICIOUS" | "HIGH_RISK" | "LOW" | "HIGH";
@@ -12,134 +11,129 @@ interface VerdictProps {
 }
 
 export function VerdictCard({ risk, score, confidence }: VerdictProps) {
-  const config: Record<string, any> = {
-    SAFE: {
-      label: "SAFE",
-      color: "text-emerald-400",
-      bg: "bg-emerald-500/10 border-emerald-500/30",
-      icon: <CheckCircle className="w-5 h-5 text-emerald-400" />,
-      glow: "shadow-emerald-500/20",
-      badgeText: "LOW RISK DETECTED",
-    },
-    LOW: {
-      label: "SAFE",
-      color: "text-emerald-400",
-      bg: "bg-emerald-500/10 border-emerald-500/30",
-      icon: <CheckCircle className="w-5 h-5 text-emerald-400" />,
-      glow: "shadow-emerald-500/20",
-      badgeText: "LOW RISK DETECTED",
-    },
-    SUSPICIOUS: {
-      label: "SUSPICIOUS",
-      color: "text-amber-400",
-      bg: "bg-amber-500/10 border-amber-500/30",
-      icon: <AlertTriangle className="w-5 h-5 text-amber-400" />,
-      glow: "shadow-amber-500/20",
-      badgeText: "EXERCISING CAUTION RECOMMENDED",
-    },
-    HIGH_RISK: {
-      label: "HIGH RISK",
-      color: "text-red-400",
-      bg: "bg-red-500/10 border-red-500/30",
-      icon: <XCircle className="w-5 h-5 text-red-400" />,
-      glow: "shadow-red-500/30",
-      badgeText: "STRONG SCAM SIGNALS DETECTED",
-    },
-    HIGH: {
-      label: "HIGH RISK",
-      color: "text-red-400",
-      bg: "bg-red-500/10 border-red-500/30",
-      icon: <XCircle className="w-5 h-5 text-red-400" />,
-      glow: "shadow-red-500/30",
-      badgeText: "STRONG SCAM SIGNALS DETECTED",
-    },
-  };
+  const isSafe = risk === "SAFE" || risk === "LOW";
+  const isSuspicious = risk === "SUSPICIOUS";
 
-  const current = config[risk] || config.SUSPICIOUS;
+  const config = isSafe
+    ? {
+        label: "SAFE",
+        headline: "Clean Signal — Low Risk",
+        subtitle: "No high-risk scam patterns detected. Proceed with normal financial vigilance.",
+        color: "text-[#2DD4BF]",
+        bg: "bg-[#2DD4BF]/10 border-[#2DD4BF]/30",
+        badge: "VERIFIED SAFE",
+        icon: <CheckCircle className="w-5 h-5 text-[#2DD4BF]" />,
+        spectrumPos: Math.min(30, Math.max(5, score)),
+      }
+    : isSuspicious
+    ? {
+        label: "NEEDS REVIEW",
+        headline: "Suspicious Pattern Found",
+        subtitle: "Components of this input contain unusual markers. Verify caller identity before paying.",
+        color: "text-[#FB7185]",
+        bg: "bg-[#FB7185]/10 border-[#FB7185]/30",
+        badge: "VERIFY BEFORE PROCEEDING",
+        icon: <AlertTriangle className="w-5 h-5 text-[#FB7185]" />,
+        spectrumPos: Math.min(70, Math.max(35, score)),
+      }
+    : {
+        label: "HIGH RISK",
+        headline: "DO NOT PROCEED",
+        subtitle: "Strong indicators of financial fraud detected. Do not click links, send funds, or share credentials.",
+        color: "text-[#FF4D5A]",
+        bg: "bg-[#FF4D5A]/10 border-[#FF4D5A]/30",
+        badge: "HIGH RISK THREAT DETECTED",
+        icon: <XCircle className="w-5 h-5 text-[#FF4D5A]" />,
+        spectrumPos: Math.min(100, Math.max(75, score)),
+      };
+
   const safeConfidence = Math.min(100, Math.max(0, Math.round(confidence)));
+  const safeScore = Math.min(100, Math.max(0, Math.round(score)));
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.96 }}
+      initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.4 }}
-      className="flex flex-col gap-6 p-6 sm:p-8 rounded-3xl bg-vault-900 border border-white/[0.08] shadow-2xl relative overflow-hidden"
+      className="p-6 sm:p-8 rounded-3xl bg-[#111936] border border-[#F5F7FF]/10 shadow-2xl space-y-6 relative overflow-hidden"
     >
-      {/* Top Header */}
-      <div className="flex items-center justify-between">
+      {/* Top Header Row */}
+      <div className="flex items-center justify-between border-b border-[#F5F7FF]/10 pb-4">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-accent-400" />
-          <span className="text-xs font-mono font-semibold uppercase tracking-widest text-parchment-faint">
-            VERDICT
+          <ShieldCheck className="w-4 h-4 text-[#4F6BFF]" />
+          <span className="font-mono text-xs font-semibold uppercase tracking-widest text-[#6C7A9C]">
+            POLICY FUSION DECISION
           </span>
         </div>
 
-        <div
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border ${current.bg} ${current.glow} backdrop-blur-md`}
-        >
-          {current.icon}
-          <span className={`text-xs font-bold font-mono tracking-wider ${current.color}`}>
-            {current.label}
+        <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border ${config.bg}`}>
+          {config.icon}
+          <span className={`font-mono text-xs font-bold tracking-wider ${config.color}`}>
+            {config.label}
           </span>
         </div>
       </div>
 
-      {/* Main Score & Gauge Layout */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-6 py-2">
-        <RiskGauge score={score} risk={risk} size={150} />
-
-        <div className="flex-1 space-y-2 text-center sm:text-left">
-          <span className="text-[11px] font-mono uppercase tracking-widest text-accent-400 font-semibold block">
-            {current.badgeText}
+      {/* Main Score & Measurement Readout */}
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 items-center">
+        {/* Large Numeric Score with Thin Orbital Ring (Section 23) */}
+        <div className="sm:col-span-5 flex flex-col items-center justify-center p-6 rounded-2xl bg-[#0B1020] border border-[#F5F7FF]/10 relative">
+          {/* Orbital Ring */}
+          <div className="w-24 h-24 rounded-full border border-dashed border-[#4F6BFF]/30 flex items-center justify-center relative">
+            <span className="text-4xl font-mono font-bold text-[#F5F7FF] tracking-tight">
+              {safeScore}
+            </span>
+          </div>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[#6C7A9C] mt-3">
+            RISK MEASUREMENT / 100
           </span>
-          <h3 className={`text-2xl font-black font-display tracking-tight ${current.color}`}>
-            {current.label === "SAFE"
-              ? "Clean Signal"
-              : current.label === "SUSPICIOUS"
-              ? "Exercise Caution"
-              : "High Risk — Do Not Proceed"}
+        </div>
+
+        {/* Verdict Statement */}
+        <div className="sm:col-span-7 space-y-2 text-left">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[#4F6BFF] font-semibold block">
+            {config.badge}
+          </span>
+          <h3 className={`text-2xl font-serif font-bold tracking-tight ${config.color}`}>
+            {config.headline}
           </h3>
-          <p className="text-xs text-parchment-dim leading-relaxed">
-            {current.label === "SAFE"
-              ? "No immediate high-risk scam patterns detected. Proceed with normal vigilance."
-              : current.label === "SUSPICIOUS"
-              ? "Components of this message or transaction contain unusual patterns. Verify caller identity."
-              : "Strong indicators of financial fraud detected. Do not click links, send funds, or share OTPs."}
+          <p className="text-xs text-[#AAB4D0] leading-relaxed font-sans">
+            {config.subtitle}
           </p>
         </div>
       </div>
 
-      {/* Assessment Confidence Bar */}
-      <div className="space-y-2 pt-2 border-t border-white/[0.06]">
-        <div className="flex justify-between items-center text-xs">
-          <span className="font-mono text-parchment-faint uppercase text-[10px] tracking-wider font-semibold">
-            ASSESSMENT CONFIDENCE
+      {/* Measurement Spectrum Bar */}
+      <div className="space-y-2 pt-2 border-t border-[#F5F7FF]/08">
+        <div className="flex justify-between items-center text-xs font-mono">
+          <span className="text-[10px] text-[#6C7A9C] uppercase tracking-wider font-semibold">
+            MEASUREMENT SPECTRUM
           </span>
-          <span className="font-mono font-bold text-white text-xs">
-            {safeConfidence}%
-          </span>
+          <div className="flex items-center gap-4 text-[10px]">
+            <span className="text-[#2DD4BF]">SAFE</span>
+            <span className="text-[#FB7185]">REVIEW</span>
+            <span className="text-[#FF4D5A]">HIGH RISK</span>
+          </div>
         </div>
-        <div
-          role="progressbar"
-          aria-valuenow={safeConfidence}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label={`Confidence ${safeConfidence}%`}
-          className="h-2 bg-vault-800 rounded-full overflow-hidden border border-white/[0.06]"
-        >
+
+        <div className="relative h-2.5 bg-[#0B1020] rounded-full overflow-hidden border border-[#F5F7FF]/10">
+          {/* Spectrum gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#2DD4BF]/40 via-[#FB7185]/40 to-[#FF4D5A]/50" />
+
+          {/* Marker position */}
           <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${safeConfidence}%` }}
-            transition={{ duration: 1, ease: [0.23, 1, 0.32, 1] }}
-            className={`h-full rounded-full bg-gradient-to-r ${
-              risk === "SAFE" || risk === "LOW"
-                ? "from-emerald-500 to-teal-400"
-                : risk === "SUSPICIOUS"
-                ? "from-amber-500 to-orange-400"
-                : "from-red-600 to-rose-500"
-            }`}
+            initial={{ left: "0%" }}
+            animate={{ left: `${config.spectrumPos}%` }}
+            transition={{ duration: 0.8, ease: [0.2, 0, 0, 1] }}
+            className="absolute top-0 bottom-0 w-2.5 -ml-1.25 bg-[#F5F7FF] rounded-full shadow-lg border border-[#0B1020]"
           />
         </div>
+      </div>
+
+      {/* Assessment Confidence */}
+      <div className="flex items-center justify-between text-xs font-mono pt-1 text-[#6C7A9C]">
+        <span>SYSTEM CONFIDENCE:</span>
+        <span className="text-[#F5F7FF] font-bold">{safeConfidence}%</span>
       </div>
     </motion.div>
   );
