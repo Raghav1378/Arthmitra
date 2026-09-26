@@ -278,19 +278,19 @@ export default function ScamShield() {
   }, [messageResult]);
 
   return (
-    <div className="flex flex-col h-full bg-signal overflow-hidden text-[#F5F7FF]">
+    <div className="flex min-w-0 flex-col h-full bg-signal overflow-hidden text-[#F5F7FF]">
       {/* ─── Header ─── */}
-      <header className="px-6 py-4 border-b border-[#F5F7FF]/10 bg-[#0B1020]/90 backdrop-blur-md shrink-0 flex items-center justify-between">
+      <header className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#F5F7FF]/10 bg-[#0B1020]/90 backdrop-blur-md shrink-0 flex items-center justify-between">
         <div className="flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-xl bg-[#111936] border border-[#4F6BFF]/30 flex items-center justify-center text-[#4F6BFF] shadow-lg shadow-[#4F6BFF]/15">
             <Shield className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-base font-serif font-bold tracking-tight text-[#F5F7FF] flex items-center gap-2">
+            <h1 className="text-sm sm:text-base font-serif font-bold tracking-tight text-[#F5F7FF] flex items-center gap-2">
               ArthMitra Scam Shield
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#4F6BFF]/10 border border-[#4F6BFF]/30 text-[#4F6BFF]">SIGNAL UI</span>
             </h1>
-            <p className="text-xs text-[#AAB4D0] mt-0.5 font-sans">Financial decision instrument & safety network</p>
+            <p className="hidden sm:block text-xs text-[#AAB4D0] mt-0.5 font-sans">Financial decision instrument & safety network</p>
           </div>
         </div>
 
@@ -308,8 +308,8 @@ export default function ScamShield() {
       </header>
 
       {/* ─── Scrollable Main Viewport ─── */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 lg:p-8 space-y-8">
-        <div className="max-w-5xl mx-auto space-y-8">
+      <div className="flex-1 min-w-0 overflow-y-auto custom-scrollbar p-3 sm:p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
+        <div className="w-full max-w-5xl min-w-0 mx-auto space-y-6 md:space-y-8">
 
           {/* ─── Editorial Hero Section ─── */}
           <HeroSection
@@ -322,10 +322,10 @@ export default function ScamShield() {
           <div ref={scannerRef} id="scanner-input" className="scroll-mt-6 space-y-4">
             
             {/* Mode Rail */}
-            <div className="flex flex-wrap p-1.5 rounded-2xl bg-[#111936] border border-[#F5F7FF]/10 gap-1 shadow-2xl">
+            <div className="flex flex-nowrap overflow-x-auto custom-scrollbar p-1.5 rounded-2xl bg-[#111936] border border-[#F5F7FF]/10 gap-1 shadow-2xl">
               <button
                 onClick={() => { setActiveTab("message"); resetAll(); }}
-                className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-mono font-semibold tracking-tight transition-all ${
+                className={`shrink-0 min-w-[130px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-mono font-semibold tracking-tight transition-all ${
                   activeTab === "message"
                     ? "bg-[#4F6BFF] text-[#F5F7FF] font-bold shadow-lg shadow-[#4F6BFF]/25"
                     : "text-[#AAB4D0] hover:text-[#F5F7FF] hover:bg-[#182246]"
@@ -336,7 +336,7 @@ export default function ScamShield() {
               </button>
               <button
                 onClick={() => { setActiveTab("link"); resetAll(); }}
-                className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-mono font-semibold tracking-tight transition-all ${
+                className={`shrink-0 min-w-[130px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-mono font-semibold tracking-tight transition-all ${
                   activeTab === "link"
                     ? "bg-[#4F6BFF] text-[#F5F7FF] font-bold shadow-lg shadow-[#4F6BFF]/25"
                     : "text-[#AAB4D0] hover:text-[#F5F7FF] hover:bg-[#182246]"
@@ -347,7 +347,7 @@ export default function ScamShield() {
               </button>
               <button
                 onClick={() => { setActiveTab("decision"); resetAll(); }}
-                className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-mono font-semibold tracking-tight transition-all ${
+                className={`shrink-0 min-w-[130px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-mono font-semibold tracking-tight transition-all ${
                   activeTab === "decision"
                     ? "bg-[#4F6BFF] text-[#F5F7FF] font-bold shadow-lg shadow-[#4F6BFF]/25"
                     : "text-[#AAB4D0] hover:text-[#F5F7FF] hover:bg-[#182246]"
@@ -358,7 +358,7 @@ export default function ScamShield() {
               </button>
               <button
                 onClick={() => { setActiveTab("behavior"); resetAll(); }}
-                className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-mono font-semibold tracking-tight transition-all ${
+                className={`shrink-0 min-w-[130px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-mono font-semibold tracking-tight transition-all ${
                   activeTab === "behavior"
                     ? "bg-[#4F6BFF] text-[#F5F7FF] font-bold shadow-lg shadow-[#4F6BFF]/25"
                     : "text-[#AAB4D0] hover:text-[#F5F7FF] hover:bg-[#182246]"
@@ -635,50 +635,46 @@ export default function ScamShield() {
                 </div>
               )}
 
-              {/* Two-Column Result Composition */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Left Column: Verdict & Action */}
-                <div className="space-y-6">
-                  <VerdictCard
-                    risk={messageResult.final_decision.risk}
-                    score={messageResult.final_decision.risk_score}
-                    confidence={messageResult.final_decision.confidence}
-                  />
+              {/* Verdict, compact evidence, action, then detailed evidence */}
+              <VerdictCard
+                risk={messageResult.final_decision.risk}
+                score={messageResult.final_decision.risk_score}
+                confidence={messageResult.final_decision.confidence}
+              />
 
-                  <ActionPlan
-                    risk={messageResult.final_decision.risk}
-                    advice={messageResult.user_advice}
-                  />
-                </div>
+              <div className="p-5 rounded-2xl bg-[#111936] border border-[#F5F7FF]/10 shadow-xl">
+                <EvidenceList evidence={messageResult.evidence} compact />
+              </div>
 
-                {/* Right Column: Evidence Signal Stack */}
-                <div className="space-y-6">
-                  <div className="p-6 rounded-3xl bg-[#111936] border border-[#F5F7FF]/10 shadow-2xl space-y-5">
-                    <EvidenceList evidence={messageResult.evidence} />
+              <ActionPlan
+                risk={messageResult.final_decision.risk}
+                advice={messageResult.user_advice}
+              />
 
-                    {/* Semantic Analysis (Only when LLM actually ran) */}
-                    {messageResult.llm_stage === "used" && messageResult.ai_analysis && (
-                      <div className="pt-4 border-t border-[#F5F7FF]/08 space-y-2.5 font-sans">
-                        <div className="flex items-center gap-2">
-                          <Brain className="w-4 h-4 text-[#4F6BFF]" />
-                          <h4 className="text-xs font-mono font-bold text-[#F5F7FF] uppercase">Semantic Context Analysis</h4>
-                        </div>
-                        <p className="text-xs text-[#AAB4D0] leading-relaxed">
-                          {messageResult.ai_analysis.brief_reason}
-                        </p>
-                        {messageResult.ai_analysis.semantic_indicators.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            {messageResult.ai_analysis.semantic_indicators.map((ind, i) => (
-                              <span key={i} className="text-[10px] px-2.5 py-0.5 rounded bg-[#4F6BFF]/10 border border-[#4F6BFF]/30 text-[#4F6BFF] font-mono">
-                                {ind.replace(/_/g, " ")}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+              <div className="p-6 rounded-3xl bg-[#111936] border border-[#F5F7FF]/10 shadow-2xl space-y-5">
+                <EvidenceList evidence={messageResult.evidence} />
+
+                {/* Semantic Analysis (Only when LLM actually ran) */}
+                {messageResult.llm_stage === "used" && messageResult.ai_analysis && (
+                  <div className="pt-4 border-t border-[#F5F7FF]/08 space-y-2.5 font-sans">
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-[#4F6BFF]" />
+                      <h4 className="text-xs font-mono font-bold text-[#F5F7FF] uppercase">Semantic Context Analysis</h4>
+                    </div>
+                    <p className="text-xs text-[#AAB4D0] leading-relaxed">
+                      {messageResult.ai_analysis.brief_reason}
+                    </p>
+                    {messageResult.ai_analysis.semantic_indicators.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {messageResult.ai_analysis.semantic_indicators.map((ind, i) => (
+                          <span key={i} className="text-[10px] px-2.5 py-0.5 rounded bg-[#4F6BFF]/10 border border-[#4F6BFF]/30 text-[#4F6BFF] font-mono">
+                            {ind.replace(/_/g, " ")}
+                          </span>
+                        ))}
                       </div>
                     )}
                   </div>
-                </div>
+                )}
               </div>
 
               {/* RBI Regulatory Guidance */}
@@ -731,7 +727,7 @@ export default function ScamShield() {
               <div className="rounded-2xl border border-[#F5F7FF]/08 bg-[#0B1020] overflow-hidden">
                 <button
                   onClick={() => setShowDiagnostics(!showDiagnostics)}
-                  className="w-full px-5 py-3 flex items-center justify-between text-[11px] font-mono text-[#6C7A9C] hover:text-[#AAB4D0] transition-colors"
+                  className="w-full px-5 py-3 flex items-center justify-between text-[11px] font-mono text-[#A8B4CC] hover:text-[#F4F7FF] transition-colors"
                 >
                   <span className="flex items-center gap-2">
                     <Terminal className="w-3.5 h-3.5" />

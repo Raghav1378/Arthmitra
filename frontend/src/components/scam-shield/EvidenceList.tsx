@@ -7,9 +7,10 @@ import { ChevronDown, ChevronUp, AlertCircle, Terminal } from "lucide-react";
 
 interface EvidenceListProps {
   evidence?: EvidenceItem[];
+  compact?: boolean;
 }
 
-export function EvidenceList({ evidence = [] }: EvidenceListProps) {
+export function EvidenceList({ evidence = [], compact = false }: EvidenceListProps) {
   const [showAll, setShowAll] = useState(false);
 
   if (!evidence.length) {
@@ -21,7 +22,7 @@ export function EvidenceList({ evidence = [] }: EvidenceListProps) {
     );
   }
 
-  const displayed = showAll ? evidence : evidence.slice(0, 5);
+  const displayed = showAll ? evidence : evidence.slice(0, compact ? 2 : 5);
 
   const humanizeSource = (source: string) => {
     switch (source) {
@@ -55,7 +56,7 @@ export function EvidenceList({ evidence = [] }: EvidenceListProps) {
       <div className="flex items-center justify-between border-b border-[#F5F7FF]/10 pb-3">
         <div className="flex items-center gap-2 font-mono text-xs font-semibold text-[#4F6BFF] uppercase tracking-widest">
           <Terminal className="w-4 h-4 text-[#4F6BFF]" />
-          <span>TRACED SIGNAL STACK</span>
+          <span>{compact ? "WHY THIS WAS FLAGGED" : "TRACED SIGNAL STACK"}</span>
         </div>
         <span className="font-mono text-[10px] px-2.5 py-0.5 rounded bg-[#0B1020] text-[#6C7A9C] border border-[#F5F7FF]/10">
           {evidence.length} SIGNALS LOGGED
@@ -87,7 +88,7 @@ export function EvidenceList({ evidence = [] }: EvidenceListProps) {
                     <span className="font-mono font-semibold text-[#F5F7FF] uppercase tracking-wide truncate">
                       {item.signal.replace(/_/g, " ")}
                     </span>
-                    <span className="font-mono text-[10px] text-[#6C7A9C] uppercase">
+                    <span className="font-mono text-[10px] text-[#A8B4CC] uppercase">
                       {humanizeSource(item.source)}
                     </span>
                   </div>
@@ -112,7 +113,7 @@ export function EvidenceList({ evidence = [] }: EvidenceListProps) {
         </AnimatePresence>
       </div>
 
-      {evidence.length > 5 && (
+      {!compact && evidence.length > 5 && (
         <button
           onClick={() => setShowAll(!showAll)}
           className="flex items-center gap-1.5 text-xs font-mono font-semibold text-[#4F6BFF] hover:text-[#3B57E6] transition-colors pt-1 uppercase tracking-wider"

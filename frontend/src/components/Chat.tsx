@@ -679,9 +679,24 @@ export default function Chat() {
                 <Sparkles className="w-8 h-8 text-ink-900/70" />
               </div>
             </div>
-            <div className="text-center space-y-2">
-              <p className="text-base font-bold text-ink-900/60">How can I help you today?</p>
-              <p className="text-xs text-parchment-faint max-w-xs">Example: "Explain SIP investment in simple terms" or "Check if this UPI link is safe"</p>
+            <div className="text-center space-y-3">
+              <p className="font-serif text-lg font-bold text-parchment">How can I help you protect and grow your wealth?</p>
+              <div className="flex flex-wrap gap-2 justify-center max-w-md pt-2">
+                {[
+                  "Explain SIP investment simply",
+                  "Is this UPI payment request safe?",
+                  "Analyze my monthly burn rate",
+                  "Find hidden charges in my loan"
+                ].map((hint, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setInput(hint); }}
+                    className="text-xs px-3 py-1.5 rounded-full bg-vault-800/60 hover:bg-vault-800 border border-parchment/10 hover:border-accent-500/40 text-parchment-dim hover:text-parchment transition-all glow-hover"
+                  >
+                    {hint}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}

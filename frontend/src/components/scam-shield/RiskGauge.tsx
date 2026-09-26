@@ -16,12 +16,11 @@ export function RiskGauge({ score, risk, size = 160 }: RiskGaugeProps) {
 
   useEffect(() => {
     let startTimestamp: number | null = null;
-    const duration = 1200; // ms
+    const duration = 1000;
 
     const step = (timestamp: number) => {
       if (!startTimestamp) startTimestamp = timestamp;
       const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-      // easeOutCubic
       const easedProgress = 1 - Math.pow(1 - progress, 3);
       setAnimatedScore(Math.round(easedProgress * safeScore));
 
@@ -34,29 +33,24 @@ export function RiskGauge({ score, risk, size = 160 }: RiskGaugeProps) {
     return () => window.cancelAnimationFrame(animId);
   }, [safeScore]);
 
-  // Gauge calculations
-  const strokeWidth = 10;
+  const strokeWidth = 8; // Thin precision ring (Section 10)
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  // Use a 260-degree arc (leave 100 degrees empty at bottom)
   const arcPercentage = 0.72;
   const arcLength = circumference * arcPercentage;
   const dashOffset = arcLength - (arcLength * animatedScore) / 100;
 
-  // Colors
   const isSafe = risk === "SAFE" || risk === "LOW";
   const isSuspicious = risk === "SUSPICIOUS";
+  
+  // Exact Color Semantics (Section 2)
   const strokeColor = isSafe
-    ? "#10b981" // emerald-500
+    ? "#35D0BA" // Mint
     : isSuspicious
-    ? "#f59e0b" // amber-500
-    : "#ef4444"; // red-500
+    ? "#F4B860" // Amber
+    : "#FF6B6B"; // Coral
 
-  const glowColor = isSafe
-    ? "rgba(16, 185, 129, 0.25)"
-    : isSuspicious
-    ? "rgba(245, 158, 11, 0.25)"
-    : "rgba(239, 68, 68, 0.3)";
+  const glowFilterId = `glow-${risk}`;
 
   return (
     <div
@@ -70,10 +64,9 @@ export function RiskGauge({ score, risk, size = 160 }: RiskGaugeProps) {
         height={size}
         className="transform -rotate-[130deg] overflow-visible"
       >
-        {/* Glow Filter */}
         <defs>
-          <filter id={`glow-${risk}`} x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="4" result="blur" />
+          <filter id={glowFilterId} x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
@@ -84,7 +77,7 @@ export function RiskGauge({ score, risk, size = 160 }: RiskGaugeProps) {
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="rgba(255, 255, 255, 0.08)"
+          stroke="rgba(120, 145, 210, 0.14)"
           strokeWidth={strokeWidth}
           strokeDasharray={`${arcLength} ${circumference}`}
           strokeLinecap="round"
@@ -101,21 +94,21 @@ export function RiskGauge({ score, risk, size = 160 }: RiskGaugeProps) {
           strokeDasharray={`${arcLength} ${circumference}`}
           strokeDashoffset={dashOffset}
           strokeLinecap="round"
-          filter={`url(#glow-${risk})`}
+          filter={`url(#${glowFilterId})`}
           style={{ transition: "stroke-dashoffset 0.1s linear" }}
         />
       </svg>
 
       {/* Center Score Readout */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center pt-2">
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center pt-1">
         <motion.span
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="text-4xl font-black font-mono tracking-tight text-white"
+          className="text-4xl font-mono font-bold tracking-tight text-[#F4F7FF]"
         >
           {animatedScore}
         </motion.span>
-        <span className="text-[10px] font-mono uppercase tracking-widest text-parchment-faint mt-0.5">
+        <span className="text-[10px] font-mono uppercase tracking-widest text-[#7F8DA8] mt-0.5">
           / 100 RISK
         </span>
       </div>

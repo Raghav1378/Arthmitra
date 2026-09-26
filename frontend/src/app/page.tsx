@@ -6,7 +6,8 @@ import {
   Shield, Sparkles, PieChart, Activity, 
   Settings, HelpCircle, Info, Globe, 
   PanelLeftClose, PanelLeft, LayoutDashboard,
-  X, AlertTriangle, Fingerprint, AlertCircle, RefreshCw, CheckCircle2
+  X, AlertTriangle, Fingerprint, AlertCircle, RefreshCw, CheckCircle2,
+  MessageSquare, Target, MoreHorizontal
 } from 'lucide-react';
 import Chat from '../components/Chat';
 // Heavy views code-split: only one is rendered at a time, and each drags in
@@ -31,6 +32,21 @@ export default function Home() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [showSecurityAudit, setShowSecurityAudit] = useState(false);
 
+  const handleViewChange = (view: string) => {
+    setActiveView(view);
+    if (window.innerWidth < 768) setIsSidebarOpen(false);
+  };
+
+  React.useEffect(() => {
+    const syncSidebarToViewport = () => {
+      if (window.innerWidth < 768) setIsSidebarOpen(false);
+    };
+
+    syncSidebarToViewport();
+    window.addEventListener("resize", syncSidebarToViewport);
+    return () => window.removeEventListener("resize", syncSidebarToViewport);
+  }, []);
+
   const securityMetrics = React.useMemo(() => {
     const threats = expenses.filter(e => e.riskInfo && (e.riskInfo.risk === 'HIGH_RISK' || e.riskInfo.risk === 'SUSPICIOUS'));
     const highRisk = threats.filter(e => e.riskInfo?.risk === 'HIGH_RISK').length;
@@ -52,7 +68,7 @@ export default function Home() {
   return (
     <main className="h-screen bg-vault text-parchment overflow-hidden flex relative">
       {/* Guilloche atmosphere + paper grain */}
-      <div className="fixed inset-0 pointer-events-none z-0 grain">
+      <div className="fixed inset-y-0 left-0 right-0 max-[767px]:right-px pointer-events-none z-0 grain">
         <div className="absolute top-[-15%] left-[-8%] w-[650px] h-[650px] rounded-full bg-accent-500/[0.04] blur-[150px]" />
         <div className="absolute bottom-[-12%] right-[-6%] w-[550px] h-[550px] rounded-full bg-ledger-green/[0.035] blur-[130px]" />
         <div className="absolute top-[35%] right-[24%] w-[420px] h-[420px] rounded-full bg-accent-300/[0.025] blur-[120px]" />
@@ -61,15 +77,23 @@ export default function Home() {
       {/* ─── Sidebar Component (Gains Global Expenses) ─── */}
       <Sidebar 
         activeView={activeView} 
-        onViewChange={setActiveView} 
+        onViewChange={handleViewChange} 
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         expenses={expenses}
         onOpenSecurityAudit={() => setShowSecurityAudit(true)}
       />
+      {isSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 z-20 bg-[#080D1A]/70 md:hidden"
+        />
+      )}
 
       {/* ─── Main Viewport Area ───────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 relative z-10 transition-all duration-500 ease-[0.2,0,0,1]">
+      <div className="flex-1 flex flex-col min-w-0 relative z-10 transition-all duration-500 ease-[0.2,0,0,1] pb-16 md:pb-0">
         
         <header className="h-16 flex items-center justify-between px-8 border-b border-[#F5F7FF]/10 bg-[#0B1020]/90 backdrop-blur-xl shrink-0 z-20">
           <div className="flex items-center gap-6">
@@ -113,7 +137,7 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-hidden relative p-4 lg:p-6 flex justify-center">
+        <div className="flex-1 min-w-0 overflow-hidden relative p-3 sm:p-4 lg:p-6 flex justify-center">
             <AnimatePresence mode="wait">
                 {activeView === "chat" ? (
                     <motion.div 
@@ -206,6 +230,37 @@ export default function Home() {
                 ) : null}
             </AnimatePresence>
         </div>
+
+        <nav
+          aria-label="Mobile navigation"
+          className="fixed left-0 right-0 max-[767px]:right-px bottom-0 z-40 grid grid-cols-5 border-t border-[#F5F7FF]/10 bg-[#0B1020]/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur-xl md:hidden"
+        >
+          {[
+            { id: 'chat', label: 'Home', icon: MessageSquare },
+            { id: 'expenses', label: 'Ledger', icon: PieChart },
+            { id: 'security', label: 'Shield', icon: Shield },
+            { id: 'goals', label: 'Goals', icon: Target },
+          ].map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => handleViewChange(id)}
+              className={`flex min-w-0 flex-col items-center gap-1 px-1 py-1.5 font-mono text-[9px] uppercase tracking-wider transition-colors ${activeView === id ? 'text-[#F5F7FF]' : 'text-[#A8B4CC]'}`}
+            >
+              <Icon className={`h-4 w-4 ${activeView === id ? 'text-[#4F6BFF]' : ''}`} />
+              <span className="truncate">{label}</span>
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(true)}
+            className="flex min-w-0 flex-col items-center gap-1 px-1 py-1.5 font-mono text-[9px] uppercase tracking-wider text-[#A8B4CC] transition-colors"
+            aria-label="More navigation"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+            <span>More</span>
+          </button>
+        </nav>
 
         {/* GLOBAL SECURITY AUDIT MODAL */}
         <AnimatePresence>

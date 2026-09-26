@@ -13,13 +13,13 @@ interface HeroSectionProps {
 
 export function HeroSection({ onStartScan, onOpenContacts, contactsCount }: HeroSectionProps) {
   return (
-    <div className="relative w-full rounded-3xl bg-[#0B1020] border border-[#F5F7FF]/10 p-6 sm:p-10 lg:p-12 mb-8 shadow-2xl overflow-hidden">
+    <div className="relative w-full min-w-0 rounded-3xl bg-[#0B1020] border border-[#F5F7FF]/10 p-4 sm:p-10 lg:p-12 mb-6 md:mb-8 shadow-2xl overflow-hidden">
       {/* ── Background Atmosphere Light ── */}
       <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-[#4F6BFF]/10 blur-[130px] rounded-full pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-[#8B5CF6]/10 blur-[120px] rounded-full pointer-events-none" />
 
       {/* ── Asymmetric 60/40 Composition ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center relative z-10">
+      <div className="grid min-w-0 grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-center relative z-10">
         
         {/* ── Left Column: Editorial Composition (7 Cols) ── */}
         <div className="lg:col-span-7 space-y-6">
@@ -41,7 +41,7 @@ export function HeroSection({ onStartScan, onOpenContacts, contactsCount }: Hero
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-4xl sm:text-6xl font-normal font-serif tracking-tight text-[#F5F7FF] leading-[1.05]"
+              className="text-[clamp(2.3rem,11vw,3.5rem)] sm:text-6xl font-normal font-serif tracking-tight text-[#F5F7FF] leading-[1.05]"
             >
               SCAM <span className="italic text-[#4F6BFF]">SHIELD</span>
             </motion.h1>
@@ -50,7 +50,7 @@ export function HeroSection({ onStartScan, onOpenContacts, contactsCount }: Hero
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="space-y-1 font-serif text-xl sm:text-2xl text-[#AAB4D0] leading-snug"
+              className="space-y-1 font-serif text-lg sm:text-2xl text-[#AAB4D0] leading-snug"
             >
               <p>Before you <span className="text-[#F5F7FF] font-medium underline decoration-[#4F6BFF]/40">click</span>.</p>
               <p>Before you <span className="text-[#F5F7FF] font-medium underline decoration-[#4F6BFF]/40">pay</span>.</p>

@@ -148,9 +148,16 @@ export default function Sidebar({
   );
 
   useEffect(() => {
+    const syncResponsiveMode = () => {
+      setIsCollapsed(window.innerWidth >= 768 && window.innerWidth < 1280);
+    };
+
+    syncResponsiveMode();
+    window.addEventListener("resize", syncResponsiveMode);
     window.addEventListener("mousemove", resize);
     window.addEventListener("mouseup", stopResizing);
     return () => {
+      window.removeEventListener("resize", syncResponsiveMode);
       window.removeEventListener("mousemove", resize);
       window.removeEventListener("mouseup", stopResizing);
     };
@@ -165,7 +172,7 @@ export default function Sidebar({
         x: isOpen ? 0 : -20,
       }}
       transition={isResizing ? { duration: 0 } : { duration: 0.3, ease: EASE_OUT }}
-      className="h-screen flex flex-col bg-[#0B1020]/95 backdrop-blur-2xl border-r border-[#F5F7FF]/10 relative z-30 shrink-0 select-none group/sidebar overflow-hidden shadow-2xl"
+      className="h-screen flex flex-col bg-[#0B1020]/95 backdrop-blur-2xl border-r border-[#F5F7FF]/10 relative z-30 shrink-0 select-none group/sidebar overflow-hidden shadow-2xl max-[767px]:fixed max-[767px]:inset-y-0 max-[767px]:left-0 max-[767px]:z-50"
     >
       {/* Resizer handle */}
       <div
@@ -179,13 +186,13 @@ export default function Sidebar({
         </div>
       </div>
 
-      <div className="flex flex-col h-full min-w-[280px]">
+      <div className={cn("flex flex-col h-full", isCollapsed ? "min-w-0 w-full" : "min-w-[280px]")}>
         {/* Brand Header */}
-        <div className="p-6 flex items-center gap-3.5 border-b border-[#F5F7FF]/10 relative overflow-hidden">
-          <div className="w-10 h-10 rounded-xl bg-[#111936] border border-[#4F6BFF]/30 flex items-center justify-center shadow-lg shadow-[#4F6BFF]/15 shrink-0">
-            <Shield className="w-5 h-5 text-[#4F6BFF]" />
+        <div className={cn("flex items-center border-b border-[#F5F7FF]/10 relative overflow-hidden", isCollapsed ? "justify-center p-3" : "gap-3.5 p-6")}>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
+             <img src="/assets/logo.png" alt="ArthMitra Logo" className="w-8 h-8 object-contain" />
           </div>
-          <div className="flex flex-col whitespace-nowrap">
+          <div className={cn("flex flex-col whitespace-nowrap", isCollapsed && "hidden")}>
             <h2 className="font-serif text-xl font-bold tracking-tight text-[#F5F7FF] leading-none">
               Arth<span className="italic text-[#4F6BFF]">Mitra</span>
             </h2>
@@ -228,7 +235,7 @@ export default function Sidebar({
                       <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#FF4D5A] rounded-full animate-pulse" />
                     )}
                   </div>
-                  <div className="flex-1 flex items-center justify-between overflow-hidden font-sans">
+                  <div className={cn("flex-1 flex items-center justify-between overflow-hidden font-sans", isCollapsed && "hidden")}>
                     <span className="text-xs font-medium tracking-tight truncate">
                       {item.label}
                     </span>
@@ -273,7 +280,7 @@ export default function Sidebar({
         </nav>
 
         {/* Footer Summary */}
-        <div className="p-4 border-t border-[#F5F7FF]/10 bg-[#0B1020] font-mono text-xs">
+        <div className={cn("border-t border-[#F5F7FF]/10 bg-[#0B1020] font-mono text-xs", isCollapsed ? "p-2" : "p-4")}>
           {(monthlySpend > 0 || monthlyEarn > 0) && (
             <div className="mb-3 p-3 rounded-xl bg-[#111936] border border-[#F5F7FF]/08 space-y-1.5">
               <span className="text-[9px] text-[#6C7A9C] uppercase tracking-wider block">
@@ -299,7 +306,7 @@ export default function Sidebar({
               </div>
             </div>
           )}
-          <div className="space-y-1">
+          <div className={cn("space-y-1", isCollapsed && "hidden")}>
             {secondaryItems.map((item) => (
               <button
                 key={item.id}

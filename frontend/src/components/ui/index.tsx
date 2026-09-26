@@ -81,8 +81,8 @@ export function Surface({ className, interactive, ...rest }: {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-ink-900/10 bg-vault-800/60 shadow-[0_8px_30px_rgba(0,0,0,0.25)]",
-        interactive && "transition-colors duration-200 hover:border-ink-900/[0.18] cursor-pointer",
+        "rounded-2xl border border-ink-900/[0.1] bg-vault-800/60 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.3)]",
+        interactive && "transition-all duration-300 hover:border-accent-500/30 hover:shadow-[0_0_25px_rgba(91,124,255,0.15)] cursor-pointer hover:-translate-y-0.5",
         className,
       )}
       {...rest}
