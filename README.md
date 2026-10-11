@@ -1,12 +1,54 @@
-# 🔱 ArthMitra v4.0
+# 🔱 ArthMitra
 
-> **Personal finance assistant + three-stage hybrid scam-detection engine for the Indian digital payments landscape.**
+> **Protect your money. Understand your choices. Move with confidence.**
+>
+> A personal-finance and financial-safety workspace for the Indian digital payments landscape—with Scam Shield at its heart.
 
-ArthMitra combines an LLM-powered financial chat assistant with a **three-stage scam engine**: deterministic rules + ML → Groq LLM semantic analysis → policy fusion. Deterministic evidence is the final authority; the LLM adds semantic depth (emergency impersonation, wrong-number bait) that rules and statistics cannot see.
+[![Next.js](https://img.shields.io/badge/Frontend-Next.js-black?logo=next.js)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Frontend-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+
+**[▶ Watch the ArthMitra product explainer](arthmitra-video/ArthMitra-Product-Explainer-1080p.mp4)** · [Product details and five-minute video brief](docs/ARTHMITRA_PRODUCT_AND_VIDEO_BRIEF.md)
+
+ArthMitra brings financial safety and everyday money tools together in one app. Its signature feature, **Scam Shield**, helps users inspect suspicious messages and payment details before acting. Mitra Chat and practical trackers help users explore financial questions, understand cash flow, plan savings, and compare loan scenarios.
+
+> **Important:** ArthMitra provides user-initiated checks and financial tools. It does not continuously monitor SMS or bank accounts, execute or block payments, or provide brokerage, trading, or portfolio management.
+
+## Contents
+
+- [Why ArthMitra](#why-arthmitra)
+- [Scam Shield](#-scam-shield--three-stage-hybrid-engine)
+- [More ways to manage money](#more-ways-to-manage-money)
+- [How it works](#how-it-works)
+- [Technology](#-tech-stack)
+- [Get started](#-quick-start)
+- [Configuration](#configuration-backendenv)
+- [Run checks](#-testing)
+- [Repository layout](#-layout)
+- [Product and video brief](#product-and-video-brief)
+
+## Why ArthMitra
+
+Financial wellbeing is about more than investing. People also need ways to question a suspicious payment request, make sense of spending, keep recurring costs visible, and plan toward goals. ArthMitra brings those jobs together—with **Scam Shield** as its central financial-safety experience.
+
+### Highlights
+
+- **A reasoned scam-risk assessment:** Combines deterministic signals, a text classifier, optional semantic analysis, and a policy engine.
+- **More than message scanning:** User-submitted checks include screenshots (when OCR is available), URLs and UPI IDs, payment scenarios, and transaction behavior.
+- **Financial tools for everyday decisions:** Track income and expenses, savings goals, recurring subscriptions, and compare two loan scenarios.
+- **An assistant with configurable providers:** Mitra Chat supports Ollama or Groq, depending on server configuration, with document context and optional search capabilities.
+- **Clear separation between tools:** Advisor is a distinct local-Ollama feature; Scam Shield verdicts are resolved by deterministic policy, not by the language model alone.
+
+## Product and video brief
+
+See [the end-to-end product and LinkedIn video brief](docs/ARTHMITRA_PRODUCT_AND_VIDEO_BRIEF.md) for the verified feature walkthrough, accuracy caveats, and a ready-to-use prompt for a five-minute product explainer.
 
 ---
 
 ## 🛡️ Scam Shield — Three-Stage Hybrid Engine
+
+Scam Shield is designed to help users **pause, inspect warning signs, and choose a safer next step**. The user submits the content or details they want checked; the app does not monitor messages or payments in the background.
 
 ### Pipeline
 
@@ -49,6 +91,8 @@ HARD CIRCUIT BREAKERS (applied LAST, nothing can override):
 FINAL VERDICT: SAFE / SUSPICIOUS / HIGH_RISK + confidence + evidence + RBI guideline
 ```
 
+Groq semantic analysis is optional and can be skipped when it is not configured or available. URL and UPI checks are heuristics—not proof that a link or recipient is safe. Payment guidance does not authorize, execute, or block a transaction.
+
 ### What each stage catches
 
 | Stage | Catches | Example |
@@ -70,32 +114,47 @@ FINAL VERDICT: SAFE / SUSPICIOUS / HIGH_RISK + confidence + evidence + RBI guide
 | Mode | What it does |
 | :--- | :--- |
 | **Message Scanner** | Full three-stage pipeline on SMS/chat text |
+| **Screenshot Scanner** | Extracts text with OCR and analyzes it when the OCR dependency is available |
 | **Link/UPI Shield** | URL + VPA heuristics incl. defanged URLs (`hxxps`, `[.]`) |
-| **Behavior Engine** | Transaction pattern analysis |
+| **Behavior Engine** | Evaluates transaction details supplied by the user |
 | **Payment Decision** | "Should I pay X?" → PAY / VERIFY_FIRST / DO_NOT_PAY |
 
----
+Scans can be saved to user history; users can manage trusted contacts and submit feedback. Feedback does not automatically retrain the detector.
 
-## 🤖 Assistant Features
+## More ways to manage money
 
-- **Dual-mode RAG**: local document brain (ChromaDB + sentence-transformers) + Tavily live search
-- **Agent routing**: The Auditor (math/tax), The Shield (security), The Mitra (general finance)
-- **Provider switch**: Ollama (local, default) or Groq cloud — set via env
-- **Expense tracking** with natural-language chart generation
-- **Document upload** (PDF/bank statements) with per-session RAG context
-- **Chat history** persisted server-side, session migration from localStorage
+| Tool | What it helps with |
+| :--- | :--- |
+| **Mitra Chat** | Ask financial questions and receive streamed responses. Select Ollama or Groq when configured; session documents and search can provide additional context. |
+| **Wealth Auditor / Ledger** | Record and categorize income and expenses, review cash-flow summaries and charts, import CSV transactions, and view brief AI-generated spending insights. |
+| **Savings Goals** | Track a target, contributions, and progress, with a simple monthly-to-target estimate when a target date is supplied. |
+| **Subscriptions** | Manually track recurring costs, monthly/yearly totals, and due dates. |
+| **EMI Compare** | Compare two user-entered loan scenarios using estimated EMI, repayment, and interest calculations. |
+| **Advisor** | A separate local-Ollama assistant that can use a snapshot of tracked goals, subscriptions, and recent Scam Shield history. |
+
+These features are user-driven: the Ledger does not connect to a bank, subscriptions are not automatically discovered or cancelled, goals do not invest automatically, and EMI Compare does not fetch live lender offers. Advisor's snapshot does not include Ledger expenses.
+
+## How it works
+
+1. A user chooses a tool and submits a question or information in the web app.
+2. The Next.js frontend sends the request to the FastAPI backend.
+3. The backend runs the relevant checks, model-assisted workflow, financial calculation, or data operation.
+4. The app presents the result—such as Scam Shield evidence and guidance, an assistant response, or a financial summary.
+5. Supported user records are stored for later use in the app.
+
+Mitra Chat can use optional document context and Tavily search when configured. The backend may also request search for time-sensitive questions, so not every response should be described as live web research. Choosing a local model does not mean every app feature or request necessarily stays on-device.
 
 ---
 
 ## 🎨 UI
 
-Blue / gold / white fintech design system ("Sapphire Court"). The Scam Shield panel shows:
+The Scam Shield panel shows:
 - risk score, verdict, confidence (separate visual treatments — they are different concepts)
 - exact signal chips (urgency, threat, payment request, suspicious link, …)
 - **AI Semantic Analysis panel** (only when the LLM actually ran)
 - **amber "Engines Disagree" banner** when ML and LLM assessments conflict
 
-Next.js 14 + Tailwind + Framer Motion.
+The frontend uses Next.js, Tailwind CSS, and Framer Motion.
 
 ---
 
@@ -109,7 +168,7 @@ Next.js 14 + Tailwind + Framer Motion.
 | Scam Stage 2 | Groq `openai/gpt-oss-20b` (structured output, 6 s timeout, non-fatal) |
 | ML | scikit-learn (TF-IDF + LogisticRegression), joblib |
 | RAG | ChromaDB, sentence-transformers |
-| Search | Tavily (only when live search enabled) |
+| Search | Tavily (optional; configured by API key) |
 
 ---
 
