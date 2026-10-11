@@ -11,9 +11,7 @@
 
 ## 🎬 ArthMitra Product Explainer
 
-<video src="https://raw.githubusercontent.com/Raghav1378/Arthmitra/main/arthmitra-video/ArthMitra-Product-Explainer-1080p.mp4" controls preload="metadata" width="100%">
-  Your browser does not support embedded video. <a href="https://github.com/Raghav1378/Arthmitra/blob/main/arthmitra-video/ArthMitra-Product-Explainer-1080p.mp4">Watch the ArthMitra product explainer</a>.
-</video>
+[![Play the ArthMitra product explainer](arthmitra-video/ArthMitra-Product-Explainer-Preview.svg)](arthmitra-video/ArthMitra-Product-Explainer-1080p.mp4)
 
 [Open or download the explainer video](arthmitra-video/ArthMitra-Product-Explainer-1080p.mp4) · [Product details and five-minute video brief](docs/ARTHMITRA_PRODUCT_AND_VIDEO_BRIEF.md)
 
